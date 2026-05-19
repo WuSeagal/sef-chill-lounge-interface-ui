@@ -1,0 +1,29 @@
+{
+  "name": "sef-chill-lounge-interface-ui",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --mode run-dev",
+    "build-dev": "vue-tsc -b && vite build --mode run-dev",
+    "build": "vue-tsc -b && vite build --mode prd",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.9.0",
+    "google-login-vue3": "^1.1.4",
+    "notivue": "^2.4.5",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.34",
+    "vue-router": "^5.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.3",
+    "@vitejs/plugin-vue": "^6.0.6",
+    "@vue/tsconfig": "^0.9.1",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.12",
+    "vue-tsc": "^3.2.8"
+  },
+  "packageManager": "pnpm@9.15.3"
+}

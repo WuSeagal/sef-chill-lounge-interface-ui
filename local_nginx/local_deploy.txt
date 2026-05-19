@@ -1,0 +1,13 @@
+測試環境（nginx docker）:
+部署步驟：必須在 local_nginx 路徑底下，且 dist 已打包
+1. pnpm run build（在 ui 專案根目錄）
+2. 移動 dist 到 local_nginx 底下（或直接建立 symlink）
+3. docker build -t my-sef-cli-nginx . --no-cache
+4. docker run -d -p 9045:80 --network my-network --name my-sef-cli-nginx my-sef-cli-nginx
+
+本機直接開發:
+pnpm run dev（port 9045，由 vite.config.ts 設定）
+
+注意：
+測試環境需用 192.168.0.x 連線（COOKIE 才會同 domain）
+docker network create --driver bridge my-network（第一次需建立）
