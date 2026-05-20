@@ -1,0 +1,45 @@
+:root {
+    // Bubble colors
+    --bubble-bg: #f9f5e5;
+    --bubble-border: #d7d0b8;
+
+    // Dashboard
+    --page-bg: #ebe3ce;
+    --grid-thin: #dfd6be;
+    --grid-thick: #d6cdb2;
+
+    // Avatar
+    --avatar-default-bg: #8c8672;
+
+    // Chat
+    --chat-bg: #f9f5e5;
+
+    // Bottom bar
+    --bottom-bar-bg: #625945;
+    --bottom-bar-icon: #eeebe2;
+    --input-bg: #f6f2eb;
+    --input-text: #746955;
+
+    // Modal
+    --modal-bg: var(--page-bg);
+    --modal-overlay: rgba(0, 0, 0, 0.4);
+
+    // Typography
+    --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC',
+        'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+
+    // Spacing
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+
+    // Radius
+    --radius-sm: 4px;
+    --radius-md: 8px;
+
+    // Shadows
+    --shadow-popup: 0 4px 16px rgba(0, 0, 0, 0.15);
+    --shadow-bubble: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
