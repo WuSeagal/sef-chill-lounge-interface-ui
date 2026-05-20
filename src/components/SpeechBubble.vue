@@ -55,8 +55,20 @@ const pathD = computed(() => {
 })
 
 const contentStyle = computed(() => {
-    // Skeleton: no padding. Real padding computed in Task 16.
-    return {}
+    if (props.direction === 'left') {
+        return {
+            paddingTop: '12px',
+            paddingRight: '12px',
+            paddingBottom: '12px',
+            paddingLeft: '24px',
+        }
+    }
+    return {
+        paddingTop: '12px',
+        paddingRight: '24px',
+        paddingBottom: '12px',
+        paddingLeft: '12px',
+    }
 })
 </script>
 

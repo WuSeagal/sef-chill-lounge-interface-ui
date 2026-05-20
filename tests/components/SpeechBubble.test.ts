@@ -87,3 +87,27 @@ describe('SpeechBubble — right tail path', () => {
         expect(d.trim().endsWith('Z')).toBe(true)
     })
 })
+
+describe('SpeechBubble — content padding', () => {
+    it('left tail: content has padding-left 24px, other sides 12px', () => {
+        const wrapper = mount(SpeechBubble, {
+            props: { width: 200, height: 80, direction: 'left' },
+        })
+        const el = wrapper.find('.content').element as HTMLElement
+        expect(el.style.paddingLeft).toBe('24px')
+        expect(el.style.paddingRight).toBe('12px')
+        expect(el.style.paddingTop).toBe('12px')
+        expect(el.style.paddingBottom).toBe('12px')
+    })
+
+    it('right tail: content has padding-right 24px, other sides 12px', () => {
+        const wrapper = mount(SpeechBubble, {
+            props: { width: 200, height: 80, direction: 'right' },
+        })
+        const el = wrapper.find('.content').element as HTMLElement
+        expect(el.style.paddingRight).toBe('24px')
+        expect(el.style.paddingLeft).toBe('12px')
+        expect(el.style.paddingTop).toBe('12px')
+        expect(el.style.paddingBottom).toBe('12px')
+    })
+})
