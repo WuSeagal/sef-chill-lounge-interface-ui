@@ -7,7 +7,9 @@
     "dev": "vite --mode run-dev",
     "build-dev": "vue-tsc -b && vite build --mode run-dev",
     "build": "vue-tsc -b && vite build --mode prd",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "axios": "^1.9.0",
