@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { isRef } from 'vue'
-import { useMockTopics } from '@/composables/useMockTopics'
+import { useMockTopics, resetMockTopicsForTest } from '@/composables/useMockTopics'
 
 describe('useMockTopics', () => {
     it('returns a reactive ref to topics array', () => {
@@ -23,5 +23,13 @@ describe('useMockTopics', () => {
             seen.add(drawRandom().id)
         }
         expect(seen.size).toBeGreaterThan(1)
+    })
+
+    it('drawRandom returns a safe fallback when pool is empty', () => {
+        resetMockTopicsForTest()
+        const { topics, drawRandom } = useMockTopics()
+        topics.value = []
+        const result = drawRandom()
+        expect(result).toEqual({ id: '', topicId: '', content: '' })
     })
 })

@@ -39,4 +39,11 @@ describe('useMockUser', () => {
         a.setNickname('SharedName')
         expect(b.user.value.nickname).toBe('SharedName')
     })
+
+    it('redrawTopicCard with empty pool does not change topicCard', () => {
+        const { user, redrawTopicCard } = useMockUser()
+        const before = user.value.topicCard.content
+        redrawTopicCard([])
+        expect(user.value.topicCard.content).toBe(before)
+    })
 })
