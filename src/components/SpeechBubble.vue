@@ -36,8 +36,22 @@ const pathD = computed(() => {
             `Z`,
         ].join(' ')
     }
-    // Right tail filled in Task 15
-    return ''
+    const hMidR = H / 2
+    return [
+        `M6 0`,
+        `L${W - 18} 0`,
+        `Q${W - 12} 0 ${W - 12} 6`,
+        `L${W - 12} ${hMidR - 10}`,
+        `L${W} ${hMidR}`,
+        `L${W - 12} ${hMidR + 10}`,
+        `L${W - 12} ${H - 6}`,
+        `Q${W - 12} ${H} ${W - 18} ${H}`,
+        `L6 ${H}`,
+        `Q0 ${H} 0 ${H - 6}`,
+        `L0 6`,
+        `Q0 0 6 0`,
+        `Z`,
+    ].join(' ')
 })
 
 const contentStyle = computed(() => {

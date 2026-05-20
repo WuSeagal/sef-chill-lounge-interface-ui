@@ -58,3 +58,32 @@ describe('SpeechBubble — left tail path', () => {
         expect(d.trim().endsWith('Z')).toBe(true)
     })
 })
+
+describe('SpeechBubble — right tail path', () => {
+    it('right direction produces path starting with M6 0', () => {
+        const wrapper = mount(SpeechBubble, {
+            props: { width: 200, height: 80, direction: 'right' },
+        })
+        const d = wrapper.find('path').attributes('d')
+        expect(d).toMatch(/^M6\s+0/)
+    })
+
+    it('right direction includes a notch on the right around vertical center', () => {
+        // For W=200, H=80: tail tip at (200, 40), shoulders at (188, 30) and (188, 50)
+        const wrapper = mount(SpeechBubble, {
+            props: { width: 200, height: 80, direction: 'right' },
+        })
+        const d = wrapper.find('path').attributes('d')!
+        expect(d).toContain('L188 30')
+        expect(d).toContain('L200 40')
+        expect(d).toContain('L188 50')
+    })
+
+    it('right direction path closes with Z', () => {
+        const wrapper = mount(SpeechBubble, {
+            props: { width: 200, height: 80, direction: 'right' },
+        })
+        const d = wrapper.find('path').attributes('d')!
+        expect(d.trim().endsWith('Z')).toBe(true)
+    })
+})
