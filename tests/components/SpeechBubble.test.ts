@@ -29,3 +29,32 @@ describe('SpeechBubble — skeleton', () => {
         expect(svg.attributes('height')).toBe('90')
     })
 })
+
+describe('SpeechBubble — left tail path', () => {
+    it('left direction produces path starting with M18 0', () => {
+        const wrapper = mount(SpeechBubble, {
+            props: { width: 200, height: 80, direction: 'left' },
+        })
+        const d = wrapper.find('path').attributes('d')
+        expect(d).toMatch(/^M18\s+0/)
+    })
+
+    it('left direction includes a notch around vertical center', () => {
+        // For W=200, H=80: tail tip at (0, 40), shoulders at (12, 30) and (12, 50)
+        const wrapper = mount(SpeechBubble, {
+            props: { width: 200, height: 80, direction: 'left' },
+        })
+        const d = wrapper.find('path').attributes('d')!
+        expect(d).toContain('L12 30')
+        expect(d).toContain('L0 40')
+        expect(d).toContain('L12 50')
+    })
+
+    it('left direction path closes with Z', () => {
+        const wrapper = mount(SpeechBubble, {
+            props: { width: 200, height: 80, direction: 'left' },
+        })
+        const d = wrapper.find('path').attributes('d')!
+        expect(d.trim().endsWith('Z')).toBe(true)
+    })
+})

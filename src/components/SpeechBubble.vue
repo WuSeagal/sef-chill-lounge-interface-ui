@@ -16,11 +16,27 @@ const safeW = computed(() => Math.max(MIN_W, props.width))
 const safeH = computed(() => Math.max(MIN_H, props.height))
 
 const pathD = computed(() => {
-    // Skeleton: empty path. Real path computed in Task 14 (left) and Task 15 (right).
-    // An empty d attribute is valid SVG and renders no shape, allowing skeleton tests to pass.
-    void safeW.value
-    void safeH.value
-    void props.direction
+    const W = safeW.value
+    const H = safeH.value
+    const hMid = H / 2
+    if (props.direction === 'left') {
+        return [
+            `M18 0`,
+            `L${W - 6} 0`,
+            `Q${W} 0 ${W} 6`,
+            `L${W} ${H - 6}`,
+            `Q${W} ${H} ${W - 6} ${H}`,
+            `L18 ${H}`,
+            `Q12 ${H} 12 ${H - 6}`,
+            `L12 ${hMid + 10}`,
+            `L0 ${hMid}`,
+            `L12 ${hMid - 10}`,
+            `L12 6`,
+            `Q12 0 18 0`,
+            `Z`,
+        ].join(' ')
+    }
+    // Right tail filled in Task 15
     return ''
 })
 
