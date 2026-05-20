@@ -111,3 +111,39 @@ describe('SpeechBubble — content padding', () => {
         expect(el.style.paddingBottom).toBe('12px')
     })
 })
+
+describe('SpeechBubble — minimum size clamp', () => {
+    it('clamps width below 80 to 80', () => {
+        const wrapper = mount(SpeechBubble, {
+            props: { width: 30, height: 80, direction: 'left' },
+        })
+        const svg = wrapper.find('svg')
+        expect(svg.attributes('width')).toBe('80')
+    })
+
+    it('clamps height below 40 to 40', () => {
+        const wrapper = mount(SpeechBubble, {
+            props: { width: 200, height: 20, direction: 'left' },
+        })
+        const svg = wrapper.find('svg')
+        expect(svg.attributes('height')).toBe('40')
+    })
+
+    it('clamps both width and height when both below min', () => {
+        const wrapper = mount(SpeechBubble, {
+            props: { width: 30, height: 20, direction: 'right' },
+        })
+        const svg = wrapper.find('svg')
+        expect(svg.attributes('width')).toBe('80')
+        expect(svg.attributes('height')).toBe('40')
+    })
+
+    it('does not clamp when sizes are above min', () => {
+        const wrapper = mount(SpeechBubble, {
+            props: { width: 220, height: 90, direction: 'left' },
+        })
+        const svg = wrapper.find('svg')
+        expect(svg.attributes('width')).toBe('220')
+        expect(svg.attributes('height')).toBe('90')
+    })
+})
