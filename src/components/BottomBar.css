@@ -5,7 +5,7 @@
        (multi-line) the icons sit beside the textarea's first line
        rather than sliding down with it. Discord uses this layout. */
     align-items: flex-start;
-    padding: var(--space-xs) var(--space-sm);
+    padding: 4px;
     background: var(--bottom-bar-bg);
     box-sizing: border-box;
     /* Anchor for absolutely-positioned children (e.g. EmojiPicker) */
@@ -50,10 +50,10 @@
        on narrow viewports and pushes the row past viewport width. */
     min-width: 0;
     min-height: 36px;
-    /* Cap at ~4 lines (line-height 1.35 × font-size 0.95rem ≈ 20.5 px,
-       padding 16, so 4 lines ≈ 4*20.5 + 16 ≈ 98 px) — beyond this an
-       internal scrollbar appears inside the textarea. */
-    max-height: 120px;
+    /* Grow freely (Discord-style) up to half the viewport height. Only
+       when content exceeds 50dvh does the textarea start scrolling —
+       JS toggles overflow-y to 'auto' at that point. */
+    max-height: 50dvh;
     /* Asymmetric right padding leaves the scrollbar (when it appears)
        breathing room inside the rounded box instead of hugging the
        right edge. */
@@ -69,8 +69,10 @@
     box-sizing: border-box;
     /* No manual drag handle — height is driven by JS auto-grow. */
     resize: none;
-    /* Overflow becomes scrollable only after max-height is reached. */
-    overflow-y: auto;
+    /* Default to hidden so subpixel rounding on a single-line textarea
+       never flashes a scrollbar. JS flips this to 'auto' only when CSS
+       max-height actually clamps the rendered height below scrollHeight. */
+    overflow-y: hidden;
 }
 
 /* Override the global cream scrollbar inside the textarea so the bar

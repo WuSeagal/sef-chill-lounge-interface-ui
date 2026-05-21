@@ -26,17 +26,24 @@ const emit = defineEmits<{
 
 const emojiPickerOpen = ref(false)
 const textareaEl = ref<HTMLTextAreaElement | null>(null)
-const TEXTAREA_MAX_HEIGHT = 120
 
-// Discord-style auto-grow: collapse to natural height, then expand to
-// content height up to TEXTAREA_MAX_HEIGHT. Beyond that an internal
-// scrollbar appears.
+// Auto-grow: reset to 'auto' to remeasure, then set height to the
+// natural content height. CSS owns the upper bound (max-height: 50dvh)
+// so the textarea grows freely until it would crowd the viewport.
+// Overflow toggles to 'auto' ONLY when the CSS cap clamped the height
+// (scrollHeight > clientHeight). At every other state the scrollbar
+// stays hidden and the textarea is unscrollable — so a single-line
+// message can't get a stray scrollbar from subpixel rounding.
 function autoResize() {
     const ta = textareaEl.value
     if (!ta) return
     ta.style.height = 'auto'
-    if (ta.scrollHeight > 0) {
-        ta.style.height = Math.min(ta.scrollHeight, TEXTAREA_MAX_HEIGHT) + 'px'
+    const desired = ta.scrollHeight
+    if (desired > 0) {
+        ta.style.height = desired + 'px'
+        // CSS max-height clamps inline height; clientHeight reflects the
+        // clamped value while scrollHeight stays at the natural size.
+        ta.style.overflowY = ta.scrollHeight > ta.clientHeight ? 'auto' : 'hidden'
     }
 }
 
