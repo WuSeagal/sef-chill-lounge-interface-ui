@@ -1,0 +1,57 @@
+.user-popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 900;
+    background: var(--bubble-bg);
+    border: 1px solid var(--bubble-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-popup);
+    padding: var(--space-md);
+    min-width: 240px;
+    max-width: 320px;
+    font-family: var(--font-family-base);
+    color: var(--input-text);
+}
+
+.user-popup__nickname {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 var(--space-sm) 0;
+}
+
+.user-popup__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-xs);
+    margin: 0 0 var(--space-md) 0;
+    padding: 0;
+    list-style: none;
+}
+
+.user-popup__tag {
+    background: var(--input-bg);
+    border-radius: var(--radius-sm);
+    padding: 2px var(--space-sm);
+    font-size: 0.85rem;
+}
+
+.user-popup__socials {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.user-popup__social-link {
+    color: var(--input-text);
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.user-popup__social-link:hover {
+    text-decoration: underline;
+}
