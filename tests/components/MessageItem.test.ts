@@ -71,4 +71,27 @@ describe('MessageItem', () => {
         expect(wrapper.find('.message-item__image').exists()).toBe(false)
         expect(wrapper.emitted('image-click')).toBeFalsy()
     })
+
+    it('clamps bubble width to fit narrow viewports', async () => {
+        const originalWidth = window.innerWidth
+        Object.defineProperty(window, 'innerWidth', { value: 360, configurable: true, writable: true })
+        const wrapper = mount(MessageItem, { props: { message: textMessage } })
+        const svg = wrapper.find('svg')
+        // Available width on 360px viewport = 360 - 76 (avatar/gap/padding) = 284
+        // The text-message target is 320, so bubble should clamp to 284.
+        expect(Number(svg.attributes('width'))).toBe(284)
+        Object.defineProperty(window, 'innerWidth', { value: originalWidth, configurable: true, writable: true })
+        wrapper.unmount()
+    })
+
+    it('uses the target bubble width on wide viewports', () => {
+        const originalWidth = window.innerWidth
+        Object.defineProperty(window, 'innerWidth', { value: 1280, configurable: true, writable: true })
+        const wrapper = mount(MessageItem, { props: { message: textMessage } })
+        const svg = wrapper.find('svg')
+        // 1280 - 76 = 1204 available, target 320 wins.
+        expect(Number(svg.attributes('width'))).toBe(320)
+        Object.defineProperty(window, 'innerWidth', { value: originalWidth, configurable: true, writable: true })
+        wrapper.unmount()
+    })
 })

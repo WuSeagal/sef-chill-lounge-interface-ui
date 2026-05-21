@@ -43,6 +43,10 @@
 
 .bottom-bar__input {
     flex: 1 1 auto;
+    /* min-width: 0 lets flex actually shrink past the input's natural
+       width (placeholder text). Without it, the input refuses to shrink
+       on narrow viewports and pushes the row past viewport width. */
+    min-width: 0;
     height: 36px;
     padding: 0 var(--space-md);
     border-radius: var(--radius-md);
