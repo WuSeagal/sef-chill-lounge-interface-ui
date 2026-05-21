@@ -1,6 +1,7 @@
+import { reactive } from 'vue'
 import type { MockUser } from './mockUser'
 
-export const mockMembers: MockUser[] = [
+export const mockMembers: MockUser[] = reactive([
     {
         id: 'u-101',
         nickname: '小毛',
@@ -128,4 +129,4 @@ export const mockMembers: MockUser[] = [
         },
         donateUrl: '',
     },
-]
+])

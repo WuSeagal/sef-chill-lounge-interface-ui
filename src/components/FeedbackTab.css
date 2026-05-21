@@ -1,0 +1,63 @@
+.feedback-tab {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    max-width: 480px;
+}
+
+.feedback-tab__field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.feedback-tab__label {
+    font-size: 0.85rem;
+    color: var(--input-text);
+    font-weight: 600;
+}
+
+.feedback-tab__nickname,
+.feedback-tab__subject {
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--bubble-border);
+    border-radius: var(--radius-sm);
+    background: var(--input-bg);
+    color: var(--input-text);
+    font-size: 0.95rem;
+    font-family: inherit;
+}
+
+.feedback-tab__nickname:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.feedback-tab__body {
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--bubble-border);
+    border-radius: var(--radius-sm);
+    background: var(--input-bg);
+    color: var(--input-text);
+    font-size: 0.95rem;
+    font-family: inherit;
+    min-height: 120px;
+    resize: vertical;
+}
+
+.feedback-tab__submit {
+    align-self: flex-start;
+    padding: var(--space-sm) var(--space-lg);
+    background: var(--bottom-bar-bg);
+    color: var(--bottom-bar-icon);
+    border: none;
+    border-radius: var(--radius-sm);
+    font-size: 0.95rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.feedback-tab__submit:hover {
+    opacity: 0.85;
+}

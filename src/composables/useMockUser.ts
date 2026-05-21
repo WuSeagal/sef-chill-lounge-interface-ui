@@ -1,9 +1,23 @@
-import { ref, type Ref } from 'vue'
+import { ref, watch, type Ref } from 'vue'
 import { mockUser, type MockUser, type TopicCard } from '@/mocks/mockUser'
+import { mockMembers } from '@/mocks/mockMembers'
 
 // Singleton state — replaced with API store in future plans.
 // structuredClone gives a deep copy so mutations don't leak into the imported `mockUser` constant.
 const userRef = ref<MockUser>(structuredClone(mockUser))
+
+watch(userRef, (u) => {
+    const m = mockMembers.find(m => m.id === u.id)
+    if (!m) return
+    m.nickname = u.nickname
+    m.avatarUrl = u.avatarUrl
+    m.avatarBgColor = u.avatarBgColor
+    m.tags = [...u.tags]
+    m.socialLinks = u.socialLinks.map(l => ({ ...l }))
+    m.stickers = [...u.stickers]
+    m.topicCard = { ...u.topicCard }
+    m.donateUrl = u.donateUrl
+}, { deep: true })
 
 export type UseMockUserReturn = {
     user: Ref<MockUser>

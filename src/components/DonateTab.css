@@ -1,0 +1,30 @@
+.donate-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: var(--space-lg) 0;
+}
+
+.donate-tab__link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.15s ease;
+}
+
+.donate-tab__link:hover {
+    transform: scale(1.02);
+}
+
+.donate-tab__placeholder {
+    width: min(320px, 80vw);
+    aspect-ratio: 4 / 3;
+    background: var(--bubble-bg);
+    border: 2px dashed var(--bubble-border);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    color: var(--input-text);
+}

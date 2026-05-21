@@ -5,6 +5,7 @@ import MessageItem from '@/components/MessageItem.vue'
 import BottomBar from '@/components/BottomBar.vue'
 import UserPopup from '@/components/UserPopup.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
+import SettingsModal from '@/components/SettingsModal.vue'
 import { useMockMessages } from '@/composables/useMockMessages'
 import { useMockUser } from '@/composables/useMockUser'
 import { useMockMember } from '@/composables/useMockMember'
@@ -98,6 +99,9 @@ onBeforeUnmount(() => {
     listResizeObserver = null
 })
 
+// SettingsModal state
+const settingsOpen = ref(false)
+
 // BottomBar input + send
 const inputValue = ref('')
 
@@ -116,9 +120,11 @@ async function onSend(value: string) {
 }
 
 function onGearClick() {
-    // Plan D will open SettingsModal here. For Plan B we just log.
-    // eslint-disable-next-line no-console
-    console.log('[ChatView] gear-click — SettingsModal lands in Plan D')
+    settingsOpen.value = true
+}
+
+function onSettingsClose() {
+    settingsOpen.value = false
 }
 </script>
 
@@ -168,6 +174,11 @@ function onGearClick() {
             :open="lightboxOpen"
             :image-url="lightboxImageUrl"
             @close="onLightboxClose"
+        />
+
+        <SettingsModal
+            :open="settingsOpen"
+            @close="onSettingsClose"
         />
     </div>
 </template>

@@ -3,10 +3,12 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import ChatView from '@/views/ChatView.vue'
 import { resetMockMessagesForTest } from '@/composables/useMockMessages'
+import { resetMockUserForTest } from '@/composables/useMockUser'
 
 describe('ChatView', () => {
     beforeEach(() => {
         resetMockMessagesForTest()
+        resetMockUserForTest()
     })
 
     it('renders the mock messages list (>= 20 items)', () => {
@@ -102,6 +104,32 @@ describe('ChatView', () => {
         // updateAtBottom() runs. Since the list is at the bottom, FAB stays hidden.
         const wrapper = mount(ChatView)
         expect(wrapper.find('.chat-view__scroll-fab').exists()).toBe(false)
+    })
+
+    it('renders no SettingsModal by default', () => {
+        const wrapper = mount(ChatView)
+        expect(wrapper.find('.settings-modal').exists()).toBe(false)
+    })
+
+    it('opens SettingsModal when gear button is clicked', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        const gearBtn = wrapper.find('[data-btn="gear"]')
+        await gearBtn.trigger('click')
+        await nextTick()
+        expect(wrapper.find('.settings-modal').exists()).toBe(true)
+        wrapper.unmount()
+    })
+
+    it('closes SettingsModal when its close button is clicked', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await wrapper.find('[data-btn="gear"]').trigger('click')
+        await nextTick()
+        expect(wrapper.find('.settings-modal').exists()).toBe(true)
+
+        await wrapper.find('.settings-modal__close').trigger('click')
+        await nextTick()
+        expect(wrapper.find('.settings-modal').exists()).toBe(false)
+        wrapper.unmount()
     })
 
     it('renders the scroll-to-bottom FAB when isAtBottom becomes false', async () => {
