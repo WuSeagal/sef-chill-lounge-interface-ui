@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import './SpeechBubble.css'
 
 type Direction = 'left' | 'right'
 
@@ -87,27 +88,3 @@ const contentStyle = computed(() => {
         </div>
     </div>
 </template>
-
-<style scoped>
-.speech-bubble {
-    position: relative;
-    display: inline-block;
-}
-
-.speech-bubble svg {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-}
-
-.content {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    color: var(--input-text);
-    font-family: var(--font-family-base);
-}
-</style>

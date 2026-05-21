@@ -3,7 +3,7 @@ import { createPinia } from 'pinia'
 import { createNotivue } from 'notivue'
 import App from './App.vue'
 import './style.css'
-import './styles/tokens.scss'
+import './assets/variables.css'
 import router from './router'
 
 import 'notivue/notification.css'
