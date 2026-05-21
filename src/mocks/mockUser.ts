@@ -22,7 +22,7 @@ export type MockUser = {
 }
 
 export const mockUser: MockUser = {
-    id: 'user-001',
+    id: 'u-101',
     nickname: '小毛',
     avatarUrl: '/mock-images/avatar-default.png',
     avatarBgColor: '#8c8672',

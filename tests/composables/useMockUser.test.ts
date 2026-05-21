@@ -10,7 +10,7 @@ describe('useMockUser', () => {
     it('returns a reactive ref containing the mock user', () => {
         const { user } = useMockUser()
         expect(isRef(user)).toBe(true)
-        expect(user.value.id).toBe('user-001')
+        expect(user.value.id).toBe('u-101')
     })
 
     it('allows mutating nickname (mock-only)', () => {
