@@ -1,11 +1,10 @@
 .bottom-bar {
     flex: 0 0 auto;
     display: flex;
-    /* Buttons anchor to the bottom of the row so the bar can grow upward
-       as the textarea adds lines while the icons stay at the input's
-       first-line height. */
-    align-items: flex-end;
-    gap: var(--space-xs);
+    /* Buttons anchor to the TOP of the row so when the textarea grows
+       (multi-line) the icons sit beside the textarea's first line
+       rather than sliding down with it. Discord uses this layout. */
+    align-items: flex-start;
     padding: var(--space-xs) var(--space-sm);
     background: var(--bottom-bar-bg);
     box-sizing: border-box;
@@ -55,7 +54,10 @@
        padding 16, so 4 lines ≈ 4*20.5 + 16 ≈ 98 px) — beyond this an
        internal scrollbar appears inside the textarea. */
     max-height: 120px;
-    padding: 8px var(--space-md);
+    /* Asymmetric right padding leaves the scrollbar (when it appears)
+       breathing room inside the rounded box instead of hugging the
+       right edge. */
+    padding: 8px 14px 8px var(--space-md);
     border-radius: var(--radius-md);
     border: 1px solid transparent;
     background: var(--input-bg);
@@ -69,4 +71,25 @@
     resize: none;
     /* Overflow becomes scrollable only after max-height is reached. */
     overflow-y: auto;
+}
+
+/* Override the global cream scrollbar inside the textarea so the bar
+   is thinner and tints with the input's warm palette instead of
+   contrasting awkwardly against the rounded box. */
+.bottom-bar__input::-webkit-scrollbar {
+    width: 4px;
+}
+
+.bottom-bar__input::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 6px 0;
+}
+
+.bottom-bar__input::-webkit-scrollbar-thumb {
+    background: var(--avatar-default-bg);
+    border-radius: 2px;
+}
+
+.bottom-bar__input {
+    scrollbar-color: var(--avatar-default-bg) transparent;
 }
