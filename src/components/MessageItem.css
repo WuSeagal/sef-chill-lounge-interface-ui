@@ -44,21 +44,38 @@
     opacity: 0.7;
 }
 
-.message-item__bubble {
-    display: inline-block;
-    margin-top: 2px;
+/* Flat Discord-style content line with a CLI-style ">" prompt prefix.
+   The flex layout aligns the prompt with the first character of the
+   content; wrapped lines naturally indent to that same baseline. */
+.message-item__line {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    font-family: var(--font-family-base);
+    color: var(--input-text);
+    font-size: 0.95rem;
+    line-height: 1.45;
+    min-width: 0;
+}
+
+.message-item__prompt {
+    flex: 0 0 auto;
+    color: var(--avatar-default-bg);
+    font-weight: 700;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    user-select: none;
+}
+
+.message-item__content {
+    flex: 1 1 auto;
+    min-width: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 .message-item__image {
     display: block;
     cursor: pointer;
     border-radius: var(--radius-sm);
-}
-
-.message-item__content {
-    font-family: var(--font-family-base);
-    font-size: 0.95rem;
-    line-height: 1.4;
-    word-break: break-word;
-    white-space: pre-wrap;
+    margin-top: 4px;
 }

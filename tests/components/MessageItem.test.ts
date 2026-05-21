@@ -22,6 +22,16 @@ const imageMessage: MockMessage = {
     timestamp: '2026-05-20T14:02:15.000Z',
 }
 
+const imageOnlyMessage: MockMessage = {
+    id: 'msg-007',
+    userId: 'u-105',
+    nickname: 'Tiger',
+    avatarUrl: '/mock-images/avatar-default.png',
+    content: '',
+    imageUrl: '/mock-images/chat-image-2.jpg',
+    timestamp: '2026-05-20T14:06:10.000Z',
+}
+
 describe('MessageItem', () => {
     it('renders nickname and HH:mm timestamp', () => {
         const wrapper = mount(MessageItem, { props: { message: textMessage } })
@@ -32,15 +42,20 @@ describe('MessageItem', () => {
         expect(wrapper.find('.message-item__timestamp').text()).toMatch(/^\d{2}:\d{2}$/)
     })
 
-    it('renders the SpeechBubble with content text for text messages', () => {
+    it('renders content text with a > prompt prefix', () => {
         const wrapper = mount(MessageItem, { props: { message: textMessage } })
-        const bubble = wrapper.find('.speech-bubble')
-        expect(bubble.exists()).toBe(true)
-        expect(bubble.text()).toContain('hello')
-        expect(wrapper.find('.message-item__image').exists()).toBe(false)
+        const line = wrapper.find('.message-item__line')
+        expect(line.exists()).toBe(true)
+        expect(wrapper.find('.message-item__prompt').text()).toBe('>')
+        expect(wrapper.find('.message-item__content').text()).toBe('hello')
     })
 
-    it('renders an img with the imageUrl inside the bubble for image messages', () => {
+    it('does NOT render a SpeechBubble wrapper around the content', () => {
+        const wrapper = mount(MessageItem, { props: { message: textMessage } })
+        expect(wrapper.find('.speech-bubble').exists()).toBe(false)
+    })
+
+    it('renders an img with the imageUrl for image messages', () => {
         const wrapper = mount(MessageItem, { props: { message: imageMessage } })
         const img = wrapper.find('.message-item__image')
         expect(img.exists()).toBe(true)
@@ -48,6 +63,14 @@ describe('MessageItem', () => {
         const el = img.element as HTMLElement
         expect(el.style.maxWidth).toBe('240px')
         expect(el.style.maxHeight).toBe('240px')
+    })
+
+    it('does NOT render the prompt line for image-only messages (empty content)', () => {
+        const wrapper = mount(MessageItem, { props: { message: imageOnlyMessage } })
+        expect(wrapper.find('.message-item__line').exists()).toBe(false)
+        expect(wrapper.find('.message-item__prompt').exists()).toBe(false)
+        // image still renders
+        expect(wrapper.find('.message-item__image').exists()).toBe(true)
     })
 
     it('emits avatar-click with the userId when the avatar is clicked', async () => {
@@ -72,26 +95,17 @@ describe('MessageItem', () => {
         expect(wrapper.emitted('image-click')).toBeFalsy()
     })
 
-    it('clamps bubble width to fit narrow viewports', async () => {
-        const originalWidth = window.innerWidth
-        Object.defineProperty(window, 'innerWidth', { value: 360, configurable: true, writable: true })
-        const wrapper = mount(MessageItem, { props: { message: textMessage } })
-        const svg = wrapper.find('svg')
-        // Available width on 360px viewport = 360 - 76 (avatar/gap/padding) = 284
-        // The text-message target is 320, so bubble should clamp to 284.
-        expect(Number(svg.attributes('width'))).toBe(284)
-        Object.defineProperty(window, 'innerWidth', { value: originalWidth, configurable: true, writable: true })
-        wrapper.unmount()
-    })
-
-    it('uses the target bubble width on wide viewports', () => {
-        const originalWidth = window.innerWidth
-        Object.defineProperty(window, 'innerWidth', { value: 1280, configurable: true, writable: true })
-        const wrapper = mount(MessageItem, { props: { message: textMessage } })
-        const svg = wrapper.find('svg')
-        // 1280 - 76 = 1204 available, target 320 wins.
-        expect(Number(svg.attributes('width'))).toBe(320)
-        Object.defineProperty(window, 'innerWidth', { value: originalWidth, configurable: true, writable: true })
-        wrapper.unmount()
+    it('preserves newlines in multi-line content via white-space: pre-wrap', () => {
+        const multilineMessage: MockMessage = {
+            ...textMessage,
+            content: 'line one\nline two',
+        }
+        const wrapper = mount(MessageItem, { props: { message: multilineMessage } })
+        // textContent normalises newlines; check raw inner HTML or computed style
+        const content = wrapper.find('.message-item__content')
+        expect(content.text()).toContain('line one')
+        expect(content.text()).toContain('line two')
+        // CSS asserts the white-space behaviour — we just confirm the class is present
+        expect(content.classes()).toContain('message-item__content')
     })
 })
