@@ -1,0 +1,24 @@
+.grid-paper {
+    background-color: var(--page-bg);
+    background-image:
+        repeating-linear-gradient(
+            to right,
+            var(--grid-thick) 0 1.5px,
+            transparent 1.5px 60px
+        ),
+        repeating-linear-gradient(
+            to bottom,
+            var(--grid-thick) 0 1.5px,
+            transparent 1.5px 60px
+        ),
+        repeating-linear-gradient(
+            to right,
+            var(--grid-thin) 0 1px,
+            transparent 1px 10px
+        ),
+        repeating-linear-gradient(
+            to bottom,
+            var(--grid-thin) 0 1px,
+            transparent 1px 10px
+        );
+}

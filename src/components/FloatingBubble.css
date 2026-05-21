@@ -1,0 +1,90 @@
+@keyframes pop-in {
+    from {
+        transform: scale(0);
+    }
+    to {
+        transform: scale(1);
+    }
+}
+
+@keyframes fade-out {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+}
+
+.floating-bubble {
+    position: absolute;
+    left: 0;
+    top: 0;
+    will-change: transform;
+}
+
+.floating-bubble__inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.floating-bubble__inner--entering {
+    animation: pop-in 200ms ease-out forwards;
+}
+
+.floating-bubble__inner--exiting {
+    animation: fade-out 500ms ease-in forwards;
+}
+
+.floating-bubble__avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--avatar-default-bg);
+    flex-shrink: 0;
+}
+
+.floating-bubble__avatar--right {
+    order: 1;
+}
+
+.floating-bubble__text {
+    font-size: 13px;
+    line-height: 1.3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    word-break: break-all;
+}
+
+.floating-bubble__image-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+}
+
+.floating-bubble__image {
+    width: 100%;
+    flex: 1 1 auto;
+    min-height: 0;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+}
+
+.floating-bubble__caption {
+    font-size: 11px;
+    line-height: 1.2;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 0;
+}

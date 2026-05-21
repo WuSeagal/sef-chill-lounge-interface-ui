@@ -13,6 +13,10 @@ const router = createRouter({
             component: () => import('@/views/GoogleCallback.vue'),
         },
         {
+            path: '/dashboard',
+            component: () => import('@/views/DashboardView.vue'),
+        },
+        {
             path: '/chat',
             component: () => import('@/views/ChatView.vue'),
         },
@@ -34,7 +38,7 @@ router.beforeEach(async (to, _from, next) => {
     }
 
     if (auth.isLogin) {
-        return to.path === '/' ? next('/chat') : next()
+        return to.path === '/' ? next('/dashboard') : next()
     } else {
         return to.path !== '/' ? next('/') : next()
     }
