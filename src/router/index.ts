@@ -6,7 +6,7 @@ const router = createRouter({
     routes: [
         {
             path: '/',
-            component: () => import('@/views/LoginView.vue'),
+            component: () => import('@/views/IntroView.vue'),
         },
         {
             path: '/oauth2/callback',
