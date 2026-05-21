@@ -42,4 +42,18 @@ describe('BottomBar', () => {
         expect(updates).toBeTruthy()
         expect(updates![0]).toEqual(['typed'])
     })
+
+    it('emits send with the current input value when Enter is pressed', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: 'enter-typed' } })
+        await wrapper.find('.bottom-bar__input').trigger('keyup', { key: 'Enter' })
+        const sent = wrapper.emitted('send')
+        expect(sent).toBeTruthy()
+        expect(sent![0]).toEqual(['enter-typed'])
+    })
+
+    it('does NOT emit send on Shift+Enter (reserved for multi-line in future)', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: 'shift-enter' } })
+        await wrapper.find('.bottom-bar__input').trigger('keyup', { key: 'Enter', shiftKey: true })
+        expect(wrapper.emitted('send')).toBeFalsy()
+    })
 })
