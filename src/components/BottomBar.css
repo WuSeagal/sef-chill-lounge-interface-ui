@@ -1,9 +1,12 @@
 .bottom-bar {
     flex: 0 0 auto;
     display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    padding: var(--space-sm) var(--space-md);
+    /* Buttons anchor to the bottom of the row so the bar can grow upward
+       as the textarea adds lines while the icons stay at the input's
+       first-line height. */
+    align-items: flex-end;
+    gap: var(--space-xs);
+    padding: var(--space-xs) var(--space-sm);
     background: var(--bottom-bar-bg);
     box-sizing: border-box;
     /* Anchor for absolutely-positioned children (e.g. EmojiPicker) */
@@ -47,14 +50,23 @@
        width (placeholder text). Without it, the input refuses to shrink
        on narrow viewports and pushes the row past viewport width. */
     min-width: 0;
-    height: 36px;
-    padding: 0 var(--space-md);
+    min-height: 36px;
+    /* Cap at ~4 lines (line-height 1.35 × font-size 0.95rem ≈ 20.5 px,
+       padding 16, so 4 lines ≈ 4*20.5 + 16 ≈ 98 px) — beyond this an
+       internal scrollbar appears inside the textarea. */
+    max-height: 120px;
+    padding: 8px var(--space-md);
     border-radius: var(--radius-md);
     border: 1px solid transparent;
     background: var(--input-bg);
     color: var(--input-text);
     font-family: var(--font-family-base);
     font-size: 0.95rem;
+    line-height: 1.35;
     outline: none;
     box-sizing: border-box;
+    /* No manual drag handle — height is driven by JS auto-grow. */
+    resize: none;
+    /* Overflow becomes scrollable only after max-height is reached. */
+    overflow-y: auto;
 }

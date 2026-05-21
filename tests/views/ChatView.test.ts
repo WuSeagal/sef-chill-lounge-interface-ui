@@ -89,7 +89,7 @@ describe('ChatView', () => {
 
         const input = wrapper.find('.bottom-bar__input')
         await input.setValue('enter-typed in chat')
-        await input.trigger('keyup', { key: 'Enter' })
+        await input.trigger('keydown', { key: 'Enter' })
         await flushPromises()
 
         const after = wrapper.findAll('.message-item').length

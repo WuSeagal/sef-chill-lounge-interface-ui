@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 import './BottomBar.css'
 import EmojiPicker from './EmojiPicker.vue'
 // SVGs use stroke="currentColor" / fill="currentColor" so we inline
@@ -25,21 +25,50 @@ const emit = defineEmits<{
 }>()
 
 const emojiPickerOpen = ref(false)
+const textareaEl = ref<HTMLTextAreaElement | null>(null)
+const TEXTAREA_MAX_HEIGHT = 120
+
+// Discord-style auto-grow: collapse to natural height, then expand to
+// content height up to TEXTAREA_MAX_HEIGHT. Beyond that an internal
+// scrollbar appears.
+function autoResize() {
+    const ta = textareaEl.value
+    if (!ta) return
+    ta.style.height = 'auto'
+    if (ta.scrollHeight > 0) {
+        ta.style.height = Math.min(ta.scrollHeight, TEXTAREA_MAX_HEIGHT) + 'px'
+    }
+}
 
 function onInput(event: Event) {
-    const target = event.target as HTMLInputElement
+    const target = event.target as HTMLTextAreaElement
     emit('update:inputValue', target.value)
+    autoResize()
 }
 
 function onSend() {
     emit('send', props.inputValue)
 }
 
-function onInputKeyup(event: KeyboardEvent) {
+// Enter (no shift) submits and prevents the default newline. Shift+Enter
+// falls through with the browser's default behaviour, which inserts \n.
+function onKeydown(event: KeyboardEvent) {
     if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault()
         onSend()
     }
 }
+
+// React to parent-driven inputValue changes (post-send clear, emoji
+// append, etc.) so the textarea resizes without the user typing.
+watch(
+    () => props.inputValue,
+    () => {
+        nextTick(autoResize)
+    }
+)
+
+onMounted(autoResize)
 
 // @click.stop on the emoji button prevents the click from bubbling to
 // the EmojiPicker's window-level outside-click listener, which would
@@ -66,14 +95,15 @@ function onEmojiPickerClose() {
         <button class="bottom-bar__btn" data-btn="attach" type="button" @click="emit('attach-click')">
             <span class="bottom-bar__icon" v-html="iconAttachRaw"></span>
         </button>
-        <input
+        <textarea
+            ref="textareaEl"
             class="bottom-bar__input"
-            type="text"
+            rows="1"
             :value="inputValue"
             placeholder="輸入訊息…"
             @input="onInput"
-            @keyup="onInputKeyup"
-        />
+            @keydown="onKeydown"
+        ></textarea>
         <button
             class="bottom-bar__btn"
             data-btn="emoji"

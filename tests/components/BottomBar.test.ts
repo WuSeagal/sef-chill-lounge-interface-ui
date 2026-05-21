@@ -43,18 +43,24 @@ describe('BottomBar', () => {
         expect(updates![0]).toEqual(['typed'])
     })
 
-    it('emits send with the current input value when Enter is pressed', async () => {
+    it('emits send with the current input value when Enter is pressed (keydown)', async () => {
         const wrapper = mount(BottomBar, { props: { inputValue: 'enter-typed' } })
-        await wrapper.find('.bottom-bar__input').trigger('keyup', { key: 'Enter' })
+        await wrapper.find('.bottom-bar__input').trigger('keydown', { key: 'Enter' })
         const sent = wrapper.emitted('send')
         expect(sent).toBeTruthy()
         expect(sent![0]).toEqual(['enter-typed'])
     })
 
-    it('does NOT emit send on Shift+Enter (reserved for multi-line in future)', async () => {
+    it('does NOT emit send on Shift+Enter (newline insertion path)', async () => {
         const wrapper = mount(BottomBar, { props: { inputValue: 'shift-enter' } })
-        await wrapper.find('.bottom-bar__input').trigger('keyup', { key: 'Enter', shiftKey: true })
+        await wrapper.find('.bottom-bar__input').trigger('keydown', { key: 'Enter', shiftKey: true })
         expect(wrapper.emitted('send')).toBeFalsy()
+    })
+
+    it('renders the input as a <textarea> for multi-line support', () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '' } })
+        const ta = wrapper.find('.bottom-bar__input')
+        expect(ta.element.tagName).toBe('TEXTAREA')
     })
 
     it('clicking the emoji button opens the picker', async () => {
