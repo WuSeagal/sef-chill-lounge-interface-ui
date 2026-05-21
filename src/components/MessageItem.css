@@ -50,7 +50,7 @@
 
 .message-item__image {
     display: block;
-    cursor: zoom-in;
+    cursor: pointer;
     border-radius: var(--radius-sm);
 }
 

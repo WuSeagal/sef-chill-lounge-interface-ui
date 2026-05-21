@@ -39,13 +39,22 @@ function onBackdropClick() {
     emit('close')
 }
 
-function onImageClick(event: Event) {
+function onFrameClick(event: Event) {
+    // Clicks inside the frame (image, link) do NOT close the lightbox.
     event.stopPropagation()
 }
 </script>
 
 <template>
     <div v-if="visible" class="image-lightbox" @click="onBackdropClick">
-        <img class="image-lightbox__img" :src="imageUrl ?? ''" alt="" @click="onImageClick" />
+        <div class="image-lightbox__frame" @click="onFrameClick">
+            <img class="image-lightbox__img" :src="imageUrl ?? ''" alt="" />
+            <a
+                class="image-lightbox__open-link"
+                :href="imageUrl ?? '#'"
+                target="_blank"
+                rel="noopener noreferrer"
+            >在瀏覽器中開啟</a>
+        </div>
     </div>
 </template>

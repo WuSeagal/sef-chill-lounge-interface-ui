@@ -36,11 +36,30 @@ describe('ImageLightbox', () => {
         expect(wrapper.emitted('close')!.length).toBe(1)
     })
 
-    it('does NOT emit close when the image itself is clicked (event stops at the img)', async () => {
+    it('does NOT emit close when the image itself is clicked (event stops at the frame)', async () => {
         const wrapper = mount(ImageLightbox, {
             props: { open: true, imageUrl: '/mock-images/chat-image-1.jpg' },
         })
         await wrapper.find('.image-lightbox__img').trigger('click')
+        expect(wrapper.emitted('close')).toBeFalsy()
+    })
+
+    it('renders an "open in browser" link pointing at the imageUrl', () => {
+        const wrapper = mount(ImageLightbox, {
+            props: { open: true, imageUrl: '/mock-images/chat-image-1.jpg' },
+        })
+        const link = wrapper.find('.image-lightbox__open-link')
+        expect(link.exists()).toBe(true)
+        expect(link.attributes('href')).toBe('/mock-images/chat-image-1.jpg')
+        expect(link.attributes('target')).toBe('_blank')
+        expect(link.attributes('rel')).toContain('noopener')
+    })
+
+    it('clicking the "open in browser" link does NOT close the lightbox', async () => {
+        const wrapper = mount(ImageLightbox, {
+            props: { open: true, imageUrl: '/mock-images/chat-image-1.jpg' },
+        })
+        await wrapper.find('.image-lightbox__open-link').trigger('click')
         expect(wrapper.emitted('close')).toBeFalsy()
     })
 
