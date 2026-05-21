@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import './BottomBar.css'
+import EmojiPicker from './EmojiPicker.vue'
 // SVGs use stroke="currentColor" / fill="currentColor" so we inline
 // them via Vite's ?raw import and v-html. <img> would treat the SVG
 // as opaque image data and lose color inheritance.
@@ -22,6 +24,8 @@ const emit = defineEmits<{
     (e: 'send', v: string): void
 }>()
 
+const emojiPickerOpen = ref(false)
+
 function onInput(event: Event) {
     const target = event.target as HTMLInputElement
     emit('update:inputValue', target.value)
@@ -35,6 +39,22 @@ function onInputKeyup(event: KeyboardEvent) {
     if (event.key === 'Enter' && !event.shiftKey) {
         onSend()
     }
+}
+
+// @click.stop on the emoji button prevents the click from bubbling to
+// the EmojiPicker's window-level outside-click listener, which would
+// otherwise close the picker right after this handler opens it.
+function onEmojiButtonClick() {
+    emojiPickerOpen.value = !emojiPickerOpen.value
+    emit('emoji-click')
+}
+
+function onEmojiSelect(emoji: string) {
+    emit('update:inputValue', props.inputValue + emoji)
+}
+
+function onEmojiPickerClose() {
+    emojiPickerOpen.value = false
 }
 </script>
 
@@ -54,7 +74,12 @@ function onInputKeyup(event: KeyboardEvent) {
             @input="onInput"
             @keyup="onInputKeyup"
         />
-        <button class="bottom-bar__btn" data-btn="emoji" type="button" @click="emit('emoji-click')">
+        <button
+            class="bottom-bar__btn"
+            data-btn="emoji"
+            type="button"
+            @click.stop="onEmojiButtonClick"
+        >
             <span class="bottom-bar__icon" v-html="iconEmojiRaw"></span>
         </button>
         <button class="bottom-bar__btn" data-btn="sticker" type="button" @click="emit('sticker-click')">
@@ -63,5 +88,11 @@ function onInputKeyup(event: KeyboardEvent) {
         <button class="bottom-bar__btn" data-btn="send" type="button" @click="onSend">
             <span class="bottom-bar__icon" v-html="iconSendRaw"></span>
         </button>
+
+        <EmojiPicker
+            :open="emojiPickerOpen"
+            @select="onEmojiSelect"
+            @close="onEmojiPickerClose"
+        />
     </div>
 </template>

@@ -56,4 +56,31 @@ describe('BottomBar', () => {
         await wrapper.find('.bottom-bar__input').trigger('keyup', { key: 'Enter', shiftKey: true })
         expect(wrapper.emitted('send')).toBeFalsy()
     })
+
+    it('clicking the emoji button opens the picker', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '' } })
+        expect(wrapper.find('.emoji-picker').exists()).toBe(false)
+        await wrapper.find('[data-btn="emoji"]').trigger('click')
+        expect(wrapper.find('.emoji-picker').exists()).toBe(true)
+    })
+
+    it('clicking the emoji button a second time closes the picker', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '' } })
+        const btn = wrapper.find('[data-btn="emoji"]')
+        await btn.trigger('click')
+        expect(wrapper.find('.emoji-picker').exists()).toBe(true)
+        await btn.trigger('click')
+        expect(wrapper.find('.emoji-picker').exists()).toBe(false)
+    })
+
+    it('selecting an emoji emits update:inputValue with the emoji appended', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: 'hi ' } })
+        await wrapper.find('[data-btn="emoji"]').trigger('click')
+        const firstEmoji = wrapper.find('.emoji-picker__item')
+        const emojiText = firstEmoji.text()
+        await firstEmoji.trigger('click')
+        const updates = wrapper.emitted('update:inputValue')
+        expect(updates).toBeTruthy()
+        expect(updates![0]).toEqual([`hi ${emojiText}`])
+    })
 })

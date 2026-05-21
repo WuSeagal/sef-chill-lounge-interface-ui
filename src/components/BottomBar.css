@@ -6,6 +6,8 @@
     padding: var(--space-sm) var(--space-md);
     background: var(--bottom-bar-bg);
     box-sizing: border-box;
+    /* Anchor for absolutely-positioned children (e.g. EmojiPicker) */
+    position: relative;
 }
 
 .bottom-bar__btn {
