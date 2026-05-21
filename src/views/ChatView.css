@@ -5,6 +5,7 @@
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
+    position: relative;
 }
 
 .chat-view__list {
@@ -14,4 +15,34 @@
     display: flex;
     flex-direction: column;
     gap: var(--space-xs);
+}
+
+.chat-view__scroll-fab {
+    position: fixed;
+    left: 50%;
+    bottom: calc(var(--space-xl) * 2 + var(--space-md) + 12px);
+    transform: translateX(-50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--bubble-border);
+    background: var(--bubble-bg);
+    color: var(--input-text);
+    box-shadow: var(--shadow-popup);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    z-index: 800;
+    transition: background 0.15s, transform 0.15s;
+}
+
+.chat-view__scroll-fab:hover {
+    background: #ffffff;
+}
+
+.chat-view__scroll-fab svg {
+    width: 20px;
+    height: 20px;
 }

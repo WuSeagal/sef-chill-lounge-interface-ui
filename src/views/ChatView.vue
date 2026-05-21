@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import './ChatView.css'
 import MessageItem from '@/components/MessageItem.vue'
 import BottomBar from '@/components/BottomBar.vue'
@@ -38,10 +38,38 @@ function onLightboxClose() {
     lightboxImageUrl.value = null
 }
 
+// Scroll handling for the message list
+const listEl = ref<HTMLElement | null>(null)
+const isAtBottom = ref(true)
+const SCROLL_BOTTOM_THRESHOLD = 80 // px from bottom counts as "at bottom"
+
+function updateAtBottom() {
+    const el = listEl.value
+    if (!el) return
+    const distance = el.scrollHeight - el.scrollTop - el.clientHeight
+    isAtBottom.value = distance <= SCROLL_BOTTOM_THRESHOLD
+}
+
+function scrollToBottom(smooth = true) {
+    const el = listEl.value
+    if (!el) return
+    el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
+}
+
+function onScrollFabClick() {
+    scrollToBottom(true)
+}
+
+onMounted(() => {
+    // Start pinned to the bottom (newest messages at the bottom).
+    scrollToBottom(false)
+    nextTick(updateAtBottom)
+})
+
 // BottomBar input + send
 const inputValue = ref('')
 
-function onSend(value: string) {
+async function onSend(value: string) {
     const text = value.trim()
     if (!text) return
     appendMessage({
@@ -51,6 +79,8 @@ function onSend(value: string) {
         content: text,
     })
     inputValue.value = ''
+    await nextTick()
+    scrollToBottom(true)
 }
 
 function onGearClick() {
@@ -62,7 +92,11 @@ function onGearClick() {
 
 <template>
     <div class="chat-view">
-        <div class="chat-view__list">
+        <div
+            ref="listEl"
+            class="chat-view__list"
+            @scroll="updateAtBottom"
+        >
             <MessageItem
                 v-for="m in messages"
                 :key="m.id"
@@ -71,6 +105,18 @@ function onGearClick() {
                 @image-click="onImageClick"
             />
         </div>
+
+        <button
+            v-if="!isAtBottom"
+            class="chat-view__scroll-fab"
+            type="button"
+            aria-label="scroll to bottom"
+            @click="onScrollFabClick"
+        >
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 9 L12 15 L18 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
 
         <BottomBar
             v-model:input-value="inputValue"

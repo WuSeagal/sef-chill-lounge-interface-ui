@@ -82,4 +82,42 @@ describe('ChatView', () => {
         expect(after).toBe(before + 1)
         expect(wrapper.text()).toContain('hi from test')
     })
+
+    it('pressing Enter in the input also sends and appends', async () => {
+        const wrapper = mount(ChatView)
+        const before = wrapper.findAll('.message-item').length
+
+        const input = wrapper.find('.bottom-bar__input')
+        await input.setValue('enter-typed in chat')
+        await input.trigger('keyup', { key: 'Enter' })
+        await flushPromises()
+
+        const after = wrapper.findAll('.message-item').length
+        expect(after).toBe(before + 1)
+        expect(wrapper.text()).toContain('enter-typed in chat')
+    })
+
+    it('does NOT render the scroll-to-bottom FAB when the list starts at the bottom', () => {
+        // ChatView mounts and calls scrollToBottom(false) immediately, then
+        // updateAtBottom() runs. Since the list is at the bottom, FAB stays hidden.
+        const wrapper = mount(ChatView)
+        expect(wrapper.find('.chat-view__scroll-fab').exists()).toBe(false)
+    })
+
+    it('renders the scroll-to-bottom FAB when isAtBottom becomes false', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        const list = wrapper.find('.chat-view__list').element as HTMLElement
+
+        // Simulate the user scrolling up so the bottom-distance exceeds threshold.
+        // happy-dom doesn't compute scrollHeight/clientHeight from real layout,
+        // so we stub the geometry properties before firing scroll.
+        Object.defineProperty(list, 'scrollHeight', { value: 2000, configurable: true })
+        Object.defineProperty(list, 'clientHeight', { value: 600, configurable: true })
+        Object.defineProperty(list, 'scrollTop', { value: 0, configurable: true, writable: true })
+        list.dispatchEvent(new Event('scroll'))
+        await nextTick()
+
+        expect(wrapper.find('.chat-view__scroll-fab').exists()).toBe(true)
+        wrapper.unmount()
+    })
 })
