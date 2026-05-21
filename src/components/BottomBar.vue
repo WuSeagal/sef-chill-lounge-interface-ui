@@ -30,20 +30,27 @@ const textareaEl = ref<HTMLTextAreaElement | null>(null)
 // Auto-grow: reset to 'auto' to remeasure, then set height to the
 // natural content height. CSS owns the upper bound (max-height: 50dvh)
 // so the textarea grows freely until it would crowd the viewport.
-// Overflow toggles to 'auto' ONLY when the CSS cap clamped the height
-// (scrollHeight > clientHeight). At every other state the scrollbar
-// stays hidden and the textarea is unscrollable — so a single-line
-// message can't get a stray scrollbar from subpixel rounding.
+//
+// Overflow decision: compare natural content height to the CSS cap.
+// We avoid the older `scrollHeight > clientHeight` check because at
+// single-line state subpixel rounding made scrollHeight 1px larger
+// than clientHeight, flashing a stray scrollbar even though the content
+// actually fit. Comparing against the explicit CSS cap is round-off
+// safe — overflow only switches on when the user really hit the limit.
 function autoResize() {
     const ta = textareaEl.value
     if (!ta) return
     ta.style.height = 'auto'
     const desired = ta.scrollHeight
-    if (desired > 0) {
+    if (desired <= 0) return
+
+    const cssMax = parseFloat(getComputedStyle(ta).maxHeight)
+    if (Number.isFinite(cssMax) && desired > cssMax) {
+        ta.style.height = cssMax + 'px'
+        ta.style.overflowY = 'auto'
+    } else {
         ta.style.height = desired + 'px'
-        // CSS max-height clamps inline height; clientHeight reflects the
-        // clamped value while scrollHeight stays at the natural size.
-        ta.style.overflowY = ta.scrollHeight > ta.clientHeight ? 'auto' : 'hidden'
+        ta.style.overflowY = 'hidden'
     }
 }
 

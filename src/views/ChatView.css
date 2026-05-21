@@ -8,6 +8,18 @@
     position: relative;
 }
 
+/* Wrapper that hosts the scrollable list AND its scroll-to-bottom FAB.
+   By making the FAB position: absolute inside this wrapper, the FAB
+   anchors to the BOTTOM of the message area — which equals the TOP
+   of the BottomBar — regardless of how tall the BottomBar has grown. */
+.chat-view__main {
+    flex: 1 1 auto;
+    min-height: 0;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
 .chat-view__list {
     flex: 1 1 auto;
     min-height: 0;
@@ -23,7 +35,7 @@
 .chat-view__scroll-fab {
     position: absolute;
     left: 50%;
-    bottom: calc(52px + 12px);
+    bottom: 12px;
     transform: translateX(-50%);
     width: 40px;
     height: 40px;

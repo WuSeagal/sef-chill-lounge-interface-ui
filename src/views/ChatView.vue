@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import './ChatView.css'
 import MessageItem from '@/components/MessageItem.vue'
 import BottomBar from '@/components/BottomBar.vue'
@@ -60,10 +60,42 @@ function onScrollFabClick() {
     scrollToBottom(true)
 }
 
+// Preserve the visible bottom-edge content when the list resizes
+// (e.g. BottomBar grows because the textarea added a line). The list
+// shrinks from the TOP — content at the top scrolls out of view —
+// instead of the bottom drifting away.
+let listResizeObserver: ResizeObserver | null = null
+let previousListHeight: number | null = null
+
 onMounted(() => {
     // Start pinned to the bottom (newest messages at the bottom).
     scrollToBottom(false)
     nextTick(updateAtBottom)
+
+    if (typeof ResizeObserver !== 'undefined' && listEl.value) {
+        listResizeObserver = new ResizeObserver((entries) => {
+            const el = listEl.value
+            if (!el) return
+            const entry = entries[0]
+            const newHeight = entry.contentRect.height
+            if (previousListHeight !== null && previousListHeight !== newHeight) {
+                // Positive delta = list got shorter (BottomBar grew). Push
+                // scrollTop down by the same amount so the bottom-edge
+                // content stays anchored where the user can still see it.
+                const delta = previousListHeight - newHeight
+                if (delta !== 0) {
+                    el.scrollTop = el.scrollTop + delta
+                }
+            }
+            previousListHeight = newHeight
+        })
+        listResizeObserver.observe(listEl.value)
+    }
+})
+
+onBeforeUnmount(() => {
+    listResizeObserver?.disconnect()
+    listResizeObserver = null
 })
 
 // BottomBar input + send
@@ -92,31 +124,33 @@ function onGearClick() {
 
 <template>
     <div class="chat-view">
-        <div
-            ref="listEl"
-            class="chat-view__list"
-            @scroll="updateAtBottom"
-        >
-            <MessageItem
-                v-for="m in messages"
-                :key="m.id"
-                :message="m"
-                @avatar-click="onAvatarClick"
-                @image-click="onImageClick"
-            />
-        </div>
+        <div class="chat-view__main">
+            <div
+                ref="listEl"
+                class="chat-view__list"
+                @scroll="updateAtBottom"
+            >
+                <MessageItem
+                    v-for="m in messages"
+                    :key="m.id"
+                    :message="m"
+                    @avatar-click="onAvatarClick"
+                    @image-click="onImageClick"
+                />
+            </div>
 
-        <button
-            v-if="!isAtBottom"
-            class="chat-view__scroll-fab"
-            type="button"
-            aria-label="scroll to bottom"
-            @click="onScrollFabClick"
-        >
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M6 9 L12 15 L18 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        </button>
+            <button
+                v-if="!isAtBottom"
+                class="chat-view__scroll-fab"
+                type="button"
+                aria-label="scroll to bottom"
+                @click="onScrollFabClick"
+            >
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M6 9 L12 15 L18 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+        </div>
 
         <BottomBar
             v-model:input-value="inputValue"
