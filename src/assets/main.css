@@ -1,0 +1,30 @@
+/* SEF Chill Lounge — global resets and #app sizing. */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    font-family: var(--font-family-base);
+    color: var(--input-text);
+    background: var(--page-bg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+    width: 100%;
+    height: 100%;
+}
+
+button {
+    font-family: inherit;
+}
