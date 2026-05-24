@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.ts'
+import { useUser } from '@/composables/useUser'
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.VITE_BASE_URL),
@@ -37,11 +38,21 @@ router.beforeEach(async (to, _from, next) => {
         await auth.checkAuth()
     }
 
-    if (auth.isLogin) {
-        return to.path === '/' ? next('/dashboard') : next()
-    } else {
+    if (!auth.isLogin) {
         return to.path !== '/' ? next('/') : next()
     }
+
+    // 已登入：檢查 profile 狀態
+    const u = useUser()
+    if (u.profile.value === null && !u.needsOnboarding.value) {
+        await u.fetchProfile()
+    }
+
+    if (u.needsOnboarding.value) {
+        return to.path === '/' ? next() : next('/')
+    }
+
+    return to.path === '/' ? next('/chat') : next()
 })
 
 export default router

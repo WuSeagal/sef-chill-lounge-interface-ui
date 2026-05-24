@@ -22,7 +22,7 @@ onMounted(async () => {
         })
 
         if (res.ok) {
-            router.replace('/dashboard')
+            router.replace('/chat')
         } else {
             console.error('googleAuth failed, status:', res.status)
             router.replace('/')

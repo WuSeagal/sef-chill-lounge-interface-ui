@@ -1,5 +1,56 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
+import { ref } from 'vue'
+
+vi.mock('@/api/userApi', () => ({
+    fetchDefaultTags: vi.fn(),
+}))
+
+const createProfileMock = vi.fn().mockImplementation(async () => {
+    needsOnboardingRef.value = false
+})
+const addTagMock = vi.fn().mockResolvedValue(undefined)
+const addSocialLinkMock = vi.fn().mockResolvedValue(undefined)
+const fetchProfileMock = vi.fn().mockResolvedValue(undefined)
+const redrawTopicCardMock = vi.fn().mockImplementation(async () => {
+    profileRef.value = {
+        ...(profileRef.value ?? {}),
+        topicId: 't-draw',
+        topic: { topicId: 't-draw', content: '今晚想一起聊什麼？' },
+    }
+})
+const routerPushMock = vi.fn()
+
+const profileRef = ref<any>(null)
+const needsOnboardingRef = ref(false)
+const authState = {
+    isLogin: false,
+    user: null as any,
+}
+
+vi.mock('@/composables/useUser', () => ({
+    useUser: () => ({
+        profile: profileRef,
+        needsOnboarding: needsOnboardingRef,
+        createProfile: createProfileMock,
+        addTag: addTagMock,
+        addSocialLink: addSocialLinkMock,
+        fetchProfile: fetchProfileMock,
+        redrawTopicCard: redrawTopicCardMock,
+    }),
+}))
+
+vi.mock('@/stores/auth.ts', () => ({
+    useAuthStore: () => authState,
+}))
+
+vi.mock('vue-router', () => ({
+    useRouter: () => ({
+        push: routerPushMock,
+    }),
+}))
+
+import * as api from '@/api/userApi'
 import IntroView from '@/views/IntroView.vue'
 
 describe('IntroView', () => {
@@ -7,42 +58,114 @@ describe('IntroView', () => {
 
     beforeEach(() => {
         originalLocation = window.location
-        // happy-dom allows reassigning location for tests
         delete (window as unknown as { location?: Location }).location
         ;(window as unknown as { location: Partial<Location> }).location = {
             origin: 'http://localhost:9045',
             href: '',
         }
+
+        vi.clearAllMocks()
+        vi.unstubAllEnvs()
+
+        authState.isLogin = false
+        authState.user = null
+        profileRef.value = null
+        needsOnboardingRef.value = false
+
+        ;(api.fetchDefaultTags as any).mockResolvedValue([
+            { tagId: 'tg-001', type: 'species', content: '宅' },
+            { tagId: 'tg-002', type: 'species', content: '貓派' },
+        ])
     })
 
     afterEach(() => {
         ;(window as unknown as { location: Location }).location = originalLocation
-        vi.unstubAllEnvs()
     })
 
-    it('renders a single Google login button', () => {
+    it('renders google login button when logged out', () => {
         const wrapper = mount(IntroView)
         const buttons = wrapper.findAll('button')
         expect(buttons.length).toBe(1)
         expect(buttons[0].classes()).toContain('intro-view__google-btn')
     })
 
-    it('does NOT render a title or subtitle (minimal spec)', () => {
-        const wrapper = mount(IntroView)
-        expect(wrapper.find('h1').exists()).toBe(false)
-        expect(wrapper.find('h2').exists()).toBe(false)
-        // No paragraph text either — minimal page
-        expect(wrapper.text().includes('SEF Chill Lounge')).toBe(false)
-        expect(wrapper.text().includes('登入')).toBe(true) // button label is allowed
-    })
-
-    it('clicking the button sets window.location.href to a Google OAuth URL', async () => {
+    it('clicking login button sends user to Google OAuth', async () => {
         vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'test-client-id')
         const wrapper = mount(IntroView)
+
         await wrapper.find('button').trigger('click')
+
         const href = (window as unknown as { location: { href: string } }).location.href
         expect(href).toContain('https://accounts.google.com/o/oauth2/v2/auth')
         expect(href).toContain('client_id=test-client-id')
         expect(href).toContain('redirect_uri=http%3A%2F%2Flocalhost%3A9045%2Foauth2%2Fcallback')
+    })
+
+    it('renders onboarding wizard first step on / when logged in and profile is missing', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mount(IntroView)
+        await flushPromises()
+
+        expect(wrapper.find('[data-test=onboarding-card]').exists()).toBe(true)
+        expect(wrapper.text()).toContain('顯示名稱')
+        expect(wrapper.text()).toContain('Step 1 / 7')
+        expect(wrapper.find('[data-test=username]').exists()).toBe(false)
+        expect(wrapper.find<HTMLInputElement>('[data-test=furName]').element.value).toBe('Google Fox')
+        expect(wrapper.find('[data-test=next-step]').exists()).toBe(true)
+    })
+
+    it('walks through wizard, creates profile, draws topic, then routes to /chat after 5 seconds', async () => {
+        vi.useFakeTimers()
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mount(IntroView)
+        await flushPromises()
+
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await wrapper.find('[data-test=tag-tg-001]').setValue(true)
+        await wrapper.find('[data-test=next-step]').trigger('click')
+
+        const socialInputs = wrapper.findAll('[data-field="social-links"] input')
+        await socialInputs[0].setValue('telegram')
+        await socialInputs[1].setValue('https://t.me/googlefox')
+        await wrapper.find('[data-test=add-social-link]').trigger('click')
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+
+        expect(wrapper.text()).toContain('確認你的設定')
+        expect(wrapper.text()).toContain('Google Fox')
+        expect(wrapper.text()).toContain('宅')
+        expect(wrapper.text()).toContain('telegram')
+
+        await wrapper.find('[data-test=confirm-create]').trigger('click')
+        await flushPromises()
+
+        expect(createProfileMock).toHaveBeenCalledWith(expect.objectContaining({
+            furName: 'Google Fox',
+        }))
+        expect(addTagMock).toHaveBeenCalledWith({ tagId: 'tg-001' })
+        expect(addSocialLinkMock).toHaveBeenCalledWith({
+            platform: 'telegram',
+            links: 'https://t.me/googlefox',
+        })
+        expect(wrapper.text()).not.toContain('同步中...')
+        expect(wrapper.text()).toContain('話題卡抽獎')
+
+        await wrapper.find('[data-test=draw-topic]').trigger('click')
+        await flushPromises()
+
+        expect(redrawTopicCardMock).toHaveBeenCalledTimes(1)
+        expect(wrapper.text()).toContain('今晚想一起聊什麼？')
+
+        await vi.advanceTimersByTimeAsync(5000)
+        expect(routerPushMock).toHaveBeenCalledWith('/chat')
+        vi.useRealTimers()
     })
 })

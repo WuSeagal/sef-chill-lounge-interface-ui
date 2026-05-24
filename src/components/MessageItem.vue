@@ -14,7 +14,7 @@ const emit = defineEmits<{
 }>()
 
 const member = useMockMember(computed(() => props.message.userId))
-const displayNickname = computed(() => member.value?.nickname ?? props.message.nickname)
+const displayNickname = computed(() => props.message.nickname || member.value?.nickname || '')
 
 const formattedTime = computed(() => {
     const d = new Date(props.message.timestamp)

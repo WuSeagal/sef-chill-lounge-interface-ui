@@ -7,16 +7,15 @@ import UserPopup from '@/components/UserPopup.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
 import { useMockMessages } from '@/composables/useMockMessages'
-import { useMockUser } from '@/composables/useMockUser'
-import { useMockMember } from '@/composables/useMockMember'
+import { useUser } from '@/composables/useUser'
 
 const { messages, appendMessage } = useMockMessages()
-const { user: currentUser } = useMockUser()
+const user = useUser()
+const currentProfile = computed(() => user.profile.value)
 
 // UserPopup state — tracks which userId's popup is open. null = closed.
 const popupUserId = ref<string | null>(null)
-const popupMember = useMockMember(computed(() => popupUserId.value ?? ''))
-const popupOpen = computed(() => popupUserId.value !== null && popupMember.value !== undefined)
+const popupOpen = computed(() => popupUserId.value !== null)
 
 function onAvatarClick(userId: string) {
     // Toggle: same avatar re-clicked closes; different avatar switches.
@@ -62,14 +61,10 @@ function onScrollFabClick() {
 }
 
 // Preserve the visible bottom-edge content when the list resizes
-// (e.g. BottomBar grows because the textarea added a line). The list
-// shrinks from the TOP — content at the top scrolls out of view —
-// instead of the bottom drifting away.
 let listResizeObserver: ResizeObserver | null = null
 let previousListHeight: number | null = null
 
 onMounted(() => {
-    // Start pinned to the bottom (newest messages at the bottom).
     scrollToBottom(false)
     nextTick(updateAtBottom)
 
@@ -80,9 +75,6 @@ onMounted(() => {
             const entry = entries[0]
             const newHeight = entry.contentRect.height
             if (previousListHeight !== null && previousListHeight !== newHeight) {
-                // Positive delta = list got shorter (BottomBar grew). Push
-                // scrollTop down by the same amount so the bottom-edge
-                // content stays anchored where the user can still see it.
                 const delta = previousListHeight - newHeight
                 if (delta !== 0) {
                     el.scrollTop = el.scrollTop + delta
@@ -108,10 +100,12 @@ const inputValue = ref('')
 async function onSend(value: string) {
     const text = value.trim()
     if (!text) return
+    const me = currentProfile.value
+    if (!me) return
     appendMessage({
-        userId: currentUser.value.id,
-        nickname: currentUser.value.nickname,
-        avatarUrl: currentUser.value.avatarUrl,
+        userId: me.userId,
+        nickname: me.furName ?? me.username,
+        avatarUrl: me.avatar ?? '',
         content: text,
     })
     inputValue.value = ''
@@ -166,7 +160,7 @@ function onSettingsClose() {
 
         <UserPopup
             :open="popupOpen"
-            :member="popupMember ?? null"
+            :user-id="popupUserId"
             @close="onPopupClose"
         />
 

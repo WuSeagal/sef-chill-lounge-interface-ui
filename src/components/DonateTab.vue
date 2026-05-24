@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import './DonateTab.css'
-import { useMockUser } from '@/composables/useMockUser'
 
-const { user } = useMockUser()
+// 捐款資訊全站共用，寫死在前端（依 openspec/backlog.md 待辦：
+//   - 之後申請正式捐款帳號後更新此 URL）
+const DONATE_URL = 'https://example.com/donate-placeholder'
 </script>
 
 <template>
     <div class="donate-tab">
         <a
-            :href="user.donateUrl"
+            :href="DONATE_URL"
             target="_blank"
             rel="noopener noreferrer"
             class="donate-tab__link"

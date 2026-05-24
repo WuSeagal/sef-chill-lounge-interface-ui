@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import './FeedbackTab.css'
 import { push } from 'notivue'
-import { useMockUser } from '@/composables/useMockUser'
+import { useUser } from '@/composables/useUser'
 
-const { user } = useMockUser()
+const user = useUser()
+const displayName = computed(() => user.profile.value?.furName ?? user.profile.value?.username ?? '')
 
 const subject = ref('')
 const body = ref('')
@@ -12,7 +13,7 @@ const body = ref('')
 function onSubmit() {
     if (!subject.value.trim() || !body.value.trim()) return
     console.log('[FeedbackTab] submit:', {
-        nickname: user.value.nickname,
+        furName: displayName.value,
         subject: subject.value,
         body: body.value,
     })
@@ -29,7 +30,7 @@ function onSubmit() {
             <input
                 class="feedback-tab__nickname"
                 type="text"
-                :value="user.nickname"
+                :value="displayName"
                 disabled
             />
         </div>

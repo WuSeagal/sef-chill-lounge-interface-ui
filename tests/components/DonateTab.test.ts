@@ -1,23 +1,21 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import DonateTab from '@/components/DonateTab.vue'
-import { resetMockUserForTest } from '@/composables/useMockUser'
 
 describe('DonateTab', () => {
-    beforeEach(() => {
-        resetMockUserForTest()
-    })
-
     it('renders the donate link', () => {
         const wrapper = mount(DonateTab)
         const link = wrapper.find('.donate-tab__link')
         expect(link.exists()).toBe(true)
     })
 
-    it('link points to mockUser.donateUrl', () => {
+    it('link points to hardcoded donate URL', () => {
         const wrapper = mount(DonateTab)
         const link = wrapper.find('.donate-tab__link')
-        expect(link.attributes('href')).toBe('https://example.com/donate')
+        // 依 openspec/backlog.md，URL 寫死在前端（之後申請正式帳號後更新）
+        const href = link.attributes('href')
+        expect(href).toBeTruthy()
+        expect(href).toMatch(/^https?:\/\//)
     })
 
     it('link opens in a new tab', () => {

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import FeedbackTab from '@/components/FeedbackTab.vue'
-import { resetMockUserForTest } from '@/composables/useMockUser'
 
 const { mockPushSuccess } = vi.hoisted(() => ({
     mockPushSuccess: vi.fn(),
@@ -10,13 +10,20 @@ vi.mock('notivue', () => ({
     push: { success: mockPushSuccess },
 }))
 
+const profileRef = ref<any>({ userId: 'u-1', username: 'small-mao', furName: '小毛' })
+vi.mock('@/composables/useUser', () => ({
+    useUser: () => ({
+        profile: profileRef,
+    }),
+}))
+
 describe('FeedbackTab', () => {
     beforeEach(() => {
-        resetMockUserForTest()
         mockPushSuccess.mockClear()
+        profileRef.value = { userId: 'u-1', username: 'small-mao', furName: '小毛' }
     })
 
-    it('renders the nickname field as disabled with mockUser nickname', () => {
+    it('renders the nickname field as disabled with useUser profile furName', () => {
         const wrapper = mount(FeedbackTab)
         const nicknameInput = wrapper.find('.feedback-tab__nickname')
         expect(nicknameInput.exists()).toBe(true)
@@ -43,7 +50,7 @@ describe('FeedbackTab', () => {
         expect(mockPushSuccess).toHaveBeenCalledWith('已送出（mock）')
     })
 
-    it('logs form data to console on submit', async () => {
+    it('logs form data with furName to console on submit', async () => {
         const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
         const wrapper = mount(FeedbackTab)
         await wrapper.find('.feedback-tab__subject').setValue('Test Subject')
@@ -52,10 +59,10 @@ describe('FeedbackTab', () => {
         expect(spy).toHaveBeenCalledWith(
             '[FeedbackTab] submit:',
             expect.objectContaining({
-                nickname: '小毛',
+                furName: '小毛',
                 subject: 'Test Subject',
                 body: 'Test Body',
-            })
+            }),
         )
         spy.mockRestore()
     })

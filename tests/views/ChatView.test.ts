@@ -1,14 +1,49 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { ref } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import ChatView from '@/views/ChatView.vue'
 import { resetMockMessagesForTest } from '@/composables/useMockMessages'
-import { resetMockUserForTest } from '@/composables/useMockUser'
+
+// Mock current user via useUser
+const profileRef = ref<any>({
+    userId: 'u-101',
+    username: '小毛',
+    furName: '毛毛',
+    avatar: '/mock-images/avatar-default.png',
+    avatarColor: '#8c8672',
+})
+
+vi.mock('@/composables/useUser', () => ({
+    useUser: () => ({ profile: profileRef }),
+}))
+
+// UserPopup fetches profile detail via API — mock it
+vi.mock('@/api/userApi', () => ({
+    fetchProfileDetail: vi.fn().mockImplementation(async (userId: string) => ({
+        userId,
+        username: userId === 'u-101' ? '小毛' : `User-${userId}`,
+        furName: userId === 'u-101' ? '毛毛' : `Fur-${userId}`,
+        avatar: '/x.png',
+        avatarColor: '#000',
+        topicId: null,
+        topic: null,
+        tags: [],
+        socials: [],
+        stickers: [],
+    })),
+}))
 
 describe('ChatView', () => {
     beforeEach(() => {
         resetMockMessagesForTest()
-        resetMockUserForTest()
+        profileRef.value = {
+            userId: 'u-101',
+            username: '小毛',
+            furName: '毛毛',
+            avatar: '/mock-images/avatar-default.png',
+            avatarColor: '#8c8672',
+        }
     })
 
     it('renders the mock messages list (>= 20 items)', () => {
@@ -23,14 +58,13 @@ describe('ChatView', () => {
         expect(wrapper.find('.image-lightbox').exists()).toBe(false)
     })
 
-    it('opens UserPopup with the correct member when an avatar is clicked', async () => {
+    it('opens UserPopup with the correct user when an avatar is clicked', async () => {
         const wrapper = mount(ChatView, { attachTo: document.body })
-        // First message is from u-101 小毛
         const firstAvatar = wrapper.findAll('.message-item__avatar')[0]
         await firstAvatar.trigger('click')
-        await nextTick()
+        await flushPromises()
         expect(wrapper.find('.user-popup').exists()).toBe(true)
-        expect(wrapper.find('.user-popup').text()).toContain('小毛')
+        expect(wrapper.find('.user-popup').text()).toContain('毛毛')
         wrapper.unmount()
     })
 
@@ -38,27 +72,22 @@ describe('ChatView', () => {
         const wrapper = mount(ChatView, { attachTo: document.body })
         const firstAvatar = wrapper.findAll('.message-item__avatar')[0]
         await firstAvatar.trigger('click')
-        await nextTick()
+        await flushPromises()
         expect(wrapper.find('.user-popup').exists()).toBe(true)
 
-        // Re-click same avatar should close
         await firstAvatar.trigger('click')
         await nextTick()
         expect(wrapper.find('.user-popup').exists()).toBe(false)
         wrapper.unmount()
     })
 
-    it('same-avatar re-click toggles off even when a full mousedown+click sequence is dispatched', async () => {
-        // This test exercises the real browser event order. The earlier
-        // toggle test only fires a single 'click' which is not enough to
-        // catch the "outside-detector races with toggle" bug. Here we
-        // dispatch the same sequence the browser would, twice.
+    it('same-avatar re-click toggles off via full mousedown+click sequence', async () => {
         const wrapper = mount(ChatView, { attachTo: document.body })
         const av = wrapper.findAll('.message-item__avatar')[0].element as HTMLElement
 
         av.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
         av.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-        await nextTick()
+        await flushPromises()
         expect(wrapper.find('.user-popup').exists()).toBe(true)
 
         av.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
@@ -83,6 +112,7 @@ describe('ChatView', () => {
         const after = wrapper.findAll('.message-item').length
         expect(after).toBe(before + 1)
         expect(wrapper.text()).toContain('hi from test')
+        expect(wrapper.text()).toContain('毛毛')
     })
 
     it('pressing Enter in the input also sends and appends', async () => {
@@ -100,8 +130,6 @@ describe('ChatView', () => {
     })
 
     it('does NOT render the scroll-to-bottom FAB when the list starts at the bottom', () => {
-        // ChatView mounts and calls scrollToBottom(false) immediately, then
-        // updateAtBottom() runs. Since the list is at the bottom, FAB stays hidden.
         const wrapper = mount(ChatView)
         expect(wrapper.find('.chat-view__scroll-fab').exists()).toBe(false)
     })
@@ -136,9 +164,6 @@ describe('ChatView', () => {
         const wrapper = mount(ChatView, { attachTo: document.body })
         const list = wrapper.find('.chat-view__list').element as HTMLElement
 
-        // Simulate the user scrolling up so the bottom-distance exceeds threshold.
-        // happy-dom doesn't compute scrollHeight/clientHeight from real layout,
-        // so we stub the geometry properties before firing scroll.
         Object.defineProperty(list, 'scrollHeight', { value: 2000, configurable: true })
         Object.defineProperty(list, 'clientHeight', { value: 600, configurable: true })
         Object.defineProperty(list, 'scrollTop', { value: 0, configurable: true, writable: true })
