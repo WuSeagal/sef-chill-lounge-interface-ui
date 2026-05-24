@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ref } from 'vue'
+import { createAppI18n } from '@/i18n'
 
 vi.mock('@/api/userApi', () => ({
     fetchDefaultTags: vi.fn(),
@@ -53,6 +54,14 @@ vi.mock('vue-router', () => ({
 import * as api from '@/api/userApi'
 import IntroView from '@/views/IntroView.vue'
 
+function mountIntroView() {
+    return mount(IntroView, {
+        global: {
+            plugins: [createAppI18n()],
+        },
+    })
+}
+
 describe('IntroView', () => {
     let originalLocation: Location
 
@@ -83,15 +92,18 @@ describe('IntroView', () => {
     })
 
     it('renders google login button when logged out', () => {
-        const wrapper = mount(IntroView)
+        const wrapper = mountIntroView()
         const buttons = wrapper.findAll('button')
         expect(buttons.length).toBe(1)
         expect(buttons[0].classes()).toContain('intro-view__google-btn')
+        expect(wrapper.text()).toContain('SEF-CLI')
+        expect(wrapper.text()).toContain('軟體工程獸互動系統')
+        expect(wrapper.text()).toContain('登入Google與軟體工程獸們互動')
     })
 
     it('clicking login button sends user to Google OAuth', async () => {
         vi.stubEnv('VITE_GOOGLE_CLIENT_ID', 'test-client-id')
-        const wrapper = mount(IntroView)
+        const wrapper = mountIntroView()
 
         await wrapper.find('button').trigger('click')
 
@@ -106,13 +118,15 @@ describe('IntroView', () => {
         authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
         needsOnboardingRef.value = true
 
-        const wrapper = mount(IntroView)
+        const wrapper = mountIntroView()
         await flushPromises()
 
         expect(wrapper.find('[data-test=onboarding-card]').exists()).toBe(true)
-        expect(wrapper.text()).toContain('顯示名稱')
-        expect(wrapper.text()).toContain('Step 1 / 7')
+        expect(wrapper.text()).toContain('請告訴系統要怎麼顯示你')
+        expect(wrapper.text()).not.toContain('Step 1 / 7')
         expect(wrapper.find('[data-test=username]').exists()).toBe(false)
+        expect(wrapper.text()).not.toContain('furName')
+        expect(wrapper.find('label').text()).toBe('顯示名稱 *')
         expect(wrapper.find<HTMLInputElement>('[data-test=furName]').element.value).toBe('Google Fox')
         expect(wrapper.find('[data-test=next-step]').exists()).toBe(true)
     })
@@ -123,7 +137,7 @@ describe('IntroView', () => {
         authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
         needsOnboardingRef.value = true
 
-        const wrapper = mount(IntroView)
+        const wrapper = mountIntroView()
         await flushPromises()
 
         await wrapper.find('[data-test=next-step]').trigger('click')

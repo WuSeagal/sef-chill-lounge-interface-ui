@@ -30,6 +30,13 @@
     gap: 24px;
 }
 
+.intro-view__login-card {
+    align-items: center;
+    justify-content: center;
+    min-height: calc(100dvh - clamp(96px, 12vw, 160px));
+    text-align: center;
+}
+
 .intro-view__eyebrow {
     display: inline-flex;
     align-self: flex-start;
@@ -50,6 +57,13 @@
     line-height: 1.12;
 }
 
+.intro-view__subtitle {
+    margin: 0;
+    color: #625945;
+    font-size: clamp(1.05rem, 2vw, 1.35rem);
+    letter-spacing: 0.08em;
+}
+
 .intro-view__copy {
     margin: 0;
     color: var(--input-text);
@@ -59,38 +73,7 @@
 .intro-view__wizard-header {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-}
-
-.intro-view__progress {
-    display: grid;
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-    gap: 8px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.intro-view__progress-item {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 40px;
-    border-radius: 14px;
-    border: 1px solid rgba(116, 105, 85, 0.16);
-    background: rgba(255, 255, 255, 0.7);
-    color: #8c8672;
-    font-weight: 700;
-}
-
-.intro-view__progress-item--active {
-    background: #625945;
-    color: #ffffff;
-}
-
-.intro-view__progress-item--done {
-    background: #f3ede0;
-    color: #4f4635;
+    gap: 10px;
 }
 
 .intro-view__step-card {

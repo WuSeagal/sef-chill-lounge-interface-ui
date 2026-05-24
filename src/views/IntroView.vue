@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import './IntroView.css'
 import { fetchDefaultTags } from '@/api/userApi'
 import { useUser } from '@/composables/useUser'
@@ -13,17 +14,18 @@ type SocialDraft = {
 }
 
 const router = useRouter()
+const { t } = useI18n()
 const auth = useAuthStore()
 const user = useUser()
 
 const steps = [
-    { key: 'nickname', title: '顯示名稱', optional: false },
-    { key: 'avatar', title: '頭像與顏色', optional: true },
-    { key: 'tags', title: 'TAG', optional: true },
-    { key: 'socials', title: '社群連結', optional: true },
-    { key: 'stickers', title: '自訂貼圖', optional: true },
-    { key: 'review', title: '確認你的設定', optional: false },
-    { key: 'topic', title: '話題卡抽獎', optional: false },
+    { key: 'nickname', optional: false },
+    { key: 'avatar', optional: true },
+    { key: 'tags', optional: true },
+    { key: 'socials', optional: true },
+    { key: 'stickers', optional: true },
+    { key: 'review', optional: false },
+    { key: 'topic', optional: false },
 ] as const
 
 const avatarChoices = [
@@ -69,6 +71,8 @@ let countdownTimer: ReturnType<typeof setInterval> | null = null
 const defaultFurName = computed(() => auth.user?.googleName ?? '')
 const showOnboarding = computed(() => auth.isLogin && (user.needsOnboarding.value || wizardActive.value))
 const currentStep = computed(() => steps[currentStepIndex.value])
+const currentStepTitle = computed(() => t(`intro.steps.${currentStep.value.key}.title`))
+const currentStepDescription = computed(() => t(`intro.steps.${currentStep.value.key}.description`))
 const isReviewStep = computed(() => currentStep.value.key === 'review')
 const isTopicStep = computed(() => currentStep.value.key === 'topic')
 const canSkipCurrent = computed(() => currentStep.value.optional)
@@ -76,36 +80,36 @@ const hasDrawnTopic = computed(() => !!drawnTopicContent.value)
 
 const reviewRows = computed(() => [
     {
-        label: '顯示名稱',
-        value: furName.value.trim() || '未填寫',
+        label: t('intro.review.displayName'),
+        value: furName.value.trim() || t('intro.review.unfilled'),
     },
     {
-        label: '頭像與顏色',
+        label: t('intro.review.avatar'),
         value: skippedStepKeys.value.includes('avatar')
-            ? '先略過'
+            ? t('intro.review.skipped')
             : selectedAvatarId.value
                 ? `${selectedAvatarId.value} / ${avatarColor.value}`
-                : '未設定',
+                : t('intro.review.empty'),
     },
     {
-        label: 'TAG',
+        label: t('intro.review.tags'),
         value: selectedDefaultTagIds.value.length || selectedCustomTags.value.length
             ? [
                 ...selectedDefaultTagIds.value.map(tagId =>
                     defaultTags.value.find(tag => tag.tagId === tagId)?.content ?? tagId),
                 ...selectedCustomTags.value,
             ].join('、')
-            : skippedStepKeys.value.includes('tags') ? '先略過' : '未設定',
+            : skippedStepKeys.value.includes('tags') ? t('intro.review.skipped') : t('intro.review.empty'),
     },
     {
-        label: '社群連結',
+        label: t('intro.review.socials'),
         value: selectedSocialLinks.value.length
             ? selectedSocialLinks.value.map(link => `${link.platform}: ${link.links}`).join(' / ')
-            : skippedStepKeys.value.includes('socials') ? '先略過' : '未設定',
+            : skippedStepKeys.value.includes('socials') ? t('intro.review.skipped') : t('intro.review.empty'),
     },
     {
-        label: '自訂貼圖',
-        value: selectedStickerId.value ?? (skippedStepKeys.value.includes('stickers') ? '先略過' : '未設定'),
+        label: t('intro.review.stickers'),
+        value: selectedStickerId.value ?? (skippedStepKeys.value.includes('stickers') ? t('intro.review.skipped') : t('intro.review.empty')),
     },
 ])
 
@@ -202,7 +206,7 @@ async function loadTags(): Promise<void> {
     try {
         defaultTags.value = await fetchDefaultTags()
     } catch {
-        tagsError.value = '載入失敗（可略過或重試）'
+        tagsError.value = t('intro.tags.loadFailed')
     } finally {
         loadingTags.value = false
     }
@@ -335,75 +339,36 @@ onBeforeUnmount(() => {
     <div class="intro-view">
         <div class="intro-view__panel">
             <div v-if="!auth.isLogin" class="intro-view__login-card">
-                <span class="intro-view__eyebrow">SEF Chill Lounge</span>
-                <h1 class="intro-view__title">先登入，再開始你的聊天之旅。</h1>
-                <p class="intro-view__copy">
-                    登入後如果還沒建立個人資料，系統會帶你一步一步完成 onboarding。
-                </p>
+                <h1 class="intro-view__title">{{ t('intro.login.brand') }}</h1>
+                <p class="intro-view__subtitle">{{ t('intro.login.subtitle') }}</p>
 
                 <button class="intro-view__google-btn" @click="handleGoogleLogin">
                     <img src="https://www.google.com/favicon.ico" alt="Google" />
-                    <span>使用 Google 登入</span>
+                    <span>{{ t('intro.login.googleAction') }}</span>
                 </button>
             </div>
 
             <div v-else-if="showOnboarding" class="intro-view__onboarding-card" data-test="onboarding-card">
                 <header class="intro-view__wizard-header">
-                    <span class="intro-view__eyebrow">Step {{ currentStepIndex + 1 }} / {{ steps.length }}</span>
-                    <h1 class="intro-view__title">{{ currentStep.title }}</h1>
-                    <p class="intro-view__copy">
-                        <template v-if="currentStep.key === 'nickname'">
-                            先決定聊天室裡要怎麼顯示你。
-                        </template>
-                        <template v-else-if="currentStep.key === 'avatar'">
-                            這一步先用 mock 頭像與顏色，之後再接真圖床。
-                        </template>
-                        <template v-else-if="currentStep.key === 'tags'">
-                            先補幾個標籤，讓別人比較快認識你。
-                        </template>
-                        <template v-else-if="currentStep.key === 'socials'">
-                            留一個最常用的聯絡方式就夠了，也可以先略過。
-                        </template>
-                        <template v-else-if="currentStep.key === 'stickers'">
-                            這一步先用 mock 自訂貼圖包，之後再換成真上傳流程。
-                        </template>
-                        <template v-else-if="currentStep.key === 'review'">
-                            最後確認一次你剛剛設定的內容。
-                        </template>
-                        <template v-else>
-                            確認完成後，按下抽獎按鈕領取你的起始話題卡。
-                        </template>
-                    </p>
-
-                    <ol class="intro-view__progress">
-                        <li
-                            v-for="(step, index) in steps"
-                            :key="step.key"
-                            :class="[
-                                'intro-view__progress-item',
-                                { 'intro-view__progress-item--active': index === currentStepIndex },
-                                { 'intro-view__progress-item--done': index < currentStepIndex },
-                            ]">
-                            <span>{{ index + 1 }}</span>
-                        </li>
-                    </ol>
+                    <h1 class="intro-view__title">{{ currentStepTitle }}</h1>
+                    <p class="intro-view__copy">{{ currentStepDescription }}</p>
                 </header>
 
                 <section v-if="currentStep.key === 'nickname'" class="intro-view__step-card">
                     <label class="intro-view__field">
-                        <span>顯示名稱（furName） <span class="intro-view__required">*</span></span>
+                        <span>{{ t('intro.fields.displayName') }} <span class="intro-view__required">*</span></span>
                         <input
                             data-test="furName"
                             v-model="furName"
                             maxlength="30"
                             autocomplete="nickname"
-                            placeholder="你想在聊天室裡怎麼被看見？" />
+                            :placeholder="t('intro.placeholders.displayName')" />
                     </label>
                 </section>
 
                 <section v-else-if="currentStep.key === 'avatar'" class="intro-view__step-card">
                     <div class="intro-view__option-group">
-                        <h2>選一個 mock 頭像</h2>
+                        <h2>{{ t('intro.options.avatar') }}</h2>
                         <div class="intro-view__choice-grid">
                             <button
                                 v-for="avatar in avatarChoices"
@@ -419,7 +384,7 @@ onBeforeUnmount(() => {
                     </div>
 
                     <div class="intro-view__option-group">
-                        <h2>選一個頭像顏色</h2>
+                        <h2>{{ t('intro.options.avatarColor') }}</h2>
                         <div class="intro-view__color-row">
                             <button
                                 v-for="color in avatarColorChoices"
@@ -434,10 +399,10 @@ onBeforeUnmount(() => {
                 </section>
 
                 <section v-else-if="currentStep.key === 'tags'" class="intro-view__step-card">
-                    <div v-if="loadingTags" class="intro-view__state-text">載入標籤中...</div>
+                    <div v-if="loadingTags" class="intro-view__state-text">{{ t('intro.tags.loading') }}</div>
                     <div v-else-if="tagsError" class="intro-view__error-block">
                         <p>{{ tagsError }}</p>
-                        <button type="button" @click="loadTags">重試</button>
+                        <button type="button" @click="loadTags">{{ t('intro.actions.retry') }}</button>
                     </div>
                     <div v-else class="intro-view__default-tags">
                         <label v-for="tag in defaultTags" :key="tag.tagId" class="intro-view__chip-option">
@@ -455,8 +420,8 @@ onBeforeUnmount(() => {
                             <input
                                 data-test="custom-tag-input"
                                 v-model="customTagInput"
-                                placeholder="新增自訂 TAG" />
-                            <button type="button" data-test="add-custom-tag" @click="addCustomTag">新增</button>
+                                :placeholder="t('intro.placeholders.customTag')" />
+                            <button type="button" data-test="add-custom-tag" @click="addCustomTag">{{ t('intro.actions.add') }}</button>
                         </div>
                         <ul>
                             <li v-for="(tag, idx) in selectedCustomTags" :key="idx">
@@ -464,7 +429,7 @@ onBeforeUnmount(() => {
                                 <button
                                     type="button"
                                     :data-test="`remove-custom-${idx}`"
-                                    @click="removeCustomTag(idx)">移除</button>
+                                    @click="removeCustomTag(idx)">{{ t('intro.actions.remove') }}</button>
                             </li>
                         </ul>
                     </div>
@@ -473,10 +438,10 @@ onBeforeUnmount(() => {
                 <section v-else-if="currentStep.key === 'socials'" class="intro-view__step-card" data-field="social-links">
                     <div class="intro-view__social-inputs">
                         <div class="intro-view__inline-inputs intro-view__inline-inputs--double">
-                            <input v-model="socialPlatformInput" placeholder="平台，例如 Telegram" />
-                            <input v-model="socialUrlInput" placeholder="URL" type="url" inputmode="url" />
+                            <input v-model="socialPlatformInput" :placeholder="t('intro.placeholders.socialPlatform')" />
+                            <input v-model="socialUrlInput" :placeholder="t('intro.placeholders.socialUrl')" type="url" inputmode="url" />
                         </div>
-                        <button type="button" data-test="add-social-link" @click="addSocialLink">新增社群連結</button>
+                        <button type="button" data-test="add-social-link" @click="addSocialLink">{{ t('intro.actions.addSocialLink') }}</button>
                     </div>
 
                     <ul class="intro-view__social-list">
@@ -485,7 +450,7 @@ onBeforeUnmount(() => {
                             <button
                                 type="button"
                                 :data-test="`remove-social-${idx}`"
-                                @click="removeSocialLink(idx)">移除</button>
+                                @click="removeSocialLink(idx)">{{ t('intro.actions.remove') }}</button>
                         </li>
                     </ul>
                 </section>
@@ -517,16 +482,16 @@ onBeforeUnmount(() => {
 
                 <section v-else class="intro-view__step-card intro-view__topic-step">
                     <div v-if="!hasDrawnTopic" class="intro-view__topic-prompt">
-                        <p>資料已建立完成，現在可以抽出你的第一張話題卡。</p>
+                        <p>{{ t('intro.topic.prompt') }}</p>
                         <button type="button" data-test="draw-topic" :disabled="drawingTopic" @click="drawTopicCard">
-                            {{ drawingTopic ? '抽獎中...' : '抽出話題卡' }}
+                            {{ drawingTopic ? t('intro.topic.drawing') : t('intro.topic.drawButton') }}
                         </button>
                     </div>
 
                     <div v-else class="intro-view__topic-result">
-                        <span class="intro-view__eyebrow">Draw Result</span>
+                        <span class="intro-view__eyebrow">{{ t('intro.topic.result') }}</span>
                         <p class="intro-view__topic-content">{{ drawnTopicContent }}</p>
-                        <p class="intro-view__state-text">{{ drawCountdown }} 秒後進入 chat...</p>
+                        <p class="intro-view__state-text">{{ t('intro.topic.redirect', { seconds: drawCountdown }) }}</p>
                     </div>
 
                     <p v-if="drawError" class="intro-view__error-inline">{{ drawError }}</p>
@@ -539,7 +504,7 @@ onBeforeUnmount(() => {
                         class="intro-view__ghost-btn"
                         data-test="prev-step"
                         @click="goPrev">
-                        上一步
+                        {{ t('intro.actions.previous') }}
                     </button>
 
                     <div class="intro-view__footer-actions">
@@ -549,7 +514,7 @@ onBeforeUnmount(() => {
                             class="intro-view__ghost-btn"
                             data-test="skip-step"
                             @click="skipCurrentStep">
-                            先略過
+                            {{ t('intro.actions.skip') }}
                         </button>
 
                         <button
@@ -559,7 +524,7 @@ onBeforeUnmount(() => {
                             data-test="next-step"
                             :disabled="!canNext"
                             @click="goNext">
-                            下一步
+                            {{ t('intro.actions.next') }}
                         </button>
 
                         <button
@@ -569,7 +534,7 @@ onBeforeUnmount(() => {
                             data-test="confirm-create"
                             :disabled="submitting"
                             @click="confirmProfileSetup">
-                            {{ submitting ? '建立中...' : '確認並建立' }}
+                            {{ submitting ? '建立中...' : t('intro.actions.confirmCreate') }}
                         </button>
                     </div>
                 </footer>
