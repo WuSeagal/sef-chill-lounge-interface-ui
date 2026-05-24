@@ -5,6 +5,7 @@ import App from './App.vue'
 import './assets/variables.css'
 import './assets/main.css'
 import router from './router'
+import { createAppI18n } from './i18n'
 
 import 'notivue/notification.css'
 import 'notivue/animations.css'
@@ -29,6 +30,7 @@ const notivue = createNotivue({
 })
 
 const app = createApp(App)
+app.use(createAppI18n())
 app.use(router)
 app.use(createPinia())
 app.use(notivue)
