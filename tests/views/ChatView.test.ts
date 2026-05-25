@@ -28,12 +28,15 @@ const profileRef = ref<any>({
     avatarColor: '#8c8672',
 })
 
-const historyMessagesRef = ref<MessageResponse[]>([])
-const historyLoadingRef = ref(false)
-const historyHasMoreRef = ref(false)
-const loadInitialSpy = vi.fn()
+const messagesRef = ref<MessageResponse[]>([])
+const loadingRef = ref(false)
+const hasMoreRef = ref(false)
+const kickedRef = ref(false)
+const initSpy = vi.fn()
 const loadMoreSpy = vi.fn()
-const appendLiveSpy = vi.fn()
+const sendChatMessageSpy = vi.fn()
+const disconnectSpy = vi.fn()
+const connectSpy = vi.fn()
 
 vi.mock('@/composables/useUser', () => ({
     useUser: () => ({ profile: profileRef }),
@@ -54,14 +57,30 @@ vi.mock('@/api/userApi', () => ({
     })),
 }))
 
-vi.mock('@/composables/useChatHistory', () => ({
-    useChatHistory: () => ({
-        messages: historyMessagesRef,
-        loading: historyLoadingRef,
-        hasMore: historyHasMoreRef,
-        loadInitial: loadInitialSpy,
+vi.mock('@/composables/useChatMessages', () => ({
+    useChatMessages: () => ({
+        messages: messagesRef,
+        loading: loadingRef,
+        hasMore: hasMoreRef,
         loadMore: loadMoreSpy,
-        appendLive: appendLiveSpy,
+        init: initSpy,
+        sendChatMessage: sendChatMessageSpy,
+        kicked: kickedRef,
+        wsReconnecting: ref(false),
+        wsFailed: ref(false),
+    }),
+}))
+
+vi.mock('@/composables/useChatWebSocket', () => ({
+    useChatWebSocket: () => ({
+        connect: connectSpy,
+        disconnect: disconnectSpy,
+        send: vi.fn(),
+        onMessage: vi.fn(() => () => {}),
+        kicked: kickedRef,
+        wsReconnecting: ref(false),
+        wsFailed: ref(false),
+        connectTime: ref<number | null>(null),
     }),
 }))
 
@@ -74,31 +93,32 @@ describe('ChatView', () => {
             avatar: '/mock-images/avatar-default.png',
             avatarColor: '#8c8672',
         }
-        historyMessagesRef.value = [
+        messagesRef.value = [
             makeMessage({ cursorId: 11, messageId: 'msg-001', content: 'first', createdDate: '2026-05-25T10:00:00' }),
             makeMessage({ cursorId: 12, messageId: 'msg-002', content: 'second', createdDate: '2026-05-25T10:01:00' }),
         ]
-        historyLoadingRef.value = false
-        historyHasMoreRef.value = false
-        loadInitialSpy.mockReset().mockResolvedValue(undefined)
+        loadingRef.value = false
+        hasMoreRef.value = false
+        kickedRef.value = false
+        initSpy.mockReset().mockResolvedValue(undefined)
         loadMoreSpy.mockReset().mockResolvedValue(undefined)
-        appendLiveSpy.mockReset().mockImplementation((message: MessageResponse) => {
-            historyMessagesRef.value = [...historyMessagesRef.value, message]
-        })
+        sendChatMessageSpy.mockReset()
+        connectSpy.mockReset()
+        disconnectSpy.mockReset()
     })
 
-    it('loads history on mount and renders real history messages', async () => {
+    it('calls init on mount and renders messages', async () => {
         const wrapper = mount(ChatView)
         await flushPromises()
 
-        expect(loadInitialSpy).toHaveBeenCalled()
+        expect(initSpy).toHaveBeenCalled()
         expect(wrapper.findAll('.message-item')).toHaveLength(2)
         expect(wrapper.text()).toContain('first')
         expect(wrapper.text()).toContain('second')
     })
 
-    it('shows placeholder when history is empty', async () => {
-        historyMessagesRef.value = []
+    it('shows placeholder when messages are empty', async () => {
+        messagesRef.value = []
         const wrapper = mount(ChatView)
         await flushPromises()
 
@@ -124,7 +144,7 @@ describe('ChatView', () => {
         wrapper.unmount()
     })
 
-    it('appending via BottomBar send adds a new local message to the list', async () => {
+    it('calls sendChatMessage when BottomBar emits send (no local optimistic append)', async () => {
         const wrapper = mount(ChatView)
         const before = wrapper.findAll('.message-item').length
 
@@ -132,15 +152,13 @@ describe('ChatView', () => {
         await wrapper.find('[data-btn="send"]').trigger('click')
         await flushPromises()
 
-        const after = wrapper.findAll('.message-item').length
-        expect(appendLiveSpy).toHaveBeenCalled()
-        expect(after).toBe(before + 1)
-        expect(wrapper.text()).toContain('hi from test')
-        expect(wrapper.text()).toContain('毛毛')
+        expect(sendChatMessageSpy).toHaveBeenCalledWith('hi from test')
+        // 不做 optimistic local append — 等 broadcast 回來才出現
+        expect(wrapper.findAll('.message-item').length).toBe(before)
     })
 
     it('loads more when scrolled near top and hasMore is true', async () => {
-        historyHasMoreRef.value = true
+        hasMoreRef.value = true
         const wrapper = mount(ChatView, { attachTo: document.body })
         await flushPromises()
 
@@ -154,5 +172,22 @@ describe('ChatView', () => {
 
         expect(loadMoreSpy).toHaveBeenCalled()
         wrapper.unmount()
+    })
+
+    it('shows KickedModal when kicked is true', async () => {
+        kickedRef.value = true
+        const wrapper = mount(ChatView)
+        await flushPromises()
+
+        expect(wrapper.find('[data-test="kicked-modal-backdrop"]').exists()).toBe(true)
+    })
+
+    it('calls disconnect on unmount', async () => {
+        const wrapper = mount(ChatView)
+        await flushPromises()
+
+        wrapper.unmount()
+
+        expect(disconnectSpy).toHaveBeenCalled()
     })
 })

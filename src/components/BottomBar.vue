@@ -106,7 +106,14 @@ function onEmojiPickerClose() {
         <button class="bottom-bar__btn" data-btn="gear" type="button" @click="emit('gear-click')">
             <span class="bottom-bar__icon" v-html="iconSettingsRaw"></span>
         </button>
-        <button class="bottom-bar__btn" data-btn="attach" type="button" @click="emit('attach-click')">
+        <button
+            class="bottom-bar__btn"
+            data-btn="attach"
+            type="button"
+            disabled
+            title="即將推出"
+            @click.prevent
+        >
             <span class="bottom-bar__icon" v-html="iconAttachRaw"></span>
         </button>
         <textarea
@@ -126,7 +133,14 @@ function onEmojiPickerClose() {
         >
             <span class="bottom-bar__icon" v-html="iconEmojiRaw"></span>
         </button>
-        <button class="bottom-bar__btn" data-btn="sticker" type="button" @click="emit('sticker-click')">
+        <button
+            class="bottom-bar__btn"
+            data-btn="sticker"
+            type="button"
+            disabled
+            title="即將推出"
+            @click.prevent
+        >
             <span class="bottom-bar__icon" v-html="iconStickerRaw"></span>
         </button>
         <button class="bottom-bar__btn" data-btn="send" type="button" @click="onSend">

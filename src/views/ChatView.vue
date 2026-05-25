@@ -1,16 +1,18 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import './ChatView.css'
 import MessageItem from '@/components/MessageItem.vue'
 import BottomBar from '@/components/BottomBar.vue'
 import UserPopup from '@/components/UserPopup.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
-import { useChatHistory } from '@/composables/useChatHistory'
+import KickedModal from '@/components/KickedModal.vue'
+import { useChatMessages } from '@/composables/useChatMessages'
+import { useChatWebSocket } from '@/composables/useChatWebSocket'
 import { useUser } from '@/composables/useUser'
-import type { MessageResponse } from '@/types/message'
 
-const { messages, loading, hasMore, loadInitial, loadMore, appendLive } = useChatHistory()
+const { messages, loading, hasMore, loadMore, init, sendChatMessage, kicked } = useChatMessages()
+const wsClient = useChatWebSocket()
 const user = useUser()
 const currentProfile = computed(() => user.profile.value)
 
@@ -19,7 +21,6 @@ const popupUserId = ref<string | null>(null)
 const popupOpen = computed(() => popupUserId.value !== null)
 
 function onAvatarClick(userId: string) {
-    // Toggle: same avatar re-clicked closes; different avatar switches.
     popupUserId.value = popupUserId.value === userId ? null : userId
 }
 
@@ -42,7 +43,7 @@ function onLightboxClose() {
 // Scroll handling for the message list
 const listEl = ref<HTMLElement | null>(null)
 const isAtBottom = ref(true)
-const SCROLL_BOTTOM_THRESHOLD = 80 // px from bottom counts as "at bottom"
+const SCROLL_BOTTOM_THRESHOLD = 80
 
 function updateAtBottom() {
     const el = listEl.value
@@ -80,60 +81,14 @@ function onScrollFabClick() {
 let listResizeObserver: ResizeObserver | null = null
 let previousListHeight: number | null = null
 
-onMounted(() => {
-    loadInitial().then(async () => {
-        await nextTick()
-        scrollToBottom(false)
-        updateAtBottom()
-
-        if (typeof ResizeObserver !== 'undefined' && listEl.value) {
-            listResizeObserver = new ResizeObserver((entries) => {
-                const el = listEl.value
-                if (!el) return
-                const entry = entries[0]
-                const newHeight = entry.contentRect.height
-                if (previousListHeight !== null && previousListHeight !== newHeight) {
-                    const delta = previousListHeight - newHeight
-                    if (delta !== 0) {
-                        el.scrollTop = el.scrollTop + delta
-                    }
-                }
-                previousListHeight = newHeight
-            })
-            listResizeObserver.observe(listEl.value)
-        }
-    })
-})
-
-onBeforeUnmount(() => {
-    listResizeObserver?.disconnect()
-    listResizeObserver = null
-})
-
 // SettingsModal state
 const settingsOpen = ref(false)
 
-// BottomBar input + send
+// BottomBar input
 const inputValue = ref('')
 
 async function onSend(value: string) {
-    const text = value.trim()
-    if (!text) return
-    const me = currentProfile.value
-    if (!me) return
-    const localMessage: MessageResponse = {
-        cursorId: Date.now(),
-        messageId: `local-${Date.now()}`,
-        userId: me.userId,
-        messageType: 'TEXT',
-        furName: me.furName ?? me.username ?? '',
-        avatar: me.avatar ?? null,
-        content: text,
-        imageUrls: [],
-        stickerImageUrl: null,
-        createdDate: new Date().toISOString(),
-    }
-    appendLive(localMessage)
+    sendChatMessage(value)
     inputValue.value = ''
     await nextTick()
     scrollToBottom(true)
@@ -146,6 +101,52 @@ function onGearClick() {
 function onSettingsClose() {
     settingsOpen.value = false
 }
+
+function onReconnect() {
+    kicked.value = false
+    wsClient.connect()
+}
+
+// Auto-scroll when new live messages arrive and user is at the bottom
+watch(() => messages.value.length, async () => {
+    if (isAtBottom.value) {
+        await nextTick()
+        scrollToBottom(true)
+    }
+})
+
+onMounted(async () => {
+    await init()
+    await nextTick()
+    scrollToBottom(false)
+    updateAtBottom()
+
+    if (typeof ResizeObserver !== 'undefined' && listEl.value) {
+        listResizeObserver = new ResizeObserver((entries) => {
+            const el = listEl.value
+            if (!el) return
+            const entry = entries[0]
+            const newHeight = entry.contentRect.height
+            if (previousListHeight !== null && previousListHeight !== newHeight) {
+                const delta = previousListHeight - newHeight
+                if (delta !== 0) {
+                    el.scrollTop = el.scrollTop + delta
+                }
+            }
+            previousListHeight = newHeight
+        })
+        listResizeObserver.observe(listEl.value)
+    }
+})
+
+onBeforeUnmount(() => {
+    listResizeObserver?.disconnect()
+    listResizeObserver = null
+    wsClient.disconnect()
+})
+
+// Suppress unused-warning for currentProfile in case template doesn't reference it directly elsewhere
+void currentProfile
 </script>
 
 <template>
@@ -202,6 +203,11 @@ function onSettingsClose() {
         <SettingsModal
             :open="settingsOpen"
             @close="onSettingsClose"
+        />
+
+        <KickedModal
+            :open="kicked"
+            @reconnect="onReconnect"
         />
     </div>
 </template>
