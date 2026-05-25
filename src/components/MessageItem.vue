@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import './MessageItem.css'
-import type { MockMessage } from '@/mocks/mockMessages'
-import { useMockMember } from '@/composables/useMockMember'
+import type { MessageResponse } from '@/types/message'
 
 const props = defineProps<{
-    message: MockMessage
+    message: MessageResponse
 }>()
 
 const emit = defineEmits<{
@@ -13,11 +12,10 @@ const emit = defineEmits<{
     (e: 'image-click', imageUrl: string): void
 }>()
 
-const member = useMockMember(computed(() => props.message.userId))
-const displayNickname = computed(() => props.message.nickname || member.value?.nickname || '')
+const displayNickname = computed(() => props.message.furName || '')
 
 const formattedTime = computed(() => {
-    const d = new Date(props.message.timestamp)
+    const d = new Date(props.message.createdDate)
     const hh = String(d.getHours()).padStart(2, '0')
     const mm = String(d.getMinutes()).padStart(2, '0')
     return `${hh}:${mm}`
@@ -27,14 +25,8 @@ function onAvatarClick() {
     emit('avatar-click', props.message.userId)
 }
 
-function onImageClick() {
-    if (props.message.imageUrl) {
-        emit('image-click', props.message.imageUrl)
-    }
-}
-
 const avatarStyle = computed(() => ({
-    backgroundImage: `url(${props.message.avatarUrl})`,
+    backgroundImage: props.message.avatar ? `url(${props.message.avatar})` : undefined,
 }))
 </script>
 
@@ -56,13 +48,25 @@ const avatarStyle = computed(() => ({
                 <span class="message-item__prompt" aria-hidden="true">&gt;</span>
                 <span class="message-item__content">{{ message.content }}</span>
             </div>
+            <div
+                v-if="message.messageType === 'TEXT' && message.imageUrls.length"
+                class="message-item__images"
+            >
+                <img
+                    v-for="imageUrl in message.imageUrls"
+                    :key="imageUrl"
+                    class="message-item__image"
+                    :src="imageUrl"
+                    alt=""
+                    :style="{ maxWidth: '240px', maxHeight: '240px' }"
+                    @click="emit('image-click', imageUrl)"
+                />
+            </div>
             <img
-                v-if="message.imageUrl"
-                class="message-item__image"
-                :src="message.imageUrl"
+                v-if="message.messageType === 'STICKER' && message.stickerImageUrl"
+                class="message-item__sticker"
+                :src="message.stickerImageUrl"
                 alt=""
-                :style="{ maxWidth: '240px', maxHeight: '240px' }"
-                @click="onImageClick"
             />
         </div>
     </div>

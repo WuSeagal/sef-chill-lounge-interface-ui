@@ -6,10 +6,11 @@ import BottomBar from '@/components/BottomBar.vue'
 import UserPopup from '@/components/UserPopup.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
-import { useMockMessages } from '@/composables/useMockMessages'
+import { useChatHistory } from '@/composables/useChatHistory'
 import { useUser } from '@/composables/useUser'
+import type { MessageResponse } from '@/types/message'
 
-const { messages, appendMessage } = useMockMessages()
+const { messages, loading, hasMore, loadInitial, loadMore, appendLive } = useChatHistory()
 const user = useUser()
 const currentProfile = computed(() => user.profile.value)
 
@@ -50,6 +51,21 @@ function updateAtBottom() {
     isAtBottom.value = distance <= SCROLL_BOTTOM_THRESHOLD
 }
 
+async function onListScroll() {
+    updateAtBottom()
+
+    const el = listEl.value
+    if (!el || loading.value || !hasMore.value || el.scrollTop > 40) {
+        return
+    }
+
+    const previousScrollHeight = el.scrollHeight
+    const previousScrollTop = el.scrollTop
+    await loadMore()
+    await nextTick()
+    el.scrollTop = el.scrollHeight - previousScrollHeight + previousScrollTop
+}
+
 function scrollToBottom(smooth = true) {
     const el = listEl.value
     if (!el) return
@@ -65,25 +81,28 @@ let listResizeObserver: ResizeObserver | null = null
 let previousListHeight: number | null = null
 
 onMounted(() => {
-    scrollToBottom(false)
-    nextTick(updateAtBottom)
+    loadInitial().then(async () => {
+        await nextTick()
+        scrollToBottom(false)
+        updateAtBottom()
 
-    if (typeof ResizeObserver !== 'undefined' && listEl.value) {
-        listResizeObserver = new ResizeObserver((entries) => {
-            const el = listEl.value
-            if (!el) return
-            const entry = entries[0]
-            const newHeight = entry.contentRect.height
-            if (previousListHeight !== null && previousListHeight !== newHeight) {
-                const delta = previousListHeight - newHeight
-                if (delta !== 0) {
-                    el.scrollTop = el.scrollTop + delta
+        if (typeof ResizeObserver !== 'undefined' && listEl.value) {
+            listResizeObserver = new ResizeObserver((entries) => {
+                const el = listEl.value
+                if (!el) return
+                const entry = entries[0]
+                const newHeight = entry.contentRect.height
+                if (previousListHeight !== null && previousListHeight !== newHeight) {
+                    const delta = previousListHeight - newHeight
+                    if (delta !== 0) {
+                        el.scrollTop = el.scrollTop + delta
+                    }
                 }
-            }
-            previousListHeight = newHeight
-        })
-        listResizeObserver.observe(listEl.value)
-    }
+                previousListHeight = newHeight
+            })
+            listResizeObserver.observe(listEl.value)
+        }
+    })
 })
 
 onBeforeUnmount(() => {
@@ -102,12 +121,19 @@ async function onSend(value: string) {
     if (!text) return
     const me = currentProfile.value
     if (!me) return
-    appendMessage({
+    const localMessage: MessageResponse = {
+        cursorId: Date.now(),
+        messageId: `local-${Date.now()}`,
         userId: me.userId,
-        nickname: me.furName ?? me.username,
-        avatarUrl: me.avatar ?? '',
+        messageType: 'TEXT',
+        furName: me.furName ?? me.username ?? '',
+        avatar: me.avatar ?? null,
         content: text,
-    })
+        imageUrls: [],
+        stickerImageUrl: null,
+        createdDate: new Date().toISOString(),
+    }
+    appendLive(localMessage)
     inputValue.value = ''
     await nextTick()
     scrollToBottom(true)
@@ -128,11 +154,14 @@ function onSettingsClose() {
             <div
                 ref="listEl"
                 class="chat-view__list"
-                @scroll="updateAtBottom"
+                @scroll="onListScroll"
             >
+                <div v-if="!messages.length" class="chat-view__empty">
+                    目前沒有訊息
+                </div>
                 <MessageItem
                     v-for="m in messages"
-                    :key="m.id"
+                    :key="m.messageId"
                     :message="m"
                     @avatar-click="onAvatarClick"
                     @image-click="onImageClick"

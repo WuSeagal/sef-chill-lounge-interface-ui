@@ -32,6 +32,13 @@
     gap: var(--space-xs);
 }
 
+.chat-view__empty {
+    margin: auto;
+    color: var(--input-text);
+    opacity: 0.65;
+    font-size: 0.95rem;
+}
+
 .chat-view__scroll-fab {
     position: absolute;
     left: 50%;
