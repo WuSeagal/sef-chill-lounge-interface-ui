@@ -78,6 +78,18 @@ describe('useChatHistory', () => {
         expect(hasMore.value).toBe(false)
     })
 
+    it('passes before cursor to fetchMessageHistory when provided', async () => {
+        vi.mocked(messageApi.fetchMessageHistory).mockResolvedValueOnce([])
+
+        const { loadInitial } = useChatHistory()
+        await loadInitial({ before: '2026-05-26T10:00:00' })
+
+        expect(messageApi.fetchMessageHistory).toHaveBeenCalledWith({
+            before: '2026-05-26T10:00:00',
+            limit: 50,
+        })
+    })
+
     it('appendLive pushes message to tail', () => {
         const { messages, appendLive } = useChatHistory()
 

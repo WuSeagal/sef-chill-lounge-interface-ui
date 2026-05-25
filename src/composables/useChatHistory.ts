@@ -16,10 +16,14 @@ export function useChatHistory() {
     const loading = ref(false)
     const hasMore = ref(true)
 
-    async function loadInitial() {
+    async function loadInitial(options: { before?: string } = {}) {
         loading.value = true
         try {
-            const result = await fetchMessageHistory({ limit: 50 })
+            const params: { before?: string; limit: number } = { limit: 50 }
+            if (options.before) {
+                params.before = options.before
+            }
+            const result = await fetchMessageHistory(params)
             messages.value = sortAscending(result)
             hasMore.value = result.length === 50
         } finally {
