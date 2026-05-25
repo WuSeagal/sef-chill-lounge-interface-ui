@@ -43,8 +43,10 @@ describe('useChatMessages', () => {
     beforeEach(() => {
         messageHandlers = []
         connectTime = ref<number | null>(null)
+        // Use a fixed ms timestamp that maps to a known local datetime
+        // 2026-05-26T10:00:00 local → use Date.parse for cross-TZ stability
         connect = vi.fn(() => {
-            connectTime.value = 1700000000000
+            connectTime.value = new Date(2026, 4, 26, 10, 0, 0).getTime()
         })
         send = vi.fn()
         onMessage = vi.fn((cb) => {
@@ -82,13 +84,13 @@ describe('useChatMessages', () => {
         vi.clearAllMocks()
     })
 
-    it('init connects WS then loads history with before=connectTime', async () => {
+    it('init connects WS then loads history with before=connectTime as local ISO string', async () => {
         const { init } = useChatMessages()
         await init()
 
         expect(connect).toHaveBeenCalled()
         expect(onMessage).toHaveBeenCalled()
-        expect(loadInitial).toHaveBeenCalledWith({ before: 1700000000000 })
+        expect(loadInitial).toHaveBeenCalledWith({ before: '2026-05-26T10:00:00' })
         expect(connect.mock.invocationCallOrder[0]).toBeLessThan(loadInitial.mock.invocationCallOrder[0])
     })
 
