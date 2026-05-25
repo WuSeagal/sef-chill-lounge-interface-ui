@@ -11,7 +11,7 @@ import { useChatMessages } from '@/composables/useChatMessages'
 import { useChatWebSocket } from '@/composables/useChatWebSocket'
 import { useUser } from '@/composables/useUser'
 
-const { messages, loading, hasMore, loadMore, init, sendChatMessage, kicked } = useChatMessages()
+const { messages, loading, hasMore, loadMore, init, reconnect, sendChatMessage, kicked } = useChatMessages()
 const wsClient = useChatWebSocket()
 const user = useUser()
 const currentProfile = computed(() => user.profile.value)
@@ -102,9 +102,11 @@ function onSettingsClose() {
     settingsOpen.value = false
 }
 
-function onReconnect() {
+async function onReconnect() {
     kicked.value = false
-    wsClient.connect()
+    await reconnect()
+    await nextTick()
+    scrollToBottom(true)
 }
 
 // Auto-scroll when new live messages arrive and user is at the bottom

@@ -150,6 +150,25 @@ describe('useChatWebSocket', () => {
         expect(ws.wsFailed.value).toBe(true)
     })
 
+    it('resets connectTime to null when starting a new connection (so callers can wait for fresh value)', () => {
+        const ws = useChatWebSocket()
+        ws.connect()
+        const first = FakeWebSocket.instances[0]
+        first.open()
+        const firstConnectTime = ws.connectTime.value
+        expect(firstConnectTime).not.toBeNull()
+
+        first.close(1006)
+        vi.advanceTimersByTime(2_000)
+        // after close, before second WS opens, connectTime should be reset to null
+        // so that any waitForConnectTime call doesn't see stale value
+        const second = FakeWebSocket.instances.at(-1)!
+        expect(ws.connectTime.value).toBeNull()
+
+        second.open()
+        expect(ws.connectTime.value).not.toBeNull()
+    })
+
     it('send before OPEN warns and does not throw', () => {
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
         const ws = useChatWebSocket()

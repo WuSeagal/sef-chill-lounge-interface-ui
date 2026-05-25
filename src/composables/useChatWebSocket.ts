@@ -59,6 +59,9 @@ function connect() {
         return
     }
     intentionalClose = false
+    // Reset connectTime so any waitForConnectTime caller blocks until the
+    // FRESH open event, not a stale value from a previous session.
+    connectTime.value = null
     const endpoint = import.meta.env.VITE_WS_ENDPOINT as string
     ws = new WebSocket(endpoint)
 

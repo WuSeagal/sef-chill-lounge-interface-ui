@@ -61,6 +61,12 @@ export function useChatMessages() {
         await history.loadInitial({ before: toLocalIsoSeconds(startedAt) })
     }
 
+    async function reconnect() {
+        socket.connect()
+        const startedAt = await waitForConnectTime(socket.connectTime)
+        await history.loadInitial({ before: toLocalIsoSeconds(startedAt) })
+    }
+
     function sendChatMessage(content: string) {
         const trimmed = content.trim()
         if (!trimmed) return
@@ -83,6 +89,7 @@ export function useChatMessages() {
         hasMore: history.hasMore,
         loadMore: history.loadMore,
         init,
+        reconnect,
         sendChatMessage,
         kicked: socket.kicked,
         wsReconnecting: socket.wsReconnecting,

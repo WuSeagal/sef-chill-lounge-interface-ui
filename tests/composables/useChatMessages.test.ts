@@ -138,6 +138,22 @@ describe('useChatMessages', () => {
         expect(send).not.toHaveBeenCalled()
     })
 
+    it('reconnect connects WS and reloads history with the new connectTime', async () => {
+        const { init, reconnect } = useChatMessages()
+        await init()
+
+        // Simulate kick: connectTime cleared. Then user clicks reconnect.
+        connectTime.value = null
+        connect.mockImplementation(() => {
+            connectTime.value = new Date(2026, 4, 26, 11, 0, 0).getTime()
+        })
+        loadInitial.mockClear()
+
+        await reconnect()
+
+        expect(loadInitial).toHaveBeenCalledWith({ before: '2026-05-26T11:00:00' })
+    })
+
     it('patches loaded messages with new furName/avatar on PROFILE_UPDATED', async () => {
         const { init } = useChatMessages()
         await init()

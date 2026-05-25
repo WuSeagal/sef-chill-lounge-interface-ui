@@ -33,6 +33,7 @@ const loadingRef = ref(false)
 const hasMoreRef = ref(false)
 const kickedRef = ref(false)
 const initSpy = vi.fn()
+const reconnectSpy = vi.fn()
 const loadMoreSpy = vi.fn()
 const sendChatMessageSpy = vi.fn()
 const disconnectSpy = vi.fn()
@@ -64,6 +65,7 @@ vi.mock('@/composables/useChatMessages', () => ({
         hasMore: hasMoreRef,
         loadMore: loadMoreSpy,
         init: initSpy,
+        reconnect: reconnectSpy,
         sendChatMessage: sendChatMessageSpy,
         kicked: kickedRef,
         wsReconnecting: ref(false),
@@ -101,6 +103,7 @@ describe('ChatView', () => {
         hasMoreRef.value = false
         kickedRef.value = false
         initSpy.mockReset().mockResolvedValue(undefined)
+        reconnectSpy.mockReset().mockResolvedValue(undefined)
         loadMoreSpy.mockReset().mockResolvedValue(undefined)
         sendChatMessageSpy.mockReset()
         connectSpy.mockReset()
@@ -180,6 +183,18 @@ describe('ChatView', () => {
         await flushPromises()
 
         expect(wrapper.find('[data-test="kicked-modal-backdrop"]').exists()).toBe(true)
+    })
+
+    it('calls useChatMessages.reconnect when KickedModal emits reconnect', async () => {
+        kickedRef.value = true
+        const wrapper = mount(ChatView)
+        await flushPromises()
+
+        await wrapper.find('[data-test="kicked-modal-reconnect"]').trigger('click')
+        await flushPromises()
+
+        expect(reconnectSpy).toHaveBeenCalled()
+        expect(kickedRef.value).toBe(false)
     })
 
     it('calls disconnect on unmount', async () => {
