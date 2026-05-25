@@ -11,7 +11,7 @@ import { useChatMessages } from '@/composables/useChatMessages'
 import { useChatWebSocket } from '@/composables/useChatWebSocket'
 import { useUser } from '@/composables/useUser'
 
-const { messages, loading, hasMore, loadMore, init, reconnect, sendChatMessage, kicked } = useChatMessages()
+const { messages, loading, hasMore, loadMore, init, reconnect, dispose, sendChatMessage, kicked } = useChatMessages()
 const wsClient = useChatWebSocket()
 const user = useUser()
 const currentProfile = computed(() => user.profile.value)
@@ -144,6 +144,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
     listResizeObserver?.disconnect()
     listResizeObserver = null
+    dispose()
     wsClient.disconnect()
 })
 

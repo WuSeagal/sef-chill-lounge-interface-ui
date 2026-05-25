@@ -35,6 +35,7 @@ describe('useChatMessages', () => {
     let send: ReturnType<typeof vi.fn>
     let onMessage: ReturnType<typeof vi.fn>
     let messageHandlers: Array<(env: { type: string; data: unknown }) => void>
+    let unsubSpies: ReturnType<typeof vi.fn>[]
     let connectTime: ReturnType<typeof ref<number | null>>
     let loadInitial: ReturnType<typeof vi.fn>
     let appendLiveMock: ReturnType<typeof vi.fn>
@@ -42,16 +43,20 @@ describe('useChatMessages', () => {
 
     beforeEach(() => {
         messageHandlers = []
+        unsubSpies = []
         connectTime = ref<number | null>(null)
-        // Use a fixed ms timestamp that maps to a known local datetime
-        // 2026-05-26T10:00:00 local → use Date.parse for cross-TZ stability
         connect = vi.fn(() => {
             connectTime.value = new Date(2026, 4, 26, 10, 0, 0).getTime()
         })
         send = vi.fn()
         onMessage = vi.fn((cb) => {
             messageHandlers.push(cb)
-            return () => {}
+            const unsub = vi.fn(() => {
+                const idx = messageHandlers.indexOf(cb)
+                if (idx >= 0) messageHandlers.splice(idx, 1)
+            })
+            unsubSpies.push(unsub)
+            return unsub
         })
         historyMessages = ref<MessageResponse[]>([])
         loadInitial = vi.fn(async () => {})
@@ -142,7 +147,6 @@ describe('useChatMessages', () => {
         const { init, reconnect } = useChatMessages()
         await init()
 
-        // Simulate kick: connectTime cleared. Then user clicks reconnect.
         connectTime.value = null
         connect.mockImplementation(() => {
             connectTime.value = new Date(2026, 4, 26, 11, 0, 0).getTime()
@@ -189,5 +193,165 @@ describe('useChatMessages', () => {
             })
         }).not.toThrow()
         expect(historyMessages.value).toEqual([])
+    })
+
+    it('buffers live CHAT_MESSAGE arriving before loadInitial finishes and flushes after', async () => {
+        // Make loadInitial pause so we can fire a live message in the middle.
+        let resolveLoad!: () => void
+        loadInitial.mockImplementationOnce(() => new Promise<void>((res) => { resolveLoad = res }))
+
+        const live = fakeMessage({ messageId: 'mid-race', content: 'arrived mid-load' })
+
+        const { init } = useChatMessages()
+        const initPromise = init()
+        // wait for subscribe() to run (it runs synchronously after connectTime resolves)
+        await Promise.resolve()
+        await Promise.resolve()
+
+        // Simulate live broadcast during the gap window.
+        messageHandlers[0]({ type: 'CHAT_MESSAGE', data: live })
+
+        // appendLive should NOT have fired yet — live is buffered.
+        expect(appendLiveMock).not.toHaveBeenCalled()
+
+        // Simulate history coming back empty.
+        historyMessages.value = []
+        resolveLoad()
+        await initPromise
+
+        // After load completes, the buffered live message should be appended.
+        expect(appendLiveMock).toHaveBeenCalledWith(live)
+    })
+
+    it('flushPendingLive skips messages that history already contains', async () => {
+        let resolveLoad!: () => void
+        loadInitial.mockImplementationOnce(() => new Promise<void>((res) => { resolveLoad = res }))
+
+        const overlapping = fakeMessage({ messageId: 'overlap', content: 'arrived twice' })
+
+        const { init } = useChatMessages()
+        const initPromise = init()
+        await Promise.resolve()
+        await Promise.resolve()
+
+        messageHandlers[0]({ type: 'CHAT_MESSAGE', data: overlapping })
+
+        // Simulate history containing the same message (server's broadcast was also persisted in time)
+        historyMessages.value = [overlapping]
+        resolveLoad()
+        await initPromise
+
+        expect(appendLiveMock).not.toHaveBeenCalled()
+    })
+
+    it('dispose removes the active subscription so further envelopes are ignored', async () => {
+        const { init, dispose } = useChatMessages()
+        await init()
+
+        const unsubBefore = unsubSpies[0]
+        dispose()
+        expect(unsubBefore).toHaveBeenCalled()
+
+        const live = fakeMessage({ messageId: 'after-dispose', content: 'should be ignored' })
+        // After dispose, no handlers remain — broadcast to remaining handlers is a no-op
+        expect(messageHandlers.length).toBe(0)
+        // Even if a stale handler somehow ran, appendLive wouldn't be called
+        expect(appendLiveMock).not.toHaveBeenCalledWith(live)
+    })
+
+    it('init replaces a previous subscription instead of stacking another', async () => {
+        const { init } = useChatMessages()
+        await init()
+        const firstUnsub = unsubSpies[0]
+        const firstHandlerCount = messageHandlers.length
+
+        await init()
+
+        expect(firstUnsub).toHaveBeenCalled()
+        // First subscription unsubscribed, second registered → still exactly one active
+        expect(messageHandlers.length).toBe(firstHandlerCount)
+    })
+
+    it('reconnect replaces the previous subscription too', async () => {
+        const { init, reconnect } = useChatMessages()
+        await init()
+        const firstUnsub = unsubSpies[0]
+
+        connectTime.value = null
+        connect.mockImplementation(() => {
+            connectTime.value = new Date(2026, 4, 26, 11, 0, 0).getTime()
+        })
+
+        await reconnect()
+
+        expect(firstUnsub).toHaveBeenCalled()
+        expect(messageHandlers.length).toBe(1)
+    })
+
+    it('ignores CHAT_MESSAGE with no messageId (shape guard)', async () => {
+        const { init } = useChatMessages()
+        await init()
+
+        messageHandlers[0]({ type: 'CHAT_MESSAGE', data: { content: 'no id' } as unknown as MessageResponse })
+        messageHandlers[0]({ type: 'CHAT_MESSAGE', data: null })
+        messageHandlers[0]({ type: 'CHAT_MESSAGE', data: 'not an object' as unknown as MessageResponse })
+
+        expect(appendLiveMock).not.toHaveBeenCalled()
+    })
+
+    it('ignores PROFILE_UPDATED with no userId (shape guard)', async () => {
+        const { init } = useChatMessages()
+        await init()
+        historyMessages.value = [fakeMessage({ messageId: 'm1', userId: 'u-1' })]
+        const before = historyMessages.value
+
+        messageHandlers[0]({ type: 'PROFILE_UPDATED', data: { furName: 'no-id', avatar: '/n.png' } })
+
+        expect(historyMessages.value).toBe(before)
+    })
+})
+
+describe('useChatMessages waitForConnectTime timeout', () => {
+    beforeEach(() => {
+        vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+        vi.useRealTimers()
+        vi.clearAllMocks()
+    })
+
+    it('init rejects if connectTime never arrives within 30s', async () => {
+        const connectTime = ref<number | null>(null)
+        const connect = vi.fn() // never sets connectTime
+        const send = vi.fn()
+        const onMessage = vi.fn(() => () => {})
+
+        vi.mocked(useChatWebSocket).mockReturnValue({
+            connect,
+            disconnect: vi.fn(),
+            send,
+            onMessage,
+            kicked: ref(false),
+            wsReconnecting: ref(false),
+            wsFailed: ref(false),
+            connectTime,
+        } as unknown as ReturnType<typeof useChatWebSocket>)
+
+        vi.mocked(useChatHistory).mockReturnValue({
+            messages: ref([]),
+            loading: ref(false),
+            hasMore: ref(true),
+            loadInitial: vi.fn(async () => {}),
+            loadMore: vi.fn(),
+            appendLive: vi.fn(),
+        } as unknown as ReturnType<typeof useChatHistory>)
+
+        const { init } = useChatMessages()
+        const promise = init()
+        const expectation = expect(promise).rejects.toThrow('timed out')
+
+        await vi.advanceTimersByTimeAsync(30_001)
+        await expectation
     })
 })

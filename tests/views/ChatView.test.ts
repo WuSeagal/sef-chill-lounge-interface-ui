@@ -34,6 +34,7 @@ const hasMoreRef = ref(false)
 const kickedRef = ref(false)
 const initSpy = vi.fn()
 const reconnectSpy = vi.fn()
+const disposeSpy = vi.fn()
 const loadMoreSpy = vi.fn()
 const sendChatMessageSpy = vi.fn()
 const disconnectSpy = vi.fn()
@@ -66,6 +67,7 @@ vi.mock('@/composables/useChatMessages', () => ({
         loadMore: loadMoreSpy,
         init: initSpy,
         reconnect: reconnectSpy,
+        dispose: disposeSpy,
         sendChatMessage: sendChatMessageSpy,
         kicked: kickedRef,
         wsReconnecting: ref(false),
@@ -104,6 +106,7 @@ describe('ChatView', () => {
         kickedRef.value = false
         initSpy.mockReset().mockResolvedValue(undefined)
         reconnectSpy.mockReset().mockResolvedValue(undefined)
+        disposeSpy.mockReset()
         loadMoreSpy.mockReset().mockResolvedValue(undefined)
         sendChatMessageSpy.mockReset()
         connectSpy.mockReset()
@@ -197,12 +200,13 @@ describe('ChatView', () => {
         expect(kickedRef.value).toBe(false)
     })
 
-    it('calls disconnect on unmount', async () => {
+    it('calls dispose and disconnect on unmount', async () => {
         const wrapper = mount(ChatView)
         await flushPromises()
 
         wrapper.unmount()
 
+        expect(disposeSpy).toHaveBeenCalled()
         expect(disconnectSpy).toHaveBeenCalled()
     })
 })
