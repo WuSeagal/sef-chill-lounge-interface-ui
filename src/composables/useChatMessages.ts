@@ -1,6 +1,11 @@
 import { useChatHistory } from '@/composables/useChatHistory'
 import { useChatWebSocket } from '@/composables/useChatWebSocket'
-import type { ChatEnvelope, ChatMessageBroadcastPayload, ChatMessageSendPayload } from '@/types/chat'
+import type {
+    ChatEnvelope,
+    ChatMessageBroadcastPayload,
+    ChatMessageSendPayload,
+    ProfileUpdatedPayload,
+} from '@/types/chat'
 import type { Ref } from 'vue'
 
 function waitForConnectTime(connectTimeRef: Ref<number | null>): Promise<number> {
@@ -33,13 +38,24 @@ export function useChatMessages() {
         const startedAt = await waitForConnectTime(socket.connectTime)
 
         socket.onMessage((envelope: ChatEnvelope) => {
-            if (envelope.type !== 'CHAT_MESSAGE') return
-            const data = envelope.data as ChatMessageBroadcastPayload
-            const last = history.messages.value.at(-1)
-            if (last && last.messageId === data.messageId) {
+            if (envelope.type === 'CHAT_MESSAGE') {
+                const data = envelope.data as ChatMessageBroadcastPayload
+                const last = history.messages.value.at(-1)
+                if (last && last.messageId === data.messageId) {
+                    return
+                }
+                history.appendLive(data)
                 return
             }
-            history.appendLive(data)
+            if (envelope.type === 'PROFILE_UPDATED') {
+                const data = envelope.data as ProfileUpdatedPayload
+                history.messages.value = history.messages.value.map((m) =>
+                    m.userId === data.userId
+                        ? { ...m, furName: data.furName, avatar: data.avatar }
+                        : m
+                )
+                return
+            }
         })
 
         await history.loadInitial({ before: toLocalIsoSeconds(startedAt) })

@@ -137,4 +137,41 @@ describe('useChatMessages', () => {
 
         expect(send).not.toHaveBeenCalled()
     })
+
+    it('patches loaded messages with new furName/avatar on PROFILE_UPDATED', async () => {
+        const { init } = useChatMessages()
+        await init()
+
+        historyMessages.value = [
+            fakeMessage({ messageId: 'm1', userId: 'u-1', furName: 'Old', avatar: '/old.png', content: 'one' }),
+            fakeMessage({ messageId: 'm2', userId: 'u-2', furName: 'Other', avatar: '/o.png', content: 'two' }),
+            fakeMessage({ messageId: 'm3', userId: 'u-1', furName: 'Old', avatar: '/old.png', content: 'three' }),
+        ]
+
+        messageHandlers[0]({
+            type: 'PROFILE_UPDATED',
+            data: { userId: 'u-1', furName: 'NewFur', avatar: '/new.png' },
+        })
+
+        expect(historyMessages.value).toEqual([
+            expect.objectContaining({ messageId: 'm1', furName: 'NewFur', avatar: '/new.png' }),
+            expect.objectContaining({ messageId: 'm2', furName: 'Other', avatar: '/o.png' }),
+            expect.objectContaining({ messageId: 'm3', furName: 'NewFur', avatar: '/new.png' }),
+        ])
+    })
+
+    it('PROFILE_UPDATED is a no-op when no messages are loaded yet', async () => {
+        const { init } = useChatMessages()
+        await init()
+
+        historyMessages.value = []
+
+        expect(() => {
+            messageHandlers[0]({
+                type: 'PROFILE_UPDATED',
+                data: { userId: 'u-1', furName: 'X', avatar: '/x.png' },
+            })
+        }).not.toThrow()
+        expect(historyMessages.value).toEqual([])
+    })
 })
