@@ -6,7 +6,7 @@ vi.mock('@/utils/request', () => ({
     default: { post: postMock },
 }))
 
-import { uploadChatImage } from '@/api/imageUploadApi'
+import { uploadChatImage, ImageUploadError } from '@/api/imageUploadApi'
 
 describe('imageUploadApi', () => {
     beforeEach(() => {
@@ -67,5 +67,23 @@ describe('imageUploadApi', () => {
             code: 0,
             message: 'upload_failed',
         })
+    })
+
+    it('thrown error is an ImageUploadError instance with stack trace', async () => {
+        postMock.mockRejectedValue({
+            response: { status: 415, data: { message: 'unsupported_image_type' } },
+        })
+
+        const file = new File(['x'], 'a.exe', { type: 'image/jpeg' })
+        try {
+            await uploadChatImage(file)
+            throw new Error('should have thrown')
+        } catch (e) {
+            expect(e).toBeInstanceOf(ImageUploadError)
+            expect(e).toBeInstanceOf(Error)
+            expect((e as ImageUploadError).code).toBe(415)
+            expect((e as ImageUploadError).message).toBe('unsupported_image_type')
+            expect((e as Error).stack).toBeDefined()
+        }
     })
 })

@@ -5,9 +5,14 @@ export interface ChatImageUploadResponse {
     url: string
 }
 
-export interface ImageUploadError {
-    code: number
-    message: string
+export class ImageUploadError extends Error {
+    public readonly code: number
+
+    constructor(code: number, message: string) {
+        super(message)
+        this.name = 'ImageUploadError'
+        this.code = code
+    }
 }
 
 export async function uploadChatImage(file: File): Promise<ChatImageUploadResponse> {
@@ -22,10 +27,11 @@ export async function uploadChatImage(file: File): Promise<ChatImageUploadRespon
         }
         return envelope.data
     } catch (err) {
+        if (err instanceof ImageUploadError) throw err
         const e = err as { response?: { status?: number; data?: { message?: string } } }
-        throw {
-            code: e.response?.status ?? 0,
-            message: e.response?.data?.message ?? 'upload_failed',
-        } as ImageUploadError
+        throw new ImageUploadError(
+            e.response?.status ?? 0,
+            e.response?.data?.message ?? 'upload_failed',
+        )
     }
 }

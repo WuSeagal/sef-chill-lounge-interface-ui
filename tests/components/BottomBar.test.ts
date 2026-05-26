@@ -89,4 +89,55 @@ describe('BottomBar', () => {
         expect(updates).toBeTruthy()
         expect(updates![0]).toEqual([`hi ${emojiText}`])
     })
+
+    it('disables attach button when attachDisabled is true', () => {
+        const wrapper = mount(BottomBar, {
+            props: { inputValue: '', attachDisabled: true },
+        })
+        const btn = wrapper.find('[data-btn="attach"]')
+        expect(btn.attributes('disabled')).toBeDefined()
+    })
+
+    it('emits attach-click when attach button is clicked', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '' } })
+        await wrapper.find('[data-btn="attach"]').trigger('click')
+        expect(wrapper.emitted('attach-click')).toBeTruthy()
+    })
+
+    it('emits image-paste with files when image data is pasted into textarea', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '' } })
+        const file = new File(['x'], 'pasted.png', { type: 'image/png' })
+
+        const event = new Event('paste', { bubbles: true, cancelable: true })
+        Object.defineProperty(event, 'clipboardData', {
+            value: {
+                items: [{
+                    kind: 'file',
+                    type: 'image/png',
+                    getAsFile: () => file,
+                }],
+            },
+        })
+        wrapper.find('.bottom-bar__input').element.dispatchEvent(event)
+        await wrapper.vm.$nextTick()
+
+        const pastes = wrapper.emitted('image-paste')
+        expect(pastes).toBeTruthy()
+        expect(pastes![0]).toEqual([[file]])
+    })
+
+    it('does not emit image-paste when clipboard has no image item', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '' } })
+
+        const event = new Event('paste', { bubbles: true, cancelable: true })
+        Object.defineProperty(event, 'clipboardData', {
+            value: {
+                items: [{ kind: 'string', type: 'text/plain', getAsFile: () => null }],
+            },
+        })
+        wrapper.find('.bottom-bar__input').element.dispatchEvent(event)
+        await wrapper.vm.$nextTick()
+
+        expect(wrapper.emitted('image-paste')).toBeUndefined()
+    })
 })

@@ -13,14 +13,14 @@ import { useChatWebSocket } from '@/composables/useChatWebSocket'
 import { useChatImageUpload } from '@/composables/useChatImageUpload'
 import { useUser } from '@/composables/useUser'
 
+// 對應後端 error code 翻譯為使用者訊息；未知 code 直接照原文（addFiles 設的 limit
+// 訊息已是中文）。避免依賴特定 prefix 字串判斷來源。
+const ERROR_CODE_TO_MESSAGE: Record<string, string> = {
+    file_too_large: '圖片超過 10MB 上限',
+    unsupported_image_type: '不支援的圖片格式',
+}
 function uploadErrorToMessage(code: string): string {
-    switch (code) {
-        case 'file_too_large': return '圖片超過 10MB 上限'
-        case 'unsupported_image_type': return '不支援的圖片格式'
-        default:
-            if (code.startsWith('最多')) return code
-            return '圖片上傳失敗：' + code
-    }
+    return ERROR_CODE_TO_MESSAGE[code] ?? code
 }
 
 const { messages, loading, hasMore, loadMore, init, reconnect, dispose, sendChatMessage, kicked } = useChatMessages()
@@ -122,25 +122,31 @@ async function onSend(value: string) {
 }
 
 function onAttachClick() {
+    if (imageUpload.uploading.value) return
     fileInputRef.value?.click()
 }
 
 function onFileChange(event: Event) {
     const input = event.target as HTMLInputElement
+    if (imageUpload.uploading.value) {
+        input.value = ''
+        return
+    }
     if (input.files) imageUpload.addFiles(input.files)
     input.value = ''
 }
 
 function onImagePaste(files: File[]) {
+    if (imageUpload.uploading.value) return
     imageUpload.addFiles(files)
 }
 
-// 將 useChatImageUpload 的 error 統一導去 Notivue toast，避免聊天視窗內出現警告區塊
-watch(() => imageUpload.error.value, (msg) => {
-    if (msg) {
-        push.warning(uploadErrorToMessage(msg))
-        imageUpload.error.value = null
-    }
+// 監看 errorVersion 計數器（每次 setError 都會 bump 1），這樣連續兩次相同
+// error message（例如連點兩次超 5 張）watcher 也會觸發 — 比監看 error.value
+// 字串更可靠，也不需要在 watcher 內反向 mutate watched ref。
+watch(() => imageUpload.errorVersion.value, () => {
+    const msg = imageUpload.error.value
+    if (msg) push.warning(uploadErrorToMessage(msg))
 })
 
 function onGearClick() {
@@ -267,7 +273,7 @@ void currentProfile
 
         <BottomBar
             v-model:input-value="inputValue"
-            :attach-disabled="imageUpload.isAtLimit()"
+            :attach-disabled="imageUpload.isAtLimit() || imageUpload.uploading.value"
             @gear-click="onGearClick"
             @attach-click="onAttachClick"
             @image-paste="onImagePaste"
