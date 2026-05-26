@@ -110,9 +110,7 @@ function onEmojiPickerClose() {
             class="bottom-bar__btn"
             data-btn="attach"
             type="button"
-            disabled
-            title="即將推出"
-            @click.prevent
+            @click="emit('attach-click')"
         >
             <span class="bottom-bar__icon" v-html="iconAttachRaw"></span>
         </button>

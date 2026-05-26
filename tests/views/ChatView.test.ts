@@ -158,7 +158,7 @@ describe('ChatView', () => {
         await wrapper.find('[data-btn="send"]').trigger('click')
         await flushPromises()
 
-        expect(sendChatMessageSpy).toHaveBeenCalledWith('hi from test')
+        expect(sendChatMessageSpy).toHaveBeenCalledWith('hi from test', [])
         // 不做 optimistic local append — 等 broadcast 回來才出現
         expect(wrapper.findAll('.message-item').length).toBe(before)
     })

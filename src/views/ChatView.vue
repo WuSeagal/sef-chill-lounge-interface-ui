@@ -9,10 +9,13 @@ import SettingsModal from '@/components/SettingsModal.vue'
 import KickedModal from '@/components/KickedModal.vue'
 import { useChatMessages } from '@/composables/useChatMessages'
 import { useChatWebSocket } from '@/composables/useChatWebSocket'
+import { useChatImageUpload } from '@/composables/useChatImageUpload'
 import { useUser } from '@/composables/useUser'
 
 const { messages, loading, hasMore, loadMore, init, reconnect, dispose, sendChatMessage, kicked } = useChatMessages()
 const wsClient = useChatWebSocket()
+const imageUpload = useChatImageUpload()
+const fileInputRef = ref<HTMLInputElement | null>(null)
 const user = useUser()
 const currentProfile = computed(() => user.profile.value)
 
@@ -88,10 +91,33 @@ const settingsOpen = ref(false)
 const inputValue = ref('')
 
 async function onSend(value: string) {
-    sendChatMessage(value)
+    if (imageUpload.uploading.value) return
+
+    let imageUrls: string[] = []
+    if (imageUpload.selectedFiles.value.length > 0) {
+        try {
+            imageUrls = await imageUpload.uploadAll()
+        } catch {
+            // error 已存於 imageUpload.error，停止 send，保留輸入內容
+            return
+        }
+    }
+
+    sendChatMessage(value, imageUrls)
     inputValue.value = ''
+    imageUpload.reset()
     await nextTick()
     scrollToBottom(true)
+}
+
+function onAttachClick() {
+    fileInputRef.value?.click()
+}
+
+function onFileChange(event: Event) {
+    const input = event.target as HTMLInputElement
+    if (input.files) imageUpload.addFiles(input.files)
+    input.value = ''
 }
 
 function onGearClick() {
@@ -185,9 +211,49 @@ void currentProfile
             </button>
         </div>
 
+        <input
+            ref="fileInputRef"
+            data-testid="chat-image-picker"
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/gif,image/webp"
+            style="display:none"
+            @change="onFileChange"
+        />
+
+        <div
+            v-if="imageUpload.previews.value.length > 0"
+            class="chat-view__previews"
+            data-testid="image-preview-row"
+        >
+            <div
+                v-for="(preview, idx) in imageUpload.previews.value"
+                :key="preview"
+                class="chat-view__preview"
+                data-testid="image-preview"
+            >
+                <img :src="preview" alt="preview" />
+                <button
+                    type="button"
+                    class="chat-view__preview-remove"
+                    aria-label="移除"
+                    @click="imageUpload.removeFile(idx)"
+                >×</button>
+            </div>
+        </div>
+
+        <div
+            v-if="imageUpload.error.value"
+            class="chat-view__upload-error"
+            data-testid="upload-error"
+        >
+            {{ imageUpload.error.value }}
+        </div>
+
         <BottomBar
             v-model:input-value="inputValue"
             @gear-click="onGearClick"
+            @attach-click="onAttachClick"
             @send="onSend"
         />
 

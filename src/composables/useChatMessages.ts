@@ -131,13 +131,13 @@ export function useChatMessages() {
         historyLoaded = false
     }
 
-    function sendChatMessage(content: string) {
+    function sendChatMessage(content: string, imageUrls: string[] = []) {
         const trimmed = content.trim()
-        if (!trimmed) return
+        if (!trimmed && imageUrls.length === 0) return
         const payload: ChatMessageSendPayload = {
             messageType: 'TEXT',
             content: trimmed,
-            imageUrls: [],
+            imageUrls,
         }
         const envelope: ChatEnvelope<ChatMessageSendPayload> = {
             type: 'CHAT_MESSAGE',
