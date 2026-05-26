@@ -131,6 +131,10 @@ function onFileChange(event: Event) {
     input.value = ''
 }
 
+function onImagePaste(files: File[]) {
+    imageUpload.addFiles(files)
+}
+
 // 將 useChatImageUpload 的 error 統一導去 Notivue toast，避免聊天視窗內出現警告區塊
 watch(() => imageUpload.error.value, (msg) => {
     if (msg) {
@@ -263,8 +267,10 @@ void currentProfile
 
         <BottomBar
             v-model:input-value="inputValue"
+            :attach-disabled="imageUpload.isAtLimit()"
             @gear-click="onGearClick"
             @attach-click="onAttachClick"
+            @image-paste="onImagePaste"
             @send="onSend"
         />
 

@@ -26,11 +26,22 @@ describe('useChatImageUpload', () => {
         expect(u.error.value).toBeNull()
     })
 
-    it('addFiles caps at 5 and sets error', () => {
+    it('addFiles hard-rejects whole batch when would exceed limit', () => {
         const u = useChatImageUpload()
-        u.addFiles([f('1'), f('2'), f('3'), f('4'), f('5'), f('6')])
-        expect(u.selectedFiles.value).toHaveLength(5)
+        const ok = u.addFiles([f('1'), f('2'), f('3'), f('4'), f('5'), f('6')])
+        expect(ok).toBe(false)
+        expect(u.selectedFiles.value).toHaveLength(0)
         expect(u.error.value).toContain('5')
+    })
+
+    it('addFiles rejects when already at limit', () => {
+        const u = useChatImageUpload()
+        u.addFiles([f('1'), f('2'), f('3'), f('4'), f('5')])
+        expect(u.isAtLimit()).toBe(true)
+
+        const ok = u.addFiles([f('paste-1')])
+        expect(ok).toBe(false)
+        expect(u.selectedFiles.value).toHaveLength(5)
     })
 
     it('removeFile drops at index and revokes object URL', () => {

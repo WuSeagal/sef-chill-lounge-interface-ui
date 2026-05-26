@@ -11,9 +11,12 @@ import iconEmojiRaw from '@/assets/icons/icon-emoji.svg?raw'
 import iconStickerRaw from '@/assets/icons/icon-sticker.svg?raw'
 import iconSendRaw from '@/assets/icons/icon-send.svg?raw'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     inputValue: string
-}>()
+    attachDisabled?: boolean
+}>(), {
+    attachDisabled: false,
+})
 
 const emit = defineEmits<{
     (e: 'update:inputValue', v: string): void
@@ -22,7 +25,25 @@ const emit = defineEmits<{
     (e: 'emoji-click'): void
     (e: 'sticker-click'): void
     (e: 'send', v: string): void
+    (e: 'image-paste', files: File[]): void
 }>()
+
+function onPaste(event: ClipboardEvent) {
+    const items = event.clipboardData?.items
+    if (!items) return
+    const imageFiles: File[] = []
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i]
+        if (item.kind === 'file' && item.type.startsWith('image/')) {
+            const file = item.getAsFile()
+            if (file) imageFiles.push(file)
+        }
+    }
+    if (imageFiles.length > 0) {
+        event.preventDefault() // 阻止 image-as-text 之類的 fallback
+        emit('image-paste', imageFiles)
+    }
+}
 
 const emojiPickerOpen = ref(false)
 const textareaEl = ref<HTMLTextAreaElement | null>(null)
@@ -110,6 +131,8 @@ function onEmojiPickerClose() {
             class="bottom-bar__btn"
             data-btn="attach"
             type="button"
+            :disabled="attachDisabled"
+            :title="attachDisabled ? '已達 5 張上限' : ''"
             @click="emit('attach-click')"
         >
             <span class="bottom-bar__icon" v-html="iconAttachRaw"></span>
@@ -122,6 +145,7 @@ function onEmojiPickerClose() {
             placeholder="輸入訊息…"
             @input="onInput"
             @keydown="onKeydown"
+            @paste="onPaste"
         ></textarea>
         <button
             class="bottom-bar__btn"

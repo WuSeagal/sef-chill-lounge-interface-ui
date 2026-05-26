@@ -10,20 +10,27 @@ export function useChatImageUpload() {
     const uploading = ref(false)
     const error = ref<string | null>(null)
 
-    function addFiles(files: FileList | File[]) {
+    /**
+     * 加入待上傳圖檔。硬性上限 MAX_FILES：若批次後總數會超過上限，整批拒收
+     * 並設定 error（呼叫方 watch error 後可用 Notivue 顯示）；不做部分接受、
+     * 避免 user 沒注意 toast 就以為全部上傳了的誤解。回傳 true 代表成功加入。
+     */
+    function addFiles(files: FileList | File[]): boolean {
         const incoming = Array.from(files)
-        const available = MAX_FILES - selectedFiles.value.length
-        if (incoming.length > available) {
-            error.value = `最多 ${MAX_FILES} 張，多餘的已忽略`
-        } else {
-            error.value = null
+        if (incoming.length === 0) return false
+        if (selectedFiles.value.length + incoming.length > MAX_FILES) {
+            error.value = `一次最多 ${MAX_FILES} 張，請先移除一些再試`
+            return false
         }
-        const accepted = incoming.slice(0, available)
-        for (const file of accepted) {
+        error.value = null
+        for (const file of incoming) {
             selectedFiles.value.push(file)
             previews.value.push(URL.createObjectURL(file))
         }
+        return true
     }
+
+    const isAtLimit = () => selectedFiles.value.length >= MAX_FILES
 
     function removeFile(index: number) {
         const url = previews.value[index]
@@ -71,5 +78,7 @@ export function useChatImageUpload() {
         removeFile,
         uploadAll,
         reset,
+        isAtLimit,
+        MAX_FILES,
     }
 }

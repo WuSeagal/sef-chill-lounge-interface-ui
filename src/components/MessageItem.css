@@ -73,24 +73,34 @@
     word-break: break-word;
 }
 
-.message-item__image {
-    display: block;
-    cursor: pointer;
-    border-radius: var(--radius-sm);
-    margin-top: 4px;
-    /* 用最長邊當作極限、另一邊依比例 — width/height: auto + max-* 即可
-       讓 browser 用 intrinsic ratio 縮放，不會變形。 */
-    max-width: 240px;
-    max-height: 240px;
-    width: auto;
-    height: auto;
-}
-
 .message-item__images {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
     margin-top: 4px;
+}
+
+/* 用 wrapper + object-fit:contain 保證圖片保持原始比例：
+   最長邊縮到 240px、另一邊按比例、居中於 frame 內，避免被 flex 容器拉伸。 */
+.message-item__image-frame {
+    max-width: 240px;
+    max-height: 240px;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.04);
+}
+
+.message-item__image {
+    max-width: 240px;
+    max-height: 240px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
 }
 
 .message-item__sticker {

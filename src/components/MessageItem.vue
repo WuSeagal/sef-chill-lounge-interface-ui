@@ -53,14 +53,18 @@ const avatarStyle = computed(() => ({
                 v-if="message.messageType === 'TEXT' && message.imageUrls.length"
                 class="message-item__images"
             >
-                <img
+                <div
                     v-for="imageUrl in message.imageUrls"
                     :key="imageUrl"
-                    class="message-item__image"
-                    :src="assetUrl(imageUrl)"
-                    alt=""
+                    class="message-item__image-frame"
                     @click="emit('image-click', imageUrl)"
-                />
+                >
+                    <img
+                        class="message-item__image"
+                        :src="assetUrl(imageUrl)"
+                        alt=""
+                    />
+                </div>
             </div>
             <img
                 v-if="message.messageType === 'STICKER' && message.stickerImageUrl"
