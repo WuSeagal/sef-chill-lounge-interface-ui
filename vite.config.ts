@@ -19,15 +19,7 @@ export default defineConfig(({ mode }) => {
       }
     ],
     server: {
-      port: 9045,
-      proxy: {
-        // 圖片靜態資源：dev 時把瀏覽器對 /image, /user, /sticker 的請求轉到後端 9041
-        // 後端 ImageWebConfig 將這三個 prefix 對應到 file system 子目錄並設 nosniff header。
-        // Prd 由 nginx 將同樣 path 轉到後端（與 /sef-cli/* API 共用 upstream）。
-        '/image': { target: env.VITE_ENDPOINT || 'http://localhost:9041', changeOrigin: true },
-        '/user':  { target: env.VITE_ENDPOINT || 'http://localhost:9041', changeOrigin: true },
-        '/sticker': { target: env.VITE_ENDPOINT || 'http://localhost:9041', changeOrigin: true },
-      },
+      port: 9045
     },
     resolve: {
       alias: [

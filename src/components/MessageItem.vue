@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import './MessageItem.css'
 import type { MessageResponse } from '@/types/message'
+import { assetUrl } from '@/utils/assetUrl'
 
 const props = defineProps<{
     message: MessageResponse
@@ -26,7 +27,7 @@ function onAvatarClick() {
 }
 
 const avatarStyle = computed(() => ({
-    backgroundImage: props.message.avatar ? `url(${props.message.avatar})` : undefined,
+    backgroundImage: props.message.avatar ? `url(${assetUrl(props.message.avatar)})` : undefined,
 }))
 </script>
 
@@ -56,7 +57,7 @@ const avatarStyle = computed(() => ({
                     v-for="imageUrl in message.imageUrls"
                     :key="imageUrl"
                     class="message-item__image"
-                    :src="imageUrl"
+                    :src="assetUrl(imageUrl)"
                     alt=""
                     :style="{ maxWidth: '240px', maxHeight: '240px' }"
                     @click="emit('image-click', imageUrl)"
@@ -65,7 +66,7 @@ const avatarStyle = computed(() => ({
             <img
                 v-if="message.messageType === 'STICKER' && message.stickerImageUrl"
                 class="message-item__sticker"
-                :src="message.stickerImageUrl"
+                :src="assetUrl(message.stickerImageUrl)"
                 alt=""
             />
         </div>

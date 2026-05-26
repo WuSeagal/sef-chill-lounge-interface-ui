@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, watch } from 'vue'
 import './ImageLightbox.css'
+import { assetUrl } from '@/utils/assetUrl'
 
 const props = defineProps<{
     open: boolean
     imageUrl: string | null
 }>()
+
+const resolvedUrl = computed(() => assetUrl(props.imageUrl))
 
 const emit = defineEmits<{
     (e: 'close'): void
@@ -48,10 +51,10 @@ function onFrameClick(event: Event) {
 <template>
     <div v-if="visible" class="image-lightbox" @click="onBackdropClick">
         <div class="image-lightbox__frame" @click="onFrameClick">
-            <img class="image-lightbox__img" :src="imageUrl ?? ''" alt="" />
+            <img class="image-lightbox__img" :src="resolvedUrl" alt="" />
             <a
                 class="image-lightbox__open-link"
-                :href="imageUrl ?? '#'"
+                :href="resolvedUrl || '#'"
                 target="_blank"
                 rel="noopener noreferrer"
             >在瀏覽器中開啟</a>

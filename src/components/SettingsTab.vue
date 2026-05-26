@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import './SettingsTab.css'
 import { useUser } from '@/composables/useUser'
+import { assetUrl } from '@/utils/assetUrl'
 
 const user = useUser()
 
@@ -108,7 +109,7 @@ function onStickerFileChange(index: number, event: Event) {
             <div class="settings-tab__avatar-row">
                 <img
                     class="settings-tab__avatar-img"
-                    :src="avatar || ''"
+                    :src="assetUrl(avatar)"
                     alt="avatar"
                     :style="{ borderColor: localAvatarColor }"
                 />
@@ -168,7 +169,7 @@ function onStickerFileChange(index: number, event: Event) {
             <label class="settings-tab__label">自訂貼圖</label>
             <div class="settings-tab__sticker-grid">
                 <div v-for="s in stickers" :key="s.id" class="settings-tab__sticker-slot">
-                    <img class="settings-tab__sticker-img" :src="s.sticker ?? ''" :alt="'sticker ' + (s.stickerNo)" />
+                    <img class="settings-tab__sticker-img" :src="assetUrl(s.sticker)" :alt="'sticker ' + (s.stickerNo)" />
                     <input
                         class="settings-tab__sticker-upload"
                         type="file"
