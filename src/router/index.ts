@@ -22,13 +22,23 @@ const router = createRouter({
             component: () => import('@/views/ChatView.vue'),
         },
         {
+            path: '/error',
+            component: () => import('@/views/ErrorPage.vue'),
+            meta: { skipAuth: true },
+        },
+        {
             path: '/:pathMatch(.*)*',
-            redirect: '/',
+            component: () => import('@/views/ErrorPage.vue'),
+            meta: { skipAuth: true },
         },
     ]
 })
 
 router.beforeEach(async (to, _from, next) => {
+    if (to.meta?.skipAuth === true) {
+        return next()
+    }
+
     if (to.path === '/oauth2/callback') {
         return next()
     }

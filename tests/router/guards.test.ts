@@ -84,4 +84,32 @@ describe('router onboarding guard', () => {
         await navigateTo('/dashboard')
         expect(router.currentRoute.value.path).toBe('/')
     })
+
+    it('catch-all 命中 ErrorPage，不被 redirect 到 /', async () => {
+        profileRef.value = { userId: 'u-1' }
+        await navigateTo('/no-such-path-xyz')
+        expect(router.currentRoute.value.path).toBe('/no-such-path-xyz')
+        const matched = router.currentRoute.value.matched
+        expect(matched.length).toBeGreaterThan(0)
+        expect(matched[matched.length - 1].meta.skipAuth).toBe(true)
+    })
+
+    it('未登入造訪不存在 route，ErrorPage 直接顯示（不轉 /）', async () => {
+        authState.isLogin = false
+        await navigateTo('/foo/bar/baz')
+        expect(router.currentRoute.value.path).toBe('/foo/bar/baz')
+        expect(router.currentRoute.value.matched[router.currentRoute.value.matched.length - 1].meta.skipAuth).toBe(true)
+    })
+
+    it('/error route 帶 query 正常命中', async () => {
+        await navigateTo('/error')
+        expect(router.currentRoute.value.path).toBe('/error')
+        expect(router.currentRoute.value.matched[router.currentRoute.value.matched.length - 1].meta.skipAuth).toBe(true)
+    })
+
+    it('/oauth2/callback 仍命中 GoogleCallback（不被 catch-all 攔）', async () => {
+        authState.isLogin = false
+        await navigateTo('/oauth2/callback')
+        expect(router.currentRoute.value.path).toBe('/oauth2/callback')
+    })
 })
