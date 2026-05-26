@@ -80,6 +80,15 @@ const zhTW = {
             avatarColor: '選一個頭像顏色',
         },
     },
+    error: {
+        title: '哎呀',
+        subtitleNotFound: '找不到頁面',
+        subtitleServer: '伺服器錯誤',
+        subtitleNetwork: '連線中斷',
+        codeLabel: 'CODE',
+        fromLabel: 'from',
+        backHome: '回首頁',
+    },
 }
 
 export default zhTW
