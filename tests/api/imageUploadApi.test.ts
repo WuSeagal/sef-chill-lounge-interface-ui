@@ -1,21 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import axios from 'axios'
+
+const { postMock } = vi.hoisted(() => ({ postMock: vi.fn() }))
+
+vi.mock('@/utils/request', () => ({
+    default: { post: postMock },
+}))
+
 import { uploadChatImage } from '@/api/imageUploadApi'
 
-vi.mock('axios')
-
 describe('imageUploadApi', () => {
-    let postMock: ReturnType<typeof vi.fn>
-
     beforeEach(() => {
-        postMock = vi.fn()
-        ;(axios as unknown as { post: typeof postMock }).post = postMock
+        postMock.mockReset()
     })
 
     it('posts multipart with file field and returns response data', async () => {
         postMock.mockResolvedValue({
-            data: { code: 201, message: 'OK', data: { fileName: 'abc.png', url: '/image/abc.png' } },
-            status: 201,
+            code: 200, message: 'OK', data: { fileName: 'abc.png', url: '/image/abc.png' },
         })
 
         const file = new File(['x'], 'a.png', { type: 'image/png' })

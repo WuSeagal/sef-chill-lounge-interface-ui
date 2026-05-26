@@ -1,4 +1,4 @@
-import axios from 'axios'
+import request from '@/utils/request'
 
 export interface ChatImageUploadResponse {
     fileName: string
@@ -14,12 +14,13 @@ export async function uploadChatImage(file: File): Promise<ChatImageUploadRespon
     const formData = new FormData()
     formData.append('file', file)
     try {
-        const response = await axios.post<{
+        // request 的 response interceptor 已解包 ApiResponse，回傳值就是 { code, message, data }
+        const envelope = await request.post('/upload/chat-image', formData) as unknown as {
             code: number
             message: string
             data: ChatImageUploadResponse
-        }>('/upload/chat-image', formData)
-        return response.data.data
+        }
+        return envelope.data
     } catch (err) {
         const e = err as { response?: { status?: number; data?: { message?: string } } }
         throw {
