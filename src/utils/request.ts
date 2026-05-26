@@ -1,4 +1,5 @@
 import axios from 'axios'
+import router from '@/router'
 
 const service = axios.create({
     baseURL: import.meta.env.VITE_ENDPOINT || 'http://localhost:9041',
@@ -21,8 +22,17 @@ service.interceptors.response.use(
         return res
     },
     error => {
-        if (error.response?.status === 401) {
-            // session expired
+        const status = error.response?.status ?? 0
+        const from = error.config?.url ?? ''
+        if (status === 401) {
+            // session expired — 既有 OAuth 流程接手，不轉跳 ErrorPage
+            return Promise.reject(error)
+        }
+        if (status === 0 || (status >= 400 && status < 600)) {
+            router.push({
+                path: '/error',
+                query: { code: status, from },
+            })
         }
         return Promise.reject(error)
     }
