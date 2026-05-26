@@ -59,7 +59,6 @@ const avatarStyle = computed(() => ({
                     class="message-item__image"
                     :src="assetUrl(imageUrl)"
                     alt=""
-                    :style="{ maxWidth: '240px', maxHeight: '240px' }"
                     @click="emit('image-click', imageUrl)"
                 />
             </div>

@@ -78,6 +78,12 @@
     cursor: pointer;
     border-radius: var(--radius-sm);
     margin-top: 4px;
+    /* 用最長邊當作極限、另一邊依比例 — width/height: auto + max-* 即可
+       讓 browser 用 intrinsic ratio 縮放，不會變形。 */
+    max-width: 240px;
+    max-height: 240px;
+    width: auto;
+    height: auto;
 }
 
 .message-item__images {

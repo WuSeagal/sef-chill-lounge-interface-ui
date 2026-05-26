@@ -7,10 +7,21 @@ import UserPopup from '@/components/UserPopup.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
 import KickedModal from '@/components/KickedModal.vue'
+import { push } from 'notivue'
 import { useChatMessages } from '@/composables/useChatMessages'
 import { useChatWebSocket } from '@/composables/useChatWebSocket'
 import { useChatImageUpload } from '@/composables/useChatImageUpload'
 import { useUser } from '@/composables/useUser'
+
+function uploadErrorToMessage(code: string): string {
+    switch (code) {
+        case 'file_too_large': return '圖片超過 10MB 上限'
+        case 'unsupported_image_type': return '不支援的圖片格式'
+        default:
+            if (code.startsWith('最多')) return code
+            return '圖片上傳失敗：' + code
+    }
+}
 
 const { messages, loading, hasMore, loadMore, init, reconnect, dispose, sendChatMessage, kicked } = useChatMessages()
 const wsClient = useChatWebSocket()
@@ -98,7 +109,7 @@ async function onSend(value: string) {
         try {
             imageUrls = await imageUpload.uploadAll()
         } catch {
-            // error 已存於 imageUpload.error，停止 send，保留輸入內容
+            // error 已存於 imageUpload.error，已 watch 顯示 toast，保留輸入內容讓 user 重試
             return
         }
     }
@@ -119,6 +130,14 @@ function onFileChange(event: Event) {
     if (input.files) imageUpload.addFiles(input.files)
     input.value = ''
 }
+
+// 將 useChatImageUpload 的 error 統一導去 Notivue toast，避免聊天視窗內出現警告區塊
+watch(() => imageUpload.error.value, (msg) => {
+    if (msg) {
+        push.warning(uploadErrorToMessage(msg))
+        imageUpload.error.value = null
+    }
+})
 
 function onGearClick() {
     settingsOpen.value = true
@@ -240,14 +259,6 @@ void currentProfile
                     @click="imageUpload.removeFile(idx)"
                 >×</button>
             </div>
-        </div>
-
-        <div
-            v-if="imageUpload.error.value"
-            class="chat-view__upload-error"
-            data-testid="upload-error"
-        >
-            {{ imageUpload.error.value }}
         </div>
 
         <BottomBar
