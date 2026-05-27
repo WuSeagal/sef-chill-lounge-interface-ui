@@ -3,12 +3,11 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import './ErrorPage.css'
+import heroSrc from '@/assets/error-hero.svg'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
-
-const heroSrc = `${import.meta.env.BASE_URL || '/'}error-hero.svg`
 
 const code = computed<number>(() => {
     const raw = route.query.code

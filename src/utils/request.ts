@@ -28,7 +28,9 @@ service.interceptors.response.use(
             // session expired — 既有 OAuth 流程接手，不轉跳 ErrorPage
             return Promise.reject(error)
         }
-        if (status === 0 || (status >= 400 && status < 600)) {
+        // 已在 /error 頁時不再 push /error（防 redirect loop）；只 gate push，不吞其他錯誤處理
+        const alreadyOnErrorPage = router.currentRoute.value.path === '/error'
+        if (!alreadyOnErrorPage && (status === 0 || (status >= 400 && status < 600))) {
             router.push({
                 path: '/error',
                 query: { code: status, from },

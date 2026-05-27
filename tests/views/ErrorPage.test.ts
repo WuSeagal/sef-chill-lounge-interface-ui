@@ -55,11 +55,16 @@ describe('ErrorPage', () => {
         expect(wrapper.text()).toContain('/api/test')
     })
 
-    it('點「回首頁」按鈕觸發 router.push to /', async () => {
+    it('點 CTA 按鈕觸發 router.push to /', async () => {
         const { wrapper, router } = await mountWith({ code: 404 })
         const spy = vi.spyOn(router, 'push')
         await wrapper.find('[data-test="back-home"]').trigger('click')
         expect(spy).toHaveBeenCalledWith('/')
+    })
+
+    it('CTA 顯示「回到聊天」', async () => {
+        const { wrapper } = await mountWith({ code: 404 })
+        expect(wrapper.find('[data-test="back-home"]').text()).toContain('回到聊天')
     })
 
     it('渲染 error-hero.svg 主視覺', async () => {

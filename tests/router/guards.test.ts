@@ -85,20 +85,19 @@ describe('router onboarding guard', () => {
         expect(router.currentRoute.value.path).toBe('/')
     })
 
-    it('catch-all 命中 ErrorPage，不被 redirect 到 /', async () => {
+    it('catch-all 未知路由 redirect 到 /error?code=404 並帶 from', async () => {
         profileRef.value = { userId: 'u-1' }
         await navigateTo('/no-such-path-xyz')
-        expect(router.currentRoute.value.path).toBe('/no-such-path-xyz')
-        const matched = router.currentRoute.value.matched
-        expect(matched.length).toBeGreaterThan(0)
-        expect(matched[matched.length - 1].meta.skipAuth).toBe(true)
+        expect(router.currentRoute.value.path).toBe('/error')
+        expect(router.currentRoute.value.query.code).toBe('404')
+        expect(String(router.currentRoute.value.query.from)).toContain('/no-such-path-xyz')
     })
 
-    it('未登入造訪不存在 route，ErrorPage 直接顯示（不轉 /）', async () => {
+    it('未登入造訪不存在 route 也 redirect 到 /error?code=404', async () => {
         authState.isLogin = false
         await navigateTo('/foo/bar/baz')
-        expect(router.currentRoute.value.path).toBe('/foo/bar/baz')
-        expect(router.currentRoute.value.matched[router.currentRoute.value.matched.length - 1].meta.skipAuth).toBe(true)
+        expect(router.currentRoute.value.path).toBe('/error')
+        expect(router.currentRoute.value.query.code).toBe('404')
     })
 
     it('/error route 帶 query 正常命中', async () => {

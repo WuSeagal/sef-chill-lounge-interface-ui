@@ -28,7 +28,7 @@ const router = createRouter({
         },
         {
             path: '/:pathMatch(.*)*',
-            component: () => import('@/views/ErrorPage.vue'),
+            redirect: to => ({ path: '/error', query: { code: 404, from: to.fullPath } }),
             meta: { skipAuth: true },
         },
     ]

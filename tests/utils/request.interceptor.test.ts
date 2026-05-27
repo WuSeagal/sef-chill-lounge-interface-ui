@@ -1,9 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }))
+const { pushMock, currentRoute } = vi.hoisted(() => ({
+    pushMock: vi.fn(),
+    currentRoute: { value: { path: '/' } },
+}))
 
 vi.mock('@/router', () => ({
-    default: { push: pushMock },
+    default: { push: pushMock, currentRoute },
 }))
 
 import service from '@/utils/request'
@@ -14,6 +17,7 @@ const fulfilledHandler = (service.interceptors.response as any).handlers[0].fulf
 describe('axios response interceptor', () => {
     beforeEach(() => {
         pushMock.mockClear()
+        currentRoute.value.path = '/'
     })
 
     it('500 response 觸發 router.push to /error with code=500 and from', async () => {
@@ -59,6 +63,26 @@ describe('axios response interceptor', () => {
             path: '/error',
             query: { code: 0, from: '/api/something' },
         })
+    })
+
+    it('已在 /error 頁時不再 push（防 redirect loop）', async () => {
+        currentRoute.value.path = '/error'
+        const error = {
+            response: { status: 500, data: {} },
+            config: { url: '/api/user/profile' },
+        }
+        await expect(rejectedHandler(error)).rejects.toBeDefined()
+        expect(pushMock).not.toHaveBeenCalled()
+    })
+
+    it('已在 /error 頁 + 401 仍 reject 且不 push（鎖定 401 分支早於 guard）', async () => {
+        currentRoute.value.path = '/error'
+        const error = {
+            response: { status: 401, data: {} },
+            config: { url: '/api/anything' },
+        }
+        await expect(rejectedHandler(error)).rejects.toBeDefined()
+        expect(pushMock).not.toHaveBeenCalled()
     })
 
     it('既有 success (code===200) 路徑不動', async () => {

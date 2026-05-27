@@ -87,7 +87,7 @@ const zhTW = {
         subtitleNetwork: '連線中斷',
         codeLabel: 'CODE',
         fromLabel: 'from',
-        backHome: '回首頁',
+        backHome: '回到聊天',
     },
 }
 
