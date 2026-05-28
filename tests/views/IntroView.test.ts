@@ -149,7 +149,13 @@ describe('IntroView', () => {
 
         await wrapper.find('[data-test=next-step]').trigger('click')
         await wrapper.find('[data-test=skip-step]').trigger('click')
-        await wrapper.find('[data-test=tag-tg-001]').setValue(true)
+        // 開 TagEditorModal,展開 LANGUAGE,勾 tg-001
+        await wrapper.find('[data-test=edit-button]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=row-head-LANGUAGE]').trigger('click')
+        await wrapper.find('[data-test=chip-tg-001]').trigger('click')
+        // 關 Modal
+        await wrapper.find('[data-test=close-btn]').trigger('click')
         await wrapper.find('[data-test=next-step]').trigger('click')
 
         const socialInputs = wrapper.findAll('[data-field="social-links"] input')

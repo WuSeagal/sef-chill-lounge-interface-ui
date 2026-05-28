@@ -5,8 +5,13 @@ import { useI18n } from 'vue-i18n'
 import './IntroView.css'
 import { fetchSelectableTags } from '@/api/userApi'
 import { useUser } from '@/composables/useUser'
+import { useTagEditorState } from '@/composables/useTagEditorState'
 import { useAuthStore } from '@/stores/auth.ts'
-import type { Tag } from '@/types/user'
+import TagEditorPreview from '@/components/TagEditorPreview.vue'
+import TagEditorModal from '@/components/TagEditorModal.vue'
+import { TAG_TYPE_ORDER, TagType, type GroupedTags, type Tag } from '@/types/user'
+
+const TAG_MAX = 20
 
 type SocialDraft = {
     platform: string
@@ -42,16 +47,18 @@ const stickerChoices = [
 ]
 
 const currentStepIndex = ref(0)
-const defaultTags = ref<Tag[]>([])
+const selectable = ref<GroupedTags>({
+    [TagType.ROLE]: [], [TagType.LANGUAGE]: [], [TagType.FRAMEWORK]: [],
+    [TagType.DATABASE]: [], [TagType.DEVOPS]: [], [TagType.CUSTOM]: [],
+})
 const tagsError = ref<string | null>(null)
 const loadingTags = ref(false)
+const tagEditorState = useTagEditorState({ maxPerUser: TAG_MAX })
+const tagModalOpen = ref(false)
 
 const furName = ref('')
 const selectedAvatarId = ref<string | null>(null)
 const avatarColor = ref<string>('#8c8672')
-const selectedDefaultTagIds = ref<string[]>([])
-const customTagInput = ref('')
-const selectedCustomTags = ref<string[]>([])
 const socialPlatformInput = ref('')
 const socialUrlInput = ref('')
 const selectedSocialLinks = ref<SocialDraft[]>([])
@@ -64,6 +71,21 @@ const drawingTopic = ref(false)
 const drawnTopicContent = ref<string | null>(null)
 const drawError = ref<string | null>(null)
 const drawCountdown = ref(5)
+
+// 給 TagEditorPreview 用:把 staged draft 攤回 Tag[](real tagId + new custom 用合成 id)
+const previewTags = computed<Tag[]>(() => {
+    const result: Tag[] = []
+    for (const type of TAG_TYPE_ORDER) {
+        const arr = selectable.value[type] ?? []
+        for (const tag of arr) {
+            if (tagEditorState.selectedTagIds.value.has(tag.tagId)) result.push(tag)
+        }
+        for (const content of tagEditorState.newCustomTags.value.get(type) ?? []) {
+            result.push({ tagId: `__new__${type}__${content}`, type, content, isCustom: true })
+        }
+    }
+    return result
+})
 
 let redirectTimer: ReturnType<typeof setTimeout> | null = null
 let countdownTimer: ReturnType<typeof setInterval> | null = null
@@ -93,12 +115,8 @@ const reviewRows = computed(() => [
     },
     {
         label: t('intro.review.tags'),
-        value: selectedDefaultTagIds.value.length || selectedCustomTags.value.length
-            ? [
-                ...selectedDefaultTagIds.value.map(tagId =>
-                    defaultTags.value.find(tag => tag.tagId === tagId)?.content ?? tagId),
-                ...selectedCustomTags.value,
-            ].join('、')
+        value: previewTags.value.length
+            ? previewTags.value.map(tag => tag.content).join('、')
             : skippedStepKeys.value.includes('tags') ? t('intro.review.skipped') : t('intro.review.empty'),
     },
     {
@@ -184,9 +202,7 @@ function skipCurrentStep(): void {
         avatarColor.value = '#8c8672'
     }
     if (currentStep.value.key === 'tags') {
-        selectedDefaultTagIds.value = []
-        selectedCustomTags.value = []
-        customTagInput.value = ''
+        tagEditorState.reset([])
     }
     if (currentStep.value.key === 'socials') {
         socialPlatformInput.value = ''
@@ -204,8 +220,7 @@ async function loadTags(): Promise<void> {
     loadingTags.value = true
     tagsError.value = null
     try {
-        const grouped = await fetchSelectableTags()
-        defaultTags.value = Object.values(grouped).flat()
+        selectable.value = await fetchSelectableTags()
     } catch {
         tagsError.value = t('intro.tags.loadFailed')
     } finally {
@@ -213,16 +228,9 @@ async function loadTags(): Promise<void> {
     }
 }
 
-function addCustomTag(): void {
-    const tag = customTagInput.value.trim()
-    if (!tag) return
-    selectedCustomTags.value = [...selectedCustomTags.value, tag]
-    customTagInput.value = ''
-    clearCurrentStepSkipped()
-}
-
-function removeCustomTag(idx: number): void {
-    selectedCustomTags.value.splice(idx, 1)
+function onTagModalClose(): void {
+    tagModalOpen.value = false
+    if (previewTags.value.length > 0) clearCurrentStepSkipped()
 }
 
 function addSocialLink(): void {
@@ -250,12 +258,12 @@ async function confirmProfileSetup(): Promise<void> {
             avatarColor: selectedAvatarId.value ? avatarColor.value : undefined,
         })
 
-        for (const tagId of selectedDefaultTagIds.value) {
+        const { toAdd, toCreate } = tagEditorState.diff([])
+        for (const tagId of toAdd) {
             await user.addTag({ tagId })
         }
-
-        for (const content of selectedCustomTags.value) {
-            await user.addTag({ type: 'custom', content })
+        for (const t of toCreate) {
+            await user.addTag({ type: t.type, content: t.content })
         }
 
         for (const socialLink of selectedSocialLinks.value) {
@@ -304,9 +312,7 @@ async function initializeOnboarding(): Promise<void> {
     furName.value = defaultFurName.value
     selectedAvatarId.value = null
     avatarColor.value = '#8c8672'
-    selectedDefaultTagIds.value = []
-    customTagInput.value = ''
-    selectedCustomTags.value = []
+    tagEditorState.reset([])
     socialPlatformInput.value = ''
     socialUrlInput.value = ''
     selectedSocialLinks.value = []
@@ -405,35 +411,11 @@ onBeforeUnmount(() => {
                         <p>{{ tagsError }}</p>
                         <button type="button" @click="loadTags">{{ t('intro.actions.retry') }}</button>
                     </div>
-                    <div v-else class="intro-view__default-tags">
-                        <label v-for="tag in defaultTags" :key="tag.tagId" class="intro-view__chip-option">
-                            <input
-                                type="checkbox"
-                                :data-test="`tag-${tag.tagId}`"
-                                :value="tag.tagId"
-                                v-model="selectedDefaultTagIds" />
-                            <span>{{ tag.content }}</span>
-                        </label>
-                    </div>
-
-                    <div class="intro-view__custom-tag">
-                        <div class="intro-view__inline-inputs">
-                            <input
-                                data-test="custom-tag-input"
-                                v-model="customTagInput"
-                                :placeholder="t('intro.placeholders.customTag')" />
-                            <button type="button" data-test="add-custom-tag" @click="addCustomTag">{{ t('intro.actions.add') }}</button>
-                        </div>
-                        <ul>
-                            <li v-for="(tag, idx) in selectedCustomTags" :key="idx">
-                                <span>{{ tag }}</span>
-                                <button
-                                    type="button"
-                                    :data-test="`remove-custom-${idx}`"
-                                    @click="removeCustomTag(idx)">{{ t('intro.actions.remove') }}</button>
-                            </li>
-                        </ul>
-                    </div>
+                    <TagEditorPreview
+                        v-else
+                        :tags="previewTags"
+                        @edit="tagModalOpen = true"
+                    />
                 </section>
 
                 <section v-else-if="currentStep.key === 'socials'" class="intro-view__step-card" data-field="social-links">
@@ -545,5 +527,13 @@ onBeforeUnmount(() => {
                 <div class="intro-view__state-text">同步中...</div>
             </div>
         </div>
+
+        <TagEditorModal
+            :open="tagModalOpen"
+            :selectable="selectable"
+            :state="tagEditorState"
+            :max-per-user="TAG_MAX"
+            @close="onTagModalClose"
+        />
     </div>
 </template>
