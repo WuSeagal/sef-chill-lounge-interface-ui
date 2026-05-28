@@ -7,10 +7,12 @@ import UserPopup from '@/components/UserPopup.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
 import KickedModal from '@/components/KickedModal.vue'
+import AutofillerPopup from '@/components/AutofillerPopup.vue'
 import { push } from 'notivue'
 import { useChatMessages } from '@/composables/useChatMessages'
 import { useChatWebSocket } from '@/composables/useChatWebSocket'
 import { useChatImageUpload } from '@/composables/useChatImageUpload'
+import { useChatAutofiller, type AutofillerOption } from '@/composables/useChatAutofiller'
 import { useUser } from '@/composables/useUser'
 
 // 對應後端 error code 翻譯為使用者訊息；未知 code 直接照原文（addFiles 設的 limit
@@ -100,6 +102,18 @@ const settingsOpen = ref(false)
 
 // BottomBar input
 const inputValue = ref('')
+
+// Autofiller: 「我」/「我X」 浮現 popup
+const userTags = computed(() => user.profile.value?.tags ?? [])
+const autofiller = useChatAutofiller(inputValue, userTags)
+
+function onAutofillerSelect(option: AutofillerOption): void {
+    inputValue.value = autofiller.select(option)
+}
+
+function handleAutofillerKey(event: KeyboardEvent): boolean {
+    return autofiller.onKeydown(event, onAutofillerSelect)
+}
 
 async function onSend(value: string) {
     if (imageUpload.uploading.value) return
@@ -274,11 +288,22 @@ void currentProfile
         <BottomBar
             v-model:input-value="inputValue"
             :attach-disabled="imageUpload.isAtLimit() || imageUpload.uploading.value"
+            :autofiller-open="autofiller.isOpen.value"
+            :autofiller-handle-keydown="handleAutofillerKey"
             @gear-click="onGearClick"
             @attach-click="onAttachClick"
             @image-paste="onImagePaste"
             @send="onSend"
-        />
+        >
+            <template #popup>
+                <AutofillerPopup
+                    :open="autofiller.isOpen.value"
+                    :options="autofiller.options.value"
+                    :focused-index="autofiller.focusedIndex.value"
+                    @select="onAutofillerSelect"
+                />
+            </template>
+        </BottomBar>
 
         <UserPopup
             :open="popupOpen"

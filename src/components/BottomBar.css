@@ -1,5 +1,6 @@
 .bottom-bar {
     flex: 0 0 auto;
+    position: relative;
     display: flex;
     /* Buttons anchor to the TOP of the row so when the textarea grows
        (multi-line) the icons sit beside the textarea's first line

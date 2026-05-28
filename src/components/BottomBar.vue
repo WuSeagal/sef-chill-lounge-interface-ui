@@ -14,8 +14,12 @@ import iconSendRaw from '@/assets/icons/icon-send.svg?raw'
 const props = withDefaults(defineProps<{
     inputValue: string
     attachDisabled?: boolean
+    autofillerOpen?: boolean
+    autofillerHandleKeydown?: (event: KeyboardEvent) => boolean
 }>(), {
     attachDisabled: false,
+    autofillerOpen: false,
+    autofillerHandleKeydown: undefined,
 })
 
 const emit = defineEmits<{
@@ -88,6 +92,9 @@ function onSend() {
 // Enter (no shift) submits and prevents the default newline. Shift+Enter
 // falls through with the browser's default behaviour, which inserts \n.
 function onKeydown(event: KeyboardEvent) {
+    if (props.autofillerOpen && props.autofillerHandleKeydown?.(event)) {
+        return
+    }
     if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault()
         onSend()
@@ -174,5 +181,6 @@ function onEmojiPickerClose() {
             @select="onEmojiSelect"
             @close="onEmojiPickerClose"
         />
+        <slot name="popup" />
     </div>
 </template>
