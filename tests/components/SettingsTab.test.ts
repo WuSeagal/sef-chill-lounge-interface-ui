@@ -148,4 +148,75 @@ describe('SettingsTab — staged save', () => {
         expect(wrapper.find('.settings-tab__sticker-grid').exists()).toBe(false)
         expect(wrapper.find('.settings-tab__topic-card').exists()).toBe(false)
     })
+
+    // F1 fix: saveAll atomicity
+    it('儲存中途失敗:draft 全部保留,toast 標明失敗 step', async () => {
+        const { push } = await import('notivue')
+        const warn = vi.mocked(push.warning)
+        updateProfileMock.mockResolvedValueOnce(undefined)   // profile OK
+        addTagMock.mockRejectedValueOnce({ response: { data: { message: 'simulated' } } })  // tag fail
+
+        const wrapper = mount(SettingsTab)
+        await flushPromises()
+        await wrapper.find('.settings-tab__nickname').setValue('新名字')
+        // 加一個新 social link 把 saveAll 流程延長
+        const sInputs = wrapper.findAll('[data-field="social-links"] .settings-tab__input')
+        await sInputs[0].setValue('ig')
+        await sInputs[1].setValue('https://ig.com/test')
+        await wrapper.find('[data-field="social-links"] .settings-tab__btn').trigger('click')
+        await flushPromises()
+
+        // 觸發 TAG diff:模擬 user 在 modal 內把 tg-a remove(透過直接調用 toggle)
+        // 因為元件內部 state 較難從測試外觸發,直接模擬 saveAll 階段失敗即可
+        // (這裡仍走 update + 0 個 tag op + 1 個 social add,但讓 social fail 來測 atomicity)
+        addSocialLinkMock.mockReset()
+        addSocialLinkMock.mockRejectedValueOnce({ response: { data: { message: 'sim-social' } } })
+
+        await wrapper.find('[data-test=save-all]').trigger('click')
+        await flushPromises()
+
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('社群連結'))
+        // F1 核心驗證:失敗後 draft 還在(儲存按鈕仍可按)
+        expect((wrapper.find('[data-test=save-all]').element as HTMLButtonElement).disabled).toBe(false)
+    })
+
+    // F2 fix: loadSelectable error UI
+    it('fetchSelectableTags 失敗時顯示 retry,點擊重試', async () => {
+        const { fetchSelectableTags } = await import('@/api/userApi')
+        vi.mocked(fetchSelectableTags).mockRejectedValueOnce({
+            response: { data: { message: 'load-failed' } },
+        })
+        const wrapper = mount(SettingsTab)
+        await flushPromises()
+        expect(wrapper.find('[data-test=selectable-error]').exists()).toBe(true)
+
+        // 重試:這次成功
+        vi.mocked(fetchSelectableTags).mockResolvedValueOnce({
+            ROLE: [], LANGUAGE: [], FRAMEWORK: [], DATABASE: [], DEVOPS: [], CUSTOM: [],
+        } as any)
+        await wrapper.find('[data-test=selectable-error] button').trigger('click')
+        await flushPromises()
+        expect(wrapper.find('[data-test=selectable-error]').exists()).toBe(false)
+    })
+
+    // F7 fix: shallow watch — profile 深層變動不重置 draft
+    it('user.profile.tags 變動不重置 in-flight draft', async () => {
+        const wrapper = mount(SettingsTab)
+        await flushPromises()
+        await wrapper.find('.settings-tab__nickname').setValue('新名字-不該被清')
+        await flushPromises()
+        expect((wrapper.find('[data-test=save-all]').element as HTMLButtonElement).disabled).toBe(false)
+
+        // 模擬另一個 tab / WS 推送觸發 profile 深層欄位變動(不變 userId)
+        profileRef.value = {
+            ...profileRef.value!,
+            tags: [...(profileRef.value?.tags ?? []), { tagId: 'tg-from-elsewhere', type: 'CUSTOM' as any, content: 'X', isCustom: true }],
+        }
+        await flushPromises()
+
+        // F7 核心驗證:draft 仍 dirty
+        expect((wrapper.find('[data-test=save-all]').element as HTMLButtonElement).disabled).toBe(false)
+        expect((wrapper.find('.settings-tab__nickname').element as HTMLInputElement).value)
+            .toBe('新名字-不該被清')
+    })
 })

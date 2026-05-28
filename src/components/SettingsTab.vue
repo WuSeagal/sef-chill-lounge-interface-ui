@@ -29,6 +29,8 @@ const selectable = ref<GroupedTags>({
 const newSocialPlatform = ref('')
 const newSocialUrl = ref('')
 const saving = ref(false)
+const selectableLoading = ref(false)
+const selectableError = ref<string | null>(null)
 
 const displayFurName = computed(() =>
     draftFurName.value ?? user.profile.value?.furName ?? user.profile.value?.username ?? '')
@@ -64,16 +66,32 @@ const isDirty = computed(() =>
     draftSocialAdd.value.length > 0 ||
     draftSocialRemove.value.length > 0)
 
+// F7 fix: watch only userId identity (shallow), not the entire profile object.
+// Deep watch would clobber in-flight drafts whenever any unrelated profile field
+// updated (e.g. another tab refreshing avatar after the user starts editing).
 watch(
-    () => user.profile.value,
-    (p) => {
-        if (p) tagEditorState.reset(p.tags ?? [])
+    () => user.profile.value?.userId,
+    (currentUserId, previousUserId) => {
+        // Only reset draft on first load or when switching users — not on every
+        // profile mutation. After saveAll() succeeds we explicitly call reset()
+        // ourselves, so this watch is purely for the "initial / user-change" case.
+        if (currentUserId && currentUserId !== previousUserId) {
+            tagEditorState.reset(user.profile.value?.tags ?? [])
+        }
     },
-    { immediate: true, deep: true },
+    { immediate: true },
 )
 
 async function loadSelectable(): Promise<void> {
-    try { selectable.value = await fetchSelectableTags() } catch { /* keep empty */ }
+    selectableLoading.value = true
+    selectableError.value = null
+    try {
+        selectable.value = await fetchSelectableTags()
+    } catch (e: any) {
+        selectableError.value = e?.response?.data?.message ?? '載入 TAG 清單失敗'
+    } finally {
+        selectableLoading.value = false
+    }
 }
 void loadSelectable()
 
@@ -105,31 +123,43 @@ function stageRemoveSocial(id: number): void {
 async function saveAll(): Promise<void> {
     if (!isDirty.value || saving.value) return
     saving.value = true
+    // F1 fix: don't clear drafts incrementally. Keep all drafts until the entire
+    // save succeeds. On partial failure, drafts stay intact + the toast reports
+    // which step failed. Retry runs diff() against the now-mutated profile, so
+    // already-applied changes won't be re-issued.
+    let currentStep = ''
     try {
         if (draftFurName.value !== null || draftAvatarColor.value !== null) {
+            currentStep = '個人資料'
             await user.updateProfile({
                 furName: draftFurName.value ?? undefined,
                 avatarColor: draftAvatarColor.value ?? undefined,
             })
-            draftFurName.value = null
-            draftAvatarColor.value = null
         }
         const { toAdd, toRemove, toCreate } = tagEditorState.diff(user.profile.value?.tags ?? [])
+        currentStep = 'TAG'
         for (const tagId of toRemove) await user.removeTag(tagId)
         for (const tagId of toAdd) await user.addTag({ tagId })
         for (const t of toCreate) await user.addTag({ type: t.type, content: t.content })
+
+        currentStep = '社群連結'
         for (const id of [...draftSocialRemove.value]) {
             await user.removeSocialLink(id)
-            draftSocialRemove.value = draftSocialRemove.value.filter(x => x !== id)
         }
         for (const s of [...draftSocialAdd.value]) {
             await user.addSocialLink(s)
-            draftSocialAdd.value = draftSocialAdd.value.filter(x => x !== s)
         }
+
+        // Full success — now safe to clear all drafts atomically
+        draftFurName.value = null
+        draftAvatarColor.value = null
+        draftSocialAdd.value = []
+        draftSocialRemove.value = []
         tagEditorState.reset(user.profile.value?.tags ?? [])
         push.success('已儲存')
     } catch (e: any) {
-        push.warning(e?.response?.data?.message ?? '儲存失敗')
+        const apiMsg = e?.response?.data?.message
+        push.warning(`儲存${currentStep}時失敗${apiMsg ? `:${apiMsg}` : ''},請再試一次`)
     } finally {
         saving.value = false
     }
@@ -175,6 +205,12 @@ defineExpose({ isDirty, saveAll })
             </div>
         </div>
 
+        <div v-if="selectableError" class="settings-tab__error" data-test="selectable-error">
+            <span>{{ selectableError }}</span>
+            <button type="button" class="settings-tab__btn" :disabled="selectableLoading" @click="loadSelectable">
+                {{ selectableLoading ? '載入中...' : '重試' }}
+            </button>
+        </div>
         <TagEditorPreview :tags="previewTags" @edit="tagModalOpen = true" />
 
         <div class="settings-tab__field" data-field="social-links">

@@ -21,11 +21,18 @@ const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 const activeTab = ref<TabId>('settings')
-const settingsTabRef = ref<InstanceType<typeof SettingsTab> | null>(null)
+
+// Explicit shape for SettingsTab.defineExpose — keeps type safety even though Vue
+// auto-unwraps ComputedRef when accessed via parent ref. If SettingsTab's exposed
+// shape changes, TS will catch it instead of silently breaking this guard.
+interface SettingsTabExposed {
+    isDirty: boolean
+    saveAll: () => Promise<void>
+}
+const settingsTabRef = ref<(InstanceType<typeof SettingsTab> & SettingsTabExposed) | null>(null)
 
 function attemptClose(): void {
-    // defineExpose 暴露的 ComputedRef 在外部訪問時 Vue 已 auto-unwrap;直接拿 boolean
-    const dirty = (settingsTabRef.value as any)?.isDirty
+    const dirty = settingsTabRef.value?.isDirty ?? false
     if (dirty) {
         const ok = window.confirm('有未儲存的變更,確定要關閉?')
         if (!ok) return

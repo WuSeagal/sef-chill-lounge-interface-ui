@@ -240,6 +240,19 @@
     width: 100%;
 }
 
+.settings-tab__error {
+    background: #fff4e1;
+    border-left: 3px solid #c4a01f;
+    padding: 10px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    color: #6b5a14;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+}
+
 .settings-tab__save-row {
     display: flex;
     justify-content: flex-end;

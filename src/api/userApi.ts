@@ -1,15 +1,16 @@
 import service from '@/utils/request'
-import type {
-    AddSocialLinkRequest,
-    AddTagRequest,
-    CreateProfileRequest,
-    GroupedTags,
-    Member,
-    Social,
-    Tag,
-    Topic,
-    UpdateProfileRequest,
-    UserProfile,
+import {
+    TagType,
+    type AddSocialLinkRequest,
+    type AddTagRequest,
+    type CreateProfileRequest,
+    type GroupedTags,
+    type Member,
+    type Social,
+    type Tag,
+    type Topic,
+    type UpdateProfileRequest,
+    type UserProfile,
 } from '@/types/user'
 
 // utils/request interceptor 已 unwrap 為 { code, message, data }（res = res），
@@ -42,7 +43,17 @@ export async function fetchMembers(): Promise<Member[]> {
 
 export async function fetchSelectableTags(): Promise<GroupedTags> {
     const res: any = await service.get('/tags')
-    return res.data as GroupedTags
+    const raw = (res.data ?? {}) as Partial<Record<TagType, Tag[]>>
+    // Normalize at API boundary: guarantee all 6 type keys exist even if backend
+    // omits one (defensive; backend should always send 6 but we shouldn't trust it).
+    return {
+        [TagType.ROLE]: raw[TagType.ROLE] ?? [],
+        [TagType.LANGUAGE]: raw[TagType.LANGUAGE] ?? [],
+        [TagType.FRAMEWORK]: raw[TagType.FRAMEWORK] ?? [],
+        [TagType.DATABASE]: raw[TagType.DATABASE] ?? [],
+        [TagType.DEVOPS]: raw[TagType.DEVOPS] ?? [],
+        [TagType.CUSTOM]: raw[TagType.CUSTOM] ?? [],
+    }
 }
 
 export async function fetchRandomTopic(): Promise<Topic> {
