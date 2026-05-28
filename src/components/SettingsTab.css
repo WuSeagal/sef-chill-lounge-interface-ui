@@ -239,3 +239,26 @@
     font-size: 0.7rem;
     width: 100%;
 }
+
+.settings-tab__save-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--space-md);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--bubble-border);
+}
+.settings-tab__save-btn {
+    padding: 10px 32px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    background: var(--bottom-bar-bg);
+    color: var(--bottom-bar-icon);
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    font-family: inherit;
+}
+.settings-tab__save-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
