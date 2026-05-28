@@ -30,6 +30,7 @@ const groupedTags = computed<Record<TagType, Tag[]>>(() => {
     }
     return acc
 })
+const visibleTagTypes = computed(() => TAG_TYPE_ORDER.filter(type => groupedTags.value[type].length > 0))
 const hasAnyTags = computed(() => (profile.value?.tags?.length ?? 0) > 0)
 
 async function loadProfile(userId: string): Promise<void> {
@@ -110,7 +111,7 @@ onBeforeUnmount(() => {
             <div v-if="hasAnyTags" class="user-popup__tag-block">
                 <span class="user-popup__tag-title">TAG</span>
                 <div
-                    v-for="type in TAG_TYPE_ORDER"
+                    v-for="type in visibleTagTypes"
                     :key="type"
                     class="user-popup__tag-row"
                     :class="{ 'user-popup__tag-row--custom': type === TagType.CUSTOM }"

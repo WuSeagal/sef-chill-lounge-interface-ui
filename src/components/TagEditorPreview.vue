@@ -18,13 +18,15 @@ const grouped = computed<Record<TagType, Tag[]>>(() => {
     }
     return acc
 })
+
+const visibleTypes = computed(() => TAG_TYPE_ORDER.filter(type => grouped.value[type].length > 0))
 </script>
 
 <template>
   <div class="tag-editor-preview">
     <span class="tag-editor-preview__title">TAG</span>
     <div
-      v-for="type in TAG_TYPE_ORDER"
+      v-for="type in visibleTypes"
       :key="type"
       class="tag-editor-preview__row"
       :class="{ 'tag-editor-preview__row--custom': type === TagType.CUSTOM }"

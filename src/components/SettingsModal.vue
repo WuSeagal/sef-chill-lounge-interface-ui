@@ -24,7 +24,8 @@ const activeTab = ref<TabId>('settings')
 const settingsTabRef = ref<InstanceType<typeof SettingsTab> | null>(null)
 
 function attemptClose(): void {
-    const dirty = (settingsTabRef.value as any)?.isDirty?.value
+    // defineExpose 暴露的 ComputedRef 在外部訪問時 Vue 已 auto-unwrap;直接拿 boolean
+    const dirty = (settingsTabRef.value as any)?.isDirty
     if (dirty) {
         const ok = window.confirm('有未儲存的變更,確定要關閉?')
         if (!ok) return

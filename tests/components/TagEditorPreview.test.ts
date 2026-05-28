@@ -7,7 +7,7 @@ const t = (id: string, type: TagType, content: string): Tag =>
     ({ tagId: id, type, content, isCustom: false })
 
 describe('TagEditorPreview', () => {
-    it('依 TAG_TYPE_ORDER 渲染 6 行,前 5 行有 label,自訂無 label', () => {
+    it('只渲染有 tag 的 row,依 TAG_TYPE_ORDER;label 顯示「我X」前綴,自訂無 label', () => {
         const wrapper = mount(TagEditorPreview, {
             props: {
                 tags: [
@@ -18,14 +18,16 @@ describe('TagEditorPreview', () => {
             },
         })
         const rows = wrapper.findAll('[data-test="tag-row"]')
-        expect(rows).toHaveLength(6)
+        expect(rows).toHaveLength(3)   // ROLE / LANGUAGE / CUSTOM
         const labels = wrapper.findAll('[data-test="tag-row-label"]')
-        expect(labels).toHaveLength(5)
-        expect(labels[0].text()).toBe('我是')
-        expect(labels[1].text()).toBe('我寫')
-        expect(labels[2].text()).toBe('我用')
-        expect(labels[3].text()).toBe('我存')
-        expect(labels[4].text()).toBe('我會')
+        expect(labels).toHaveLength(2)   // CUSTOM 沒 label
+        expect(labels[0].text()).toBe('我是')   // ROLE 在 TAG_TYPE_ORDER 第 1
+        expect(labels[1].text()).toBe('我寫')   // LANGUAGE 第 2
+    })
+
+    it('完全沒 tag 時不渲染任何 row', () => {
+        const wrapper = mount(TagEditorPreview, { props: { tags: [] } })
+        expect(wrapper.findAll('[data-test="tag-row"]')).toHaveLength(0)
     })
 
     it('emit 編輯事件', async () => {
@@ -41,7 +43,7 @@ describe('TagEditorPreview', () => {
         expect(wrapper.text()).toContain('Java')
     })
 
-    it('依 type 把 tag 分到對應 row', () => {
+    it('依 type 把 tag 分到對應 row,空 type 不渲染', () => {
         const wrapper = mount(TagEditorPreview, {
             props: {
                 tags: [
@@ -52,11 +54,8 @@ describe('TagEditorPreview', () => {
             },
         })
         const rows = wrapper.findAll('[data-test="tag-row"]')
-        // LANGUAGE 是 ORDER 第 2(idx 1) → 2 個 chip
-        expect(rows[1].findAll('.tag-editor-preview__chip')).toHaveLength(2)
-        // CUSTOM 是 ORDER 第 6(idx 5) → 1 個 chip
-        expect(rows[5].findAll('.tag-editor-preview__chip')).toHaveLength(1)
-        // 其他 row 為空
-        expect(rows[0].findAll('.tag-editor-preview__chip')).toHaveLength(0)
+        expect(rows).toHaveLength(2)
+        expect(rows[0].findAll('.tag-editor-preview__chip')).toHaveLength(2) // LANGUAGE
+        expect(rows[1].findAll('.tag-editor-preview__chip')).toHaveLength(1) // CUSTOM
     })
 })

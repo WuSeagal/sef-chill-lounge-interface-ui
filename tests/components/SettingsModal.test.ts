@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import SettingsModal from '@/components/SettingsModal.vue'
 
@@ -111,5 +111,47 @@ describe('SettingsModal', () => {
         const tabs = wrapper.findAll('.settings-modal__tab')
         await tabs[2].trigger('click')
         expect(wrapper.find('[data-test=topic-card-tab]').exists()).toBe(true)
+    })
+
+    describe('attemptClose with unsaved changes', () => {
+        afterEach(() => {
+            vi.unstubAllGlobals()
+        })
+
+        it('shows confirm dialog when SettingsTab is dirty', async () => {
+            const confirmMock = vi.fn().mockReturnValue(false)
+            vi.stubGlobal('confirm', confirmMock)
+            const wrapper = mount(SettingsModal, { props: { open: true } })
+            await flushPromises()
+            const input = wrapper.find('.settings-tab__nickname')
+            await input.setValue('變更名稱')
+            await flushPromises()
+
+            await wrapper.find('.settings-modal__close').trigger('click')
+            expect(confirmMock).toHaveBeenCalledWith('有未儲存的變更,確定要關閉?')
+            expect(wrapper.emitted('close')).toBeFalsy()
+        })
+
+        it('emits close immediately when not dirty', async () => {
+            const confirmMock = vi.fn()
+            vi.stubGlobal('confirm', confirmMock)
+            const wrapper = mount(SettingsModal, { props: { open: true } })
+            await flushPromises()
+            await wrapper.find('.settings-modal__close').trigger('click')
+            expect(confirmMock).not.toHaveBeenCalled()
+            expect(wrapper.emitted('close')).toBeTruthy()
+        })
+
+        it('emits close when user confirms', async () => {
+            const confirmMock = vi.fn().mockReturnValue(true)
+            vi.stubGlobal('confirm', confirmMock)
+            const wrapper = mount(SettingsModal, { props: { open: true } })
+            await flushPromises()
+            const input = wrapper.find('.settings-tab__nickname')
+            await input.setValue('變更名稱')
+            await flushPromises()
+            await wrapper.find('.settings-modal__close').trigger('click')
+            expect(wrapper.emitted('close')).toBeTruthy()
+        })
     })
 })

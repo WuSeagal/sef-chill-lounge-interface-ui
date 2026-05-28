@@ -51,15 +51,15 @@ describe('UserPopup', () => {
         expect(wrapper.find('a[href="https://twitter.com/foxy"]').exists()).toBe(true)
     })
 
-    it('renders TAG block with 6 grouped rows when has tags', async () => {
+    it('renders TAG block with only non-empty grouped rows', async () => {
         const wrapper = mount(UserPopup, { props: { open: true, userId: 'u-102' } })
         await flushPromises()
+        // sample profile 有 LANGUAGE + CUSTOM 共 2 個 tag,所以只渲染 2 行
         const rows = wrapper.findAll('.user-popup__tag-row')
-        expect(rows).toHaveLength(6)
+        expect(rows).toHaveLength(2)
         const labels = wrapper.findAll('.user-popup__tag-row-label')
-        expect(labels).toHaveLength(5)   // CUSTOM 沒 label
-        expect(labels[0].text()).toBe('我是')
-        expect(labels[1].text()).toBe('我寫')
+        expect(labels).toHaveLength(1)   // LANGUAGE 有 label「我寫」,CUSTOM 沒 label
+        expect(labels[0].text()).toBe('我寫')
     })
 
     it('hides TAG block when user has no tags', async () => {
