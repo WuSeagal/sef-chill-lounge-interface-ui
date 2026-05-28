@@ -4,7 +4,7 @@ import { ref } from 'vue'
 import { createAppI18n } from '@/i18n'
 
 vi.mock('@/api/userApi', () => ({
-    fetchDefaultTags: vi.fn(),
+    fetchSelectableTags: vi.fn(),
 }))
 
 const createProfileMock = vi.fn().mockImplementation(async () => {
@@ -81,10 +81,17 @@ describe('IntroView', () => {
         profileRef.value = null
         needsOnboardingRef.value = false
 
-        ;(api.fetchDefaultTags as any).mockResolvedValue([
-            { tagId: 'tg-001', type: 'species', content: '宅' },
-            { tagId: 'tg-002', type: 'species', content: '貓派' },
-        ])
+        ;(api.fetchSelectableTags as any).mockResolvedValue({
+            ROLE: [],
+            LANGUAGE: [
+                { tagId: 'tg-001', type: 'LANGUAGE', content: '宅', isCustom: false },
+                { tagId: 'tg-002', type: 'LANGUAGE', content: '貓派', isCustom: false },
+            ],
+            FRAMEWORK: [],
+            DATABASE: [],
+            DEVOPS: [],
+            CUSTOM: [],
+        })
     })
 
     afterEach(() => {

@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import './IntroView.css'
-import { fetchDefaultTags } from '@/api/userApi'
+import { fetchSelectableTags } from '@/api/userApi'
 import { useUser } from '@/composables/useUser'
 import { useAuthStore } from '@/stores/auth.ts'
 import type { Tag } from '@/types/user'
@@ -204,7 +204,8 @@ async function loadTags(): Promise<void> {
     loadingTags.value = true
     tagsError.value = null
     try {
-        defaultTags.value = await fetchDefaultTags()
+        const grouped = await fetchSelectableTags()
+        defaultTags.value = Object.values(grouped).flat()
     } catch {
         tagsError.value = t('intro.tags.loadFailed')
     } finally {

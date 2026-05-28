@@ -3,6 +3,7 @@ import type {
     AddSocialLinkRequest,
     AddTagRequest,
     CreateProfileRequest,
+    GroupedTags,
     Member,
     Social,
     Tag,
@@ -39,9 +40,9 @@ export async function fetchMembers(): Promise<Member[]> {
     return res.data
 }
 
-export async function fetchDefaultTags(): Promise<Tag[]> {
+export async function fetchSelectableTags(): Promise<GroupedTags> {
     const res: any = await service.get('/tags')
-    return res.data
+    return res.data as GroupedTags
 }
 
 export async function fetchRandomTopic(): Promise<Topic> {

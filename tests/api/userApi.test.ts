@@ -72,13 +72,21 @@ describe('userApi', () => {
         expect(r.length).toBe(1)
     })
 
-    it('fetchDefaultTags GETs /tags and returns array', async () => {
+    it('fetchSelectableTags GETs /tags and returns grouped map', async () => {
         ;(service.get as any).mockResolvedValue({
-            data: [{ tagId: 'tg-001', type: 'species', content: '宅' }],
+            data: {
+                ROLE: [{ tagId: 'r-1', type: 'ROLE', content: '後端工程師', isCustom: false }],
+                LANGUAGE: [{ tagId: 'l-1', type: 'LANGUAGE', content: 'Java', isCustom: false }],
+                FRAMEWORK: [],
+                DATABASE: [],
+                DEVOPS: [],
+                CUSTOM: [],
+            },
         })
-        const r = await userApi.fetchDefaultTags()
+        const r = await userApi.fetchSelectableTags()
         expect(service.get).toHaveBeenCalledWith('/tags')
-        expect(r[0].tagId).toBe('tg-001')
+        expect(r.LANGUAGE[0].content).toBe('Java')
+        expect(r.FRAMEWORK).toEqual([])
     })
 
     it('addSocialLink POSTs body', async () => {
