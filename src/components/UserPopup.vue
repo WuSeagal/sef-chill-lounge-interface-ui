@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import './UserPopup.css'
 import { fetchProfileDetail } from '@/api/userApi'
-import type { UserProfile } from '@/types/user'
+import { TagType, TAG_TYPE_ORDER, TAG_TYPE_PREFIX, type Tag, type UserProfile } from '@/types/user'
 
 const props = defineProps<{
     open: boolean
@@ -19,6 +19,18 @@ const loading = ref<boolean>(false)
 const loadError = ref<string | null>(null)
 
 const visible = computed(() => props.open && (profile.value !== null || loading.value || loadError.value !== null))
+
+const groupedTags = computed<Record<TagType, Tag[]>>(() => {
+    const acc: Record<TagType, Tag[]> = {
+        [TagType.ROLE]: [], [TagType.LANGUAGE]: [], [TagType.FRAMEWORK]: [],
+        [TagType.DATABASE]: [], [TagType.DEVOPS]: [], [TagType.CUSTOM]: [],
+    }
+    for (const t of (profile.value?.tags ?? [])) {
+        if (acc[t.type]) acc[t.type].push(t)
+    }
+    return acc
+})
+const hasAnyTags = computed(() => (profile.value?.tags?.length ?? 0) > 0)
 
 async function loadProfile(userId: string): Promise<void> {
     loading.value = true
@@ -95,9 +107,27 @@ onBeforeUnmount(() => {
         </template>
         <template v-else-if="profile">
             <h3 class="user-popup__nickname">{{ profile.furName || profile.username }}</h3>
-            <ul v-if="profile.tags && profile.tags.length > 0" class="user-popup__tags">
-                <li v-for="tag in profile.tags" :key="tag.tagId" class="user-popup__tag">{{ tag.content }}</li>
-            </ul>
+            <div v-if="hasAnyTags" class="user-popup__tag-block">
+                <span class="user-popup__tag-title">TAG</span>
+                <div
+                    v-for="type in TAG_TYPE_ORDER"
+                    :key="type"
+                    class="user-popup__tag-row"
+                    :class="{ 'user-popup__tag-row--custom': type === TagType.CUSTOM }"
+                >
+                    <span
+                        v-if="type !== TagType.CUSTOM"
+                        class="user-popup__tag-row-label"
+                    >{{ TAG_TYPE_PREFIX[type] }}</span>
+                    <div class="user-popup__tag-row-chips">
+                        <span
+                            v-for="tag in groupedTags[type]"
+                            :key="tag.tagId"
+                            class="user-popup__tag-chip"
+                        >{{ tag.content }}</span>
+                    </div>
+                </div>
+            </div>
             <ul v-if="profile.socials && profile.socials.length > 0" class="user-popup__socials">
                 <li v-for="link in profile.socials" :key="link.id">
                     <a
