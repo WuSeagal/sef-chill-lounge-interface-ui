@@ -2,6 +2,8 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import './UserPopup.css'
 import { fetchProfileDetail } from '@/api/userApi'
+import { assetUrl } from '@/utils/assetUrl'
+import { buildAvatarRingStyle } from '@/utils/avatarRing'
 import { TagType, TAG_TYPE_ORDER, TAG_TYPE_PREFIX, type Tag, type UserProfile } from '@/types/user'
 
 const props = defineProps<{
@@ -32,6 +34,11 @@ const groupedTags = computed<Record<TagType, Tag[]>>(() => {
 })
 const visibleTagTypes = computed(() => TAG_TYPE_ORDER.filter(type => groupedTags.value[type].length > 0))
 const hasAnyTags = computed(() => (profile.value?.tags?.length ?? 0) > 0)
+
+const avatarHeaderStyle = computed(() => ({
+    backgroundImage: profile.value?.avatar ? `url(${assetUrl(profile.value.avatar)})` : undefined,
+    ...buildAvatarRingStyle(profile.value?.avatarColor ?? null, profile.value?.avatarBorder ?? false, 'lg'),
+}))
 
 async function loadProfile(userId: string): Promise<void> {
     loading.value = true
@@ -107,7 +114,10 @@ onBeforeUnmount(() => {
             <p>{{ loadError }}</p>
         </template>
         <template v-else-if="profile">
-            <h3 class="user-popup__nickname">{{ profile.furName || profile.username }}</h3>
+            <div class="user-popup__header">
+                <div class="user-popup__avatar" :style="avatarHeaderStyle" aria-hidden="true"></div>
+                <h3 class="user-popup__nickname">{{ profile.furName || profile.username }}</h3>
+            </div>
             <div v-if="hasAnyTags" class="user-popup__tag-block">
                 <span class="user-popup__tag-title">TAG</span>
                 <div

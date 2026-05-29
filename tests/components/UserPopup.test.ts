@@ -14,6 +14,7 @@ const sampleProfile = {
     furName: 'FoxyFur',
     avatar: '/mock-images/avatar-default.png',
     avatarColor: '#b56b3c',
+    avatarBorder: true,
     topicId: 't-1',
     topic: { topicId: 't-1', content: 'topic' },
     tags: [
@@ -49,6 +50,27 @@ describe('UserPopup', () => {
         expect(wrapper.text()).toContain('Java')
         expect(wrapper.text()).toContain('露營')
         expect(wrapper.find('a[href="https://twitter.com/foxy"]').exists()).toBe(true)
+    })
+
+    it('renders avatar with color ring to the left of nickname', async () => {
+        const wrapper = mount(UserPopup, { props: { open: true, userId: 'u-102' } })
+        await flushPromises()
+        const header = wrapper.find('.user-popup__header')
+        expect(header.exists()).toBe(true)
+        const children = header.element.children
+        expect(children[0].classList.contains('user-popup__avatar')).toBe(true)
+        expect(children[1].classList.contains('user-popup__nickname')).toBe(true)
+        const style = wrapper.find('.user-popup__avatar').attributes('style') ?? ''
+        expect(style).toContain('box-shadow')
+        expect(style).toContain('#b56b3c')
+    })
+
+    it('renders no ring on popup avatar when avatarBorder is off', async () => {
+        ;(fetchProfileDetail as any).mockResolvedValue({ ...sampleProfile, avatarBorder: false })
+        const wrapper = mount(UserPopup, { props: { open: true, userId: 'u-102' } })
+        await flushPromises()
+        const style = wrapper.find('.user-popup__avatar').attributes('style') ?? ''
+        expect(style).not.toContain('box-shadow')
     })
 
     it('renders TAG block with only non-empty grouped rows', async () => {

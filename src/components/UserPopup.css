@@ -15,10 +15,27 @@
     color: var(--input-text);
 }
 
+.user-popup__header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.user-popup__avatar {
+    flex: 0 0 auto;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background-color: var(--avatar-default-bg);
+    background-size: cover;
+    background-position: center;
+}
+
 .user-popup__nickname {
     font-size: 1.1rem;
     font-weight: 600;
-    margin: 0 0 var(--space-sm) 0;
+    margin: 0;
 }
 
 .user-popup__tag-block {
