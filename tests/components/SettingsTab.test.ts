@@ -109,6 +109,27 @@ describe('SettingsTab — staged save', () => {
         })
     })
 
+    it('avatarBorder 開關預設反映 profile.avatarBorder', () => {
+        profileRef.value = { ...initialProfile(), avatarBorder: true }
+        const wrapper = mount(SettingsTab)
+        const toggle = wrapper.find('[data-test=avatar-border-toggle]')
+        expect((toggle.element as HTMLInputElement).checked).toBe(true)
+    })
+
+    it('切換 avatarBorder 變 dirty,儲存送 updateProfile 帶 avatarBorder', async () => {
+        const wrapper = mount(SettingsTab)
+        const toggle = wrapper.find('[data-test=avatar-border-toggle]')
+        await toggle.setValue(true)
+        await flushPromises()
+        const btn = wrapper.find('[data-test=save-all]')
+        expect((btn.element as HTMLButtonElement).disabled).toBe(false)
+        await btn.trigger('click')
+        await flushPromises()
+        expect(updateProfileMock).toHaveBeenCalledWith(
+            expect.objectContaining({ avatarBorder: true }),
+        )
+    })
+
     it('加社群連結 staged 進預覽,儲存才送 API', async () => {
         const wrapper = mount(SettingsTab)
         const inputs = wrapper.findAll('[data-field="social-links"] .settings-tab__input')

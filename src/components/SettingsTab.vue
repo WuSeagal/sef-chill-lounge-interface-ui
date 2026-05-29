@@ -16,6 +16,7 @@ const user = useUser()
 
 const draftFurName = ref<string | null>(null)
 const draftAvatarColor = ref<string | null>(null)
+const draftAvatarBorder = ref<boolean | null>(null)
 const draftSocialAdd = ref<AddSocialLinkRequest[]>([])
 const draftSocialRemove = ref<number[]>([])
 
@@ -36,6 +37,8 @@ const displayFurName = computed(() =>
     draftFurName.value ?? user.profile.value?.furName ?? user.profile.value?.username ?? '')
 const displayAvatarColor = computed(() =>
     draftAvatarColor.value ?? user.profile.value?.avatarColor ?? '#cccccc')
+const displayAvatarBorder = computed(() =>
+    draftAvatarBorder.value ?? user.profile.value?.avatarBorder ?? false)
 const avatar = computed(() => user.profile.value?.avatar ?? '')
 
 const previewTags = computed<Tag[]>(() => {
@@ -62,6 +65,7 @@ const previewSocials = computed(() => {
 const isDirty = computed(() =>
     draftFurName.value !== null ||
     draftAvatarColor.value !== null ||
+    draftAvatarBorder.value !== null ||
     tagEditorState.isDirty.value ||
     draftSocialAdd.value.length > 0 ||
     draftSocialRemove.value.length > 0)
@@ -103,6 +107,10 @@ function stageAvatarColor(value: string): void {
     const current = user.profile.value?.avatarColor ?? '#cccccc'
     draftAvatarColor.value = value === current ? null : value
 }
+function stageAvatarBorder(value: boolean): void {
+    const current = user.profile.value?.avatarBorder ?? false
+    draftAvatarBorder.value = value === current ? null : value
+}
 function stageAddSocial(): void {
     const platform = newSocialPlatform.value.trim()
     const links = newSocialUrl.value.trim()
@@ -129,11 +137,12 @@ async function saveAll(): Promise<void> {
     // already-applied changes won't be re-issued.
     let currentStep = ''
     try {
-        if (draftFurName.value !== null || draftAvatarColor.value !== null) {
+        if (draftFurName.value !== null || draftAvatarColor.value !== null || draftAvatarBorder.value !== null) {
             currentStep = '個人資料'
             await user.updateProfile({
                 furName: draftFurName.value ?? undefined,
                 avatarColor: draftAvatarColor.value ?? undefined,
+                avatarBorder: draftAvatarBorder.value ?? undefined,
             })
         }
         const { toAdd, toRemove, toCreate } = tagEditorState.diff(user.profile.value?.tags ?? [])
@@ -153,6 +162,7 @@ async function saveAll(): Promise<void> {
         // Full success — now safe to clear all drafts atomically
         draftFurName.value = null
         draftAvatarColor.value = null
+        draftAvatarBorder.value = null
         draftSocialAdd.value = []
         draftSocialRemove.value = []
         tagEditorState.reset(user.profile.value?.tags ?? [])
@@ -203,6 +213,16 @@ defineExpose({ isDirty, saveAll })
                 />
                 <span class="settings-tab__color-value">{{ displayAvatarColor }}</span>
             </div>
+        </div>
+
+        <div class="settings-tab__field">
+            <label class="settings-tab__label">顯示頭像外框</label>
+            <input
+                type="checkbox"
+                data-test="avatar-border-toggle"
+                :checked="displayAvatarBorder"
+                @change="stageAvatarBorder(($event.target as HTMLInputElement).checked)"
+            />
         </div>
 
         <div v-if="selectableError" class="settings-tab__error" data-test="selectable-error">
