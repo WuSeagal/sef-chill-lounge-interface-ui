@@ -10,6 +10,7 @@ const initialProfile = (): UserProfile => ({
     furName: 'MaoMao',
     avatar: '/mock-images/avatar-default.png',
     avatarColor: '#8c8672',
+    avatarBorder: false,
     topicId: 't-1',
     topic: { topicId: 't-1', content: '你的設定中最喜歡哪個元素？' },
     tags: [
