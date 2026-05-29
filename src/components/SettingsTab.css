@@ -51,6 +51,8 @@
     align-items: center;
     gap: var(--space-lg);
     flex-wrap: wrap;
+    /* 保留含選色時的高度，避免開關切換造成版面上下跳動 */
+    min-height: 32px;
 }
 
 .settings-tab__border-enable,

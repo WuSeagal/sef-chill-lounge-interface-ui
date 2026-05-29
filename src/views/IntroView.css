@@ -178,6 +178,8 @@
     align-items: center;
     gap: 24px;
     flex-wrap: wrap;
+    /* 保留含色票時的高度（色票 42px），避免開關切換造成版面跳動 */
+    min-height: 42px;
 }
 
 .intro-view__border-enable,
