@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import './MessageItem.css'
 import type { MessageResponse } from '@/types/message'
 import { assetUrl } from '@/utils/assetUrl'
+import { buildAvatarRingStyle } from '@/utils/avatarRing'
 
 const props = defineProps<{
     message: MessageResponse
@@ -28,6 +29,7 @@ function onAvatarClick() {
 
 const avatarStyle = computed(() => ({
     backgroundImage: props.message.avatar ? `url(${assetUrl(props.message.avatar)})` : undefined,
+    ...buildAvatarRingStyle(props.message.avatarColor, props.message.avatarBorder, 'sm'),
 }))
 </script>
 

@@ -11,6 +11,8 @@ function makeMessage(overrides: Partial<MessageResponse>): MessageResponse {
         messageType: 'TEXT',
         furName: '小毛',
         avatar: '/mock-images/avatar-default.png',
+        avatarColor: null,
+        avatarBorder: false,
         content: 'hello',
         imageUrls: [],
         stickerImageUrl: null,
@@ -88,6 +90,29 @@ describe('MessageItem', () => {
         const sticker = wrapper.find('.message-item__sticker')
         expect(sticker.exists()).toBe(true)
         expect(sticker.attributes('src')).toBe('/mock-images/sticker-1.png')
+    })
+
+    it('applies avatarColor ring on avatar when avatarBorder is on', () => {
+        const wrapper = mount(MessageItem, {
+            props: {
+                message: makeMessage({ avatarColor: '#7b9b8f', avatarBorder: true }),
+            },
+        })
+
+        const style = wrapper.find('.message-item__avatar').attributes('style') ?? ''
+        expect(style).toContain('box-shadow')
+        expect(style).toContain('#7b9b8f')
+    })
+
+    it('renders no ring when avatarBorder is off', () => {
+        const wrapper = mount(MessageItem, {
+            props: {
+                message: makeMessage({ avatarColor: '#7b9b8f', avatarBorder: false }),
+            },
+        })
+
+        const style = wrapper.find('.message-item__avatar').attributes('style') ?? ''
+        expect(style).not.toContain('box-shadow')
     })
 
     it('emits avatar-click with the userId when the avatar is clicked', async () => {
