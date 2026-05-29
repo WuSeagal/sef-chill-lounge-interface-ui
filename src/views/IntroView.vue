@@ -9,6 +9,7 @@ import { useTagEditorState } from '@/composables/useTagEditorState'
 import { useAuthStore } from '@/stores/auth.ts'
 import TagEditorPreview from '@/components/TagEditorPreview.vue'
 import TagEditorModal from '@/components/TagEditorModal.vue'
+import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import { TAG_TYPE_ORDER, TagType, type GroupedTags, type Tag } from '@/types/user'
 
 const TAG_MAX = 20
@@ -59,6 +60,7 @@ const tagModalOpen = ref(false)
 const furName = ref('')
 const selectedAvatarId = ref<string | null>(null)
 const avatarColor = ref<string>('#ffffff')
+const avatarBorder = ref<boolean>(false)
 const socialPlatformInput = ref('')
 const socialUrlInput = ref('')
 const selectedSocialLinks = ref<SocialDraft[]>([])
@@ -200,6 +202,7 @@ function skipCurrentStep(): void {
     if (currentStep.value.key === 'avatar') {
         selectedAvatarId.value = null
         avatarColor.value = '#ffffff'
+        avatarBorder.value = false
     }
     if (currentStep.value.key === 'tags') {
         tagEditorState.reset([])
@@ -256,6 +259,7 @@ async function confirmProfileSetup(): Promise<void> {
             furName: furName.value.trim(),
             avatar: selectedAvatarId.value ?? undefined,
             avatarColor: selectedAvatarId.value ? avatarColor.value : undefined,
+            avatarBorder: selectedAvatarId.value ? avatarBorder.value : undefined,
         })
 
         const { toAdd, toCreate } = tagEditorState.diff([])
@@ -312,6 +316,7 @@ async function initializeOnboarding(): Promise<void> {
     furName.value = defaultFurName.value
     selectedAvatarId.value = null
     avatarColor.value = '#ffffff'
+    avatarBorder.value = false
     tagEditorState.reset([])
     socialPlatformInput.value = ''
     socialUrlInput.value = ''
@@ -402,6 +407,16 @@ onBeforeUnmount(() => {
                                 :style="{ backgroundColor: color }"
                                 @click="avatarColor = color; clearCurrentStepSkipped()" />
                         </div>
+                    </div>
+
+                    <div class="intro-view__option-group intro-view__option-group--row">
+                        <h2>{{ t('intro.options.avatarBorder') }}</h2>
+                        <ToggleSwitch
+                            data-test="avatar-border-toggle"
+                            :aria-label="t('intro.options.avatarBorder')"
+                            :model-value="avatarBorder"
+                            @update:model-value="(v: boolean) => { avatarBorder = v; clearCurrentStepSkipped() }"
+                        />
                     </div>
                 </section>
 

@@ -173,6 +173,17 @@
     font-size: 1rem;
 }
 
+.intro-view__option-group--row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.intro-view__option-group--row h2 {
+    margin: 0;
+}
+
 .intro-view__choice-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
