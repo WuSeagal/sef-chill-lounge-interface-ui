@@ -7,6 +7,8 @@ export type MessageResponse = {
     messageType: MessageType
     furName: string | null
     avatar: string | null
+    avatarColor: string | null
+    avatarBorder: boolean
     content: string | null
     imageUrls: string[]
     stickerImageUrl: string | null

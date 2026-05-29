@@ -76,6 +76,7 @@ export interface UserProfile {
     furName: string | null
     avatar: string | null
     avatarColor: string | null
+    avatarBorder: boolean
     topicId: string | null
     topic?: Topic | null
     tags?: Tag[]
@@ -89,6 +90,7 @@ export interface Member {
     furName: string | null
     avatar: string | null
     avatarColor: string | null
+    avatarBorder?: boolean
 }
 
 export interface CreateProfileRequest {
@@ -96,6 +98,7 @@ export interface CreateProfileRequest {
     furName?: string
     avatar?: string
     avatarColor?: string
+    avatarBorder?: boolean
     topicId?: string
 }
 
