@@ -113,14 +113,28 @@ describe('SettingsTab — staged save', () => {
     it('avatarBorder 開關預設反映 profile.avatarBorder', () => {
         profileRef.value = { ...initialProfile(), avatarBorder: true }
         const wrapper = mount(SettingsTab)
-        const toggle = wrapper.find('[data-test=avatar-border-toggle]')
-        expect((toggle.element as HTMLInputElement).checked).toBe(true)
+        const input = wrapper.find('[data-test=avatar-border-toggle] input')
+        expect((input.element as HTMLInputElement).checked).toBe(true)
+    })
+
+    it('預覽頭像依 avatarBorder 顯示色環', async () => {
+        profileRef.value = { ...initialProfile(), avatarColor: '#7b9b8f', avatarBorder: true }
+        const wrapper = mount(SettingsTab)
+        const onStyle = wrapper.find('.settings-tab__avatar-img').attributes('style') ?? ''
+        expect(onStyle).toContain('box-shadow')
+        expect(onStyle).toContain('#7b9b8f')
+
+        // 取消勾選 → 預覽無色環
+        await wrapper.find('[data-test=avatar-border-toggle] input').setValue(false)
+        await flushPromises()
+        const offStyle = wrapper.find('.settings-tab__avatar-img').attributes('style') ?? ''
+        expect(offStyle).not.toContain('box-shadow')
     })
 
     it('切換 avatarBorder 變 dirty,儲存送 updateProfile 帶 avatarBorder', async () => {
         const wrapper = mount(SettingsTab)
-        const toggle = wrapper.find('[data-test=avatar-border-toggle]')
-        await toggle.setValue(true)
+        const input = wrapper.find('[data-test=avatar-border-toggle] input')
+        await input.setValue(true)
         await flushPromises()
         const btn = wrapper.find('[data-test=save-all]')
         expect((btn.element as HTMLButtonElement).disabled).toBe(false)

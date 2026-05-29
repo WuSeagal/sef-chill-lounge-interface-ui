@@ -44,7 +44,12 @@
     height: 64px;
     border-radius: 50%;
     object-fit: cover;
-    border: 3px solid var(--avatar-default-bg);
+}
+
+.settings-tab__field--row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .settings-tab__avatar-upload {

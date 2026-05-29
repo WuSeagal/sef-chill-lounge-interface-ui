@@ -4,6 +4,8 @@ import { push } from 'notivue'
 import './SettingsTab.css'
 import TagEditorPreview from './TagEditorPreview.vue'
 import TagEditorModal from './TagEditorModal.vue'
+import ToggleSwitch from './ToggleSwitch.vue'
+import { buildAvatarRingStyle } from '@/utils/avatarRing'
 import { useUser } from '@/composables/useUser'
 import { useTagEditorState } from '@/composables/useTagEditorState'
 import { fetchSelectableTags } from '@/api/userApi'
@@ -40,6 +42,8 @@ const displayAvatarColor = computed(() =>
 const displayAvatarBorder = computed(() =>
     draftAvatarBorder.value ?? user.profile.value?.avatarBorder ?? false)
 const avatar = computed(() => user.profile.value?.avatar ?? '')
+const avatarPreviewStyle = computed(() =>
+    buildAvatarRingStyle(displayAvatarColor.value, displayAvatarBorder.value, 'lg'))
 
 const previewTags = computed<Tag[]>(() => {
     const result: Tag[] = []
@@ -197,7 +201,7 @@ defineExpose({ isDirty, saveAll })
                     class="settings-tab__avatar-img"
                     :src="assetUrl(avatar)"
                     alt="avatar"
-                    :style="{ borderColor: displayAvatarColor }"
+                    :style="avatarPreviewStyle"
                 />
             </div>
         </div>
@@ -215,13 +219,13 @@ defineExpose({ isDirty, saveAll })
             </div>
         </div>
 
-        <div class="settings-tab__field">
+        <div class="settings-tab__field settings-tab__field--row">
             <label class="settings-tab__label">顯示頭像外框</label>
-            <input
-                type="checkbox"
+            <ToggleSwitch
                 data-test="avatar-border-toggle"
-                :checked="displayAvatarBorder"
-                @change="stageAvatarBorder(($event.target as HTMLInputElement).checked)"
+                aria-label="顯示頭像外框"
+                :model-value="displayAvatarBorder"
+                @update:model-value="stageAvatarBorder"
             />
         </div>
 
