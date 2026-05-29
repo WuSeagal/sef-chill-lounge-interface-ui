@@ -206,19 +206,17 @@ defineExpose({ isDirty, saveAll })
             </div>
         </div>
 
-        <div class="settings-tab__field">
+        <div v-if="displayAvatarBorder" class="settings-tab__field">
             <label class="settings-tab__label">頭像框背景色</label>
-            <div class="settings-tab__color-row" :class="{ 'settings-tab__color-row--disabled': !displayAvatarBorder }">
+            <div class="settings-tab__color-row">
                 <input
                     class="settings-tab__color-input"
                     type="color"
                     :value="displayAvatarColor"
-                    :disabled="!displayAvatarBorder"
                     @input="stageAvatarColor(($event.target as HTMLInputElement).value)"
                 />
                 <span class="settings-tab__color-value">{{ displayAvatarColor }}</span>
             </div>
-            <p v-if="!displayAvatarBorder" class="settings-tab__hint">開啟「顯示頭像外框」後才能選擇顏色</p>
         </div>
 
         <div class="settings-tab__field settings-tab__field--row">

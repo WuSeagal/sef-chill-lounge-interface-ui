@@ -73,6 +73,9 @@ describe('SettingsTab — staged save', () => {
 
     it('改顏色不立即送 API', async () => {
         const wrapper = mount(SettingsTab)
+        // 先開外框，選色才會顯示
+        await wrapper.find('[data-test=avatar-border-toggle] input').setValue(true)
+        await flushPromises()
         const input = wrapper.find('.settings-tab__color-input')
         await input.setValue('#ff0000')
         await flushPromises()
@@ -119,15 +122,14 @@ describe('SettingsTab — staged save', () => {
         expect((input.element as HTMLInputElement).checked).toBe(true)
     })
 
-    it('avatarBorder 關閉時選色停用,開啟後可選', async () => {
+    it('avatarBorder 關閉時隱藏選色,開啟後顯示', async () => {
         profileRef.value = { ...initialProfile(), avatarBorder: false }
         const wrapper = mount(SettingsTab)
-        const colorInput = wrapper.find('.settings-tab__color-input')
-        expect((colorInput.element as HTMLInputElement).disabled).toBe(true)
+        expect(wrapper.find('.settings-tab__color-input').exists()).toBe(false)
 
         await wrapper.find('[data-test=avatar-border-toggle] input').setValue(true)
         await flushPromises()
-        expect((colorInput.element as HTMLInputElement).disabled).toBe(false)
+        expect(wrapper.find('.settings-tab__color-input').exists()).toBe(true)
     })
 
     it('預覽頭像依 avatarBorder 顯示色環', async () => {

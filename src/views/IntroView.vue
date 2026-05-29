@@ -405,10 +405,7 @@ onBeforeUnmount(() => {
                         />
                     </div>
 
-                    <div
-                        class="intro-view__option-group"
-                        :class="{ 'intro-view__option-group--disabled': !avatarBorder }"
-                    >
+                    <div v-if="avatarBorder" class="intro-view__option-group">
                         <h2>{{ t('intro.options.avatarColor') }}</h2>
                         <div class="intro-view__color-row">
                             <button
@@ -418,10 +415,8 @@ onBeforeUnmount(() => {
                                 class="intro-view__color-chip"
                                 :class="{ 'intro-view__color-chip--selected': avatarColor === color }"
                                 :style="{ backgroundColor: color }"
-                                :disabled="!avatarBorder"
                                 @click="avatarColor = color; clearCurrentStepSkipped()" />
                         </div>
-                        <p v-if="!avatarBorder" class="intro-view__hint">{{ t('intro.options.avatarColorHint') }}</p>
                     </div>
                 </section>
 
