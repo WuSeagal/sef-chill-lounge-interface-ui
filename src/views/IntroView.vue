@@ -39,7 +39,7 @@ const avatarChoices = [
     { id: 'mock-bear', label: 'Bear' },
 ]
 
-const avatarColorChoices = ['#8c8672', '#c9826b', '#7b9b8f', '#8b78b6']
+const avatarColorChoices = ['#ffffff', '#8c8672', '#c9826b', '#7b9b8f', '#8b78b6']
 const stickerChoices = [
     { id: 'mock-bubble-pack', label: '對話泡泡包' },
     { id: 'mock-soft-pack', label: '柔軟貼圖包' },
@@ -58,7 +58,7 @@ const tagModalOpen = ref(false)
 
 const furName = ref('')
 const selectedAvatarId = ref<string | null>(null)
-const avatarColor = ref<string>('#8c8672')
+const avatarColor = ref<string>('#ffffff')
 const socialPlatformInput = ref('')
 const socialUrlInput = ref('')
 const selectedSocialLinks = ref<SocialDraft[]>([])
@@ -199,7 +199,7 @@ function skipCurrentStep(): void {
     if (!canSkipCurrent.value) return
     if (currentStep.value.key === 'avatar') {
         selectedAvatarId.value = null
-        avatarColor.value = '#8c8672'
+        avatarColor.value = '#ffffff'
     }
     if (currentStep.value.key === 'tags') {
         tagEditorState.reset([])
@@ -311,7 +311,7 @@ async function initializeOnboarding(): Promise<void> {
     currentStepIndex.value = 0
     furName.value = defaultFurName.value
     selectedAvatarId.value = null
-    avatarColor.value = '#8c8672'
+    avatarColor.value = '#ffffff'
     tagEditorState.reset([])
     socialPlatformInput.value = ''
     socialUrlInput.value = ''
