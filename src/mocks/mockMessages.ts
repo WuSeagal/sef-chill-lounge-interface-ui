@@ -3,6 +3,8 @@ export type MockMessage = {
     userId: string
     nickname: string
     avatarUrl: string
+    avatarColor?: string | null
+    avatarBorder?: boolean
     content: string
     imageUrl?: string
     timestamp: string
@@ -16,6 +18,8 @@ export const mockMessages: MockMessage[] = [
         userId: 'u-101',
         nickname: '小毛',
         avatarUrl: AVATAR_PLACEHOLDER,
+        avatarColor: '#c9826b',
+        avatarBorder: true,
         content: '大家好啊！',
         timestamp: '2026-05-20T14:00:00.000Z',
     },
@@ -24,6 +28,8 @@ export const mockMessages: MockMessage[] = [
         userId: 'u-102',
         nickname: 'Foxy',
         avatarUrl: AVATAR_PLACEHOLDER,
+        avatarColor: '#7b9b8f',
+        avatarBorder: true,
         content: '剛到場，這次 panel 看起來很不錯',
         timestamp: '2026-05-20T14:01:30.000Z',
     },

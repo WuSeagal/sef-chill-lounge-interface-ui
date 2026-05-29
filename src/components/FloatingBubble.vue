@@ -2,11 +2,15 @@
 import { computed } from 'vue'
 import './FloatingBubble.css'
 import SpeechBubble from '@/components/SpeechBubble.vue'
+import { buildAvatarRingStyle } from '@/utils/avatarRing'
 import type { DashboardBubble } from '@/composables/useDashboardBubbles'
 
 const props = defineProps<{
     bubble: DashboardBubble
 }>()
+
+const avatarRingStyle = computed(() =>
+    buildAvatarRingStyle(props.bubble.message.avatarColor, props.bubble.message.avatarBorder ?? false, 'lg'))
 
 const BUBBLE_WIDTH = 200
 const BUBBLE_HEIGHT_TEXT = 60
@@ -34,6 +38,7 @@ const innerClass = computed(() => ({
                 class="floating-bubble__avatar"
                 :class="{ 'floating-bubble__avatar--right': bubble.direction === 'right' }"
                 :src="bubble.message.avatarUrl"
+                :style="avatarRingStyle"
                 alt=""
             />
             <SpeechBubble

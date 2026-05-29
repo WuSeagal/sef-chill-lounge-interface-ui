@@ -99,6 +99,33 @@ describe('FloatingBubble — structure', () => {
     })
 })
 
+describe('FloatingBubble — avatar ring', () => {
+    it('applies avatarColor ring when avatarBorder is on', () => {
+        const wrapper = mount(FloatingBubble, {
+            props: {
+                bubble: makeBubble({
+                    message: { ...makeBubble().message, avatarColor: '#7b9b8f', avatarBorder: true },
+                }),
+            },
+        })
+        const style = wrapper.find('.floating-bubble__avatar').attributes('style') ?? ''
+        expect(style).toContain('box-shadow')
+        expect(style).toContain('#7b9b8f')
+    })
+
+    it('renders no ring when avatarBorder is off', () => {
+        const wrapper = mount(FloatingBubble, {
+            props: {
+                bubble: makeBubble({
+                    message: { ...makeBubble().message, avatarColor: '#7b9b8f', avatarBorder: false },
+                }),
+            },
+        })
+        const style = wrapper.find('.floating-bubble__avatar').attributes('style') ?? ''
+        expect(style).not.toContain('box-shadow')
+    })
+})
+
 describe('FloatingBubble — avatar position', () => {
     it('direction "left": avatar comes before SpeechBubble in DOM', () => {
         const wrapper = mount(FloatingBubble, {
