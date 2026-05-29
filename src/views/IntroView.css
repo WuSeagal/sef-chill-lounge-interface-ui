@@ -184,6 +184,21 @@
     margin: 0;
 }
 
+.intro-view__option-group--disabled {
+    opacity: 0.4;
+}
+
+.intro-view__color-chip:disabled {
+    cursor: not-allowed;
+}
+
+.intro-view__hint {
+    margin: 10px 0 0;
+    font-size: 0.78rem;
+    color: #4f4635;
+    opacity: 0.75;
+}
+
 .intro-view__choice-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));

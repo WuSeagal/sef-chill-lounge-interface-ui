@@ -98,15 +98,17 @@ describe('SettingsTab — staged save', () => {
         )
     })
 
-    it('改名 + 顏色一起儲存只發一次 updateProfile', async () => {
+    it('改名 + 開框 + 顏色一起儲存只發一次 updateProfile', async () => {
         const wrapper = mount(SettingsTab)
         await wrapper.find('.settings-tab__nickname').setValue('B')
+        // 新規則：先開啟頭像外框才能選色
+        await wrapper.find('[data-test=avatar-border-toggle] input').setValue(true)
         await wrapper.find('.settings-tab__color-input').setValue('#ff0000')
         await wrapper.find('[data-test=save-all]').trigger('click')
         await flushPromises()
         expect(updateProfileMock).toHaveBeenCalledTimes(1)
         expect(updateProfileMock).toHaveBeenCalledWith({
-            furName: 'B', avatarColor: '#ff0000',
+            furName: 'B', avatarColor: '#ff0000', avatarBorder: true,
         })
     })
 
@@ -115,6 +117,17 @@ describe('SettingsTab — staged save', () => {
         const wrapper = mount(SettingsTab)
         const input = wrapper.find('[data-test=avatar-border-toggle] input')
         expect((input.element as HTMLInputElement).checked).toBe(true)
+    })
+
+    it('avatarBorder 關閉時選色停用,開啟後可選', async () => {
+        profileRef.value = { ...initialProfile(), avatarBorder: false }
+        const wrapper = mount(SettingsTab)
+        const colorInput = wrapper.find('.settings-tab__color-input')
+        expect((colorInput.element as HTMLInputElement).disabled).toBe(true)
+
+        await wrapper.find('[data-test=avatar-border-toggle] input').setValue(true)
+        await flushPromises()
+        expect((colorInput.element as HTMLInputElement).disabled).toBe(false)
     })
 
     it('預覽頭像依 avatarBorder 顯示色環', async () => {

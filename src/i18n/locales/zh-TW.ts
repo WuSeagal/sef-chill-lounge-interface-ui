@@ -78,6 +78,7 @@ const zhTW = {
         options: {
             avatar: '選一個 mock 頭像',
             avatarColor: '選一個頭像顏色',
+            avatarColorHint: '開啟「顯示頭像外框」後才能選擇顏色',
             avatarBorder: '顯示頭像外框',
         },
     },
