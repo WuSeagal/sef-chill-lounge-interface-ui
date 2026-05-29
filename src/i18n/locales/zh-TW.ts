@@ -79,6 +79,8 @@ const zhTW = {
             avatar: '選一個 mock 頭像',
             avatarColor: '選一個頭像顏色',
             avatarBorder: '顯示頭像外框',
+            avatarBorderEnable: '啟用',
+            avatarBorderColor: '邊框顏色',
         },
     },
     error: {

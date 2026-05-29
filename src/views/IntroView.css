@@ -173,15 +173,23 @@
     font-size: 1rem;
 }
 
-.intro-view__option-group--row {
+.intro-view__border-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    gap: 24px;
+    flex-wrap: wrap;
 }
 
-.intro-view__option-group--row h2 {
-    margin: 0;
+.intro-view__border-enable,
+.intro-view__border-color {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.intro-view__sublabel {
+    font-size: 0.85rem;
+    color: #4f4635;
 }
 
 

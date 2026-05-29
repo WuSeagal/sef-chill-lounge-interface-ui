@@ -206,27 +206,29 @@ defineExpose({ isDirty, saveAll })
             </div>
         </div>
 
-        <div v-if="displayAvatarBorder" class="settings-tab__field">
-            <label class="settings-tab__label">頭像框背景色</label>
-            <div class="settings-tab__color-row">
-                <input
-                    class="settings-tab__color-input"
-                    type="color"
-                    :value="displayAvatarColor"
-                    @input="stageAvatarColor(($event.target as HTMLInputElement).value)"
-                />
-                <span class="settings-tab__color-value">{{ displayAvatarColor }}</span>
-            </div>
-        </div>
-
-        <div class="settings-tab__field settings-tab__field--row">
+        <div class="settings-tab__field">
             <label class="settings-tab__label">顯示頭像外框</label>
-            <ToggleSwitch
-                data-test="avatar-border-toggle"
-                aria-label="顯示頭像外框"
-                :model-value="displayAvatarBorder"
-                @update:model-value="stageAvatarBorder"
-            />
+            <div class="settings-tab__border-row">
+                <div class="settings-tab__border-enable">
+                    <span class="settings-tab__sublabel">啟用</span>
+                    <ToggleSwitch
+                        data-test="avatar-border-toggle"
+                        aria-label="啟用頭像外框"
+                        :model-value="displayAvatarBorder"
+                        @update:model-value="stageAvatarBorder"
+                    />
+                </div>
+                <div v-if="displayAvatarBorder" class="settings-tab__border-color">
+                    <span class="settings-tab__sublabel">邊框顏色</span>
+                    <input
+                        class="settings-tab__color-input"
+                        type="color"
+                        :value="displayAvatarColor"
+                        @input="stageAvatarColor(($event.target as HTMLInputElement).value)"
+                    />
+                    <span class="settings-tab__color-value">{{ displayAvatarColor }}</span>
+                </div>
+            </div>
         </div>
 
         <div v-if="selectableError" class="settings-tab__error" data-test="selectable-error">

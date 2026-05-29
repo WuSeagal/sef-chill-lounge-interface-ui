@@ -395,27 +395,31 @@ onBeforeUnmount(() => {
                         </div>
                     </div>
 
-                    <div class="intro-view__option-group intro-view__option-group--row">
+                    <div class="intro-view__option-group">
                         <h2>{{ t('intro.options.avatarBorder') }}</h2>
-                        <ToggleSwitch
-                            data-test="avatar-border-toggle"
-                            :aria-label="t('intro.options.avatarBorder')"
-                            :model-value="avatarBorder"
-                            @update:model-value="(v: boolean) => { avatarBorder = v; clearCurrentStepSkipped() }"
-                        />
-                    </div>
-
-                    <div v-if="avatarBorder" class="intro-view__option-group">
-                        <h2>{{ t('intro.options.avatarColor') }}</h2>
-                        <div class="intro-view__color-row">
-                            <button
-                                v-for="color in avatarColorChoices"
-                                :key="color"
-                                type="button"
-                                class="intro-view__color-chip"
-                                :class="{ 'intro-view__color-chip--selected': avatarColor === color }"
-                                :style="{ backgroundColor: color }"
-                                @click="avatarColor = color; clearCurrentStepSkipped()" />
+                        <div class="intro-view__border-row">
+                            <div class="intro-view__border-enable">
+                                <span class="intro-view__sublabel">{{ t('intro.options.avatarBorderEnable') }}</span>
+                                <ToggleSwitch
+                                    data-test="avatar-border-toggle"
+                                    :aria-label="t('intro.options.avatarBorder')"
+                                    :model-value="avatarBorder"
+                                    @update:model-value="(v: boolean) => { avatarBorder = v; clearCurrentStepSkipped() }"
+                                />
+                            </div>
+                            <div v-if="avatarBorder" class="intro-view__border-color">
+                                <span class="intro-view__sublabel">{{ t('intro.options.avatarBorderColor') }}</span>
+                                <div class="intro-view__color-row">
+                                    <button
+                                        v-for="color in avatarColorChoices"
+                                        :key="color"
+                                        type="button"
+                                        class="intro-view__color-chip"
+                                        :class="{ 'intro-view__color-chip--selected': avatarColor === color }"
+                                        :style="{ backgroundColor: color }"
+                                        @click="avatarColor = color; clearCurrentStepSkipped()" />
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>

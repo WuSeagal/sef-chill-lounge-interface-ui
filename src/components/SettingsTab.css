@@ -46,10 +46,23 @@
     object-fit: cover;
 }
 
-.settings-tab__field--row {
-    flex-direction: row;
+.settings-tab__border-row {
+    display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: var(--space-lg);
+    flex-wrap: wrap;
+}
+
+.settings-tab__border-enable,
+.settings-tab__border-color {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.settings-tab__sublabel {
+    font-size: 0.85rem;
+    color: var(--input-text);
 }
 
 .settings-tab__avatar-upload {
