@@ -40,7 +40,6 @@ const avatarChoices = [
     { id: 'mock-bear', label: 'Bear' },
 ]
 
-const avatarColorChoices = ['#ffffff', '#8c8672', '#c9826b', '#7b9b8f', '#8b78b6']
 const stickerChoices = [
     { id: 'mock-bubble-pack', label: '對話泡泡包' },
     { id: 'mock-soft-pack', label: '柔軟貼圖包' },
@@ -409,16 +408,13 @@ onBeforeUnmount(() => {
                             </div>
                             <div v-if="avatarBorder" class="intro-view__border-color">
                                 <span class="intro-view__sublabel">{{ t('intro.options.avatarBorderColor') }}</span>
-                                <div class="intro-view__color-row">
-                                    <button
-                                        v-for="color in avatarColorChoices"
-                                        :key="color"
-                                        type="button"
-                                        class="intro-view__color-chip"
-                                        :class="{ 'intro-view__color-chip--selected': avatarColor === color }"
-                                        :style="{ backgroundColor: color }"
-                                        @click="avatarColor = color; clearCurrentStepSkipped()" />
-                                </div>
+                                <input
+                                    class="intro-view__color-input"
+                                    type="color"
+                                    :value="avatarColor"
+                                    @input="avatarColor = ($event.target as HTMLInputElement).value; clearCurrentStepSkipped()"
+                                />
+                                <span class="intro-view__color-value">{{ avatarColor }}</span>
                             </div>
                         </div>
                     </div>
