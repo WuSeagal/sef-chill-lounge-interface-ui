@@ -32,8 +32,8 @@ const zhTW = {
                 description: '留一個最常用的聯絡方式就夠了，也可以先略過。',
             },
             stickers: {
-                title: '自訂貼圖',
-                description: '這一步先用 mock 自訂貼圖包，之後再換成真上傳流程。',
+                title: '上傳貼圖',
+                description: '可上傳最多 5 張個人貼圖，也可以先略過。',
             },
             review: {
                 title: '確認你的設定',
@@ -50,6 +50,7 @@ const zhTW = {
             tags: 'TAG',
             socials: '社群連結',
             stickers: '自訂貼圖',
+            stickersSelected: '已選擇貼圖',
             skipped: '先略過',
             empty: '未設定',
             unfilled: '未填寫',

@@ -6,6 +6,7 @@ import './IntroView.css'
 import { fetchSelectableTags } from '@/api/userApi'
 import { uploadAvatar } from '@/api/avatarUploadApi'
 import AvatarCropModal from '@/components/AvatarCropModal.vue'
+import StickerManager from '@/components/StickerManager.vue'
 import { useUser } from '@/composables/useUser'
 import { useAvatarUploadDraft } from '@/composables/useAvatarUploadDraft'
 import { useTagEditorState } from '@/composables/useTagEditorState'
@@ -39,12 +40,6 @@ const steps = [
     { key: 'topic', optional: false },
 ] as const
 
-const stickerChoices = [
-    { id: 'mock-bubble-pack', label: '對話泡泡包' },
-    { id: 'mock-soft-pack', label: '柔軟貼圖包' },
-    { id: 'mock-night-pack', label: '夜聊貼圖包' },
-]
-
 const currentStepIndex = ref(0)
 const selectable = ref<GroupedTags>({
     [TagType.ROLE]: [], [TagType.LANGUAGE]: [], [TagType.FRAMEWORK]: [],
@@ -63,7 +58,7 @@ const avatarInputRef = ref<HTMLInputElement | null>(null)
 const socialPlatformInput = ref('')
 const socialUrlInput = ref('')
 const selectedSocialLinks = ref<SocialDraft[]>([])
-const selectedStickerId = ref<string | null>(null)
+const stickerManagerRef = ref<InstanceType<typeof StickerManager> | null>(null)
 const skippedStepKeys = ref<string[]>([])
 const wizardActive = ref(false)
 const submitting = ref(false)
@@ -134,7 +129,11 @@ const reviewRows = computed(() => [
     },
     {
         label: t('intro.review.stickers'),
-        value: selectedStickerId.value ?? (skippedStepKeys.value.includes('stickers') ? t('intro.review.skipped') : t('intro.review.empty')),
+        value: skippedStepKeys.value.includes('stickers')
+            ? t('intro.review.skipped')
+            : stickerManagerRef.value?.isDirty
+                ? t('intro.review.stickersSelected')
+                : t('intro.review.empty'),
     },
 ])
 
@@ -218,7 +217,7 @@ function skipCurrentStep(): void {
         selectedSocialLinks.value = []
     }
     if (currentStep.value.key === 'stickers') {
-        selectedStickerId.value = null
+        stickerManagerRef.value?.clearStaging()
     }
     markCurrentStepSkipped()
     currentStepIndex.value += 1
@@ -306,6 +305,10 @@ async function confirmProfileSetup(): Promise<void> {
             await user.addSocialLink(socialLink)
         }
 
+        if (!skippedStepKeys.value.includes('stickers') && stickerManagerRef.value?.isDirty) {
+            await stickerManagerRef.value.saveAll()
+        }
+
         await user.fetchProfile()
         avatarDraft.clearDraft()
         currentStepIndex.value = steps.findIndex(step => step.key === 'topic')
@@ -354,7 +357,6 @@ async function initializeOnboarding(): Promise<void> {
     socialPlatformInput.value = ''
     socialUrlInput.value = ''
     selectedSocialLinks.value = []
-    selectedStickerId.value = null
     skippedStepKeys.value = []
     submitError.value = null
     drawnTopicContent.value = null
@@ -516,21 +518,6 @@ onBeforeUnmount(() => {
                     </ul>
                 </section>
 
-                <section v-else-if="currentStep.key === 'stickers'" class="intro-view__step-card">
-                    <div class="intro-view__choice-grid">
-                        <button
-                            v-for="sticker in stickerChoices"
-                            :key="sticker.id"
-                            type="button"
-                            class="intro-view__choice-card"
-                            :class="{ 'intro-view__choice-card--selected': selectedStickerId === sticker.id }"
-                            @click="selectedStickerId = sticker.id; clearCurrentStepSkipped()">
-                            <strong>{{ sticker.label }}</strong>
-                            <span>{{ sticker.id }}</span>
-                        </button>
-                    </div>
-                </section>
-
                 <section v-else-if="currentStep.key === 'review'" class="intro-view__step-card">
                     <div class="intro-view__review-avatar-card" data-test="review-avatar">
                         <img
@@ -553,7 +540,7 @@ onBeforeUnmount(() => {
                     <p v-if="submitError" class="intro-view__error-inline">{{ submitError }}</p>
                 </section>
 
-                <section v-else class="intro-view__step-card intro-view__topic-step">
+                <section v-else-if="currentStep.key === 'topic'" class="intro-view__step-card intro-view__topic-step">
                     <div v-if="!hasDrawnTopic" class="intro-view__topic-prompt">
                         <p>{{ t('intro.topic.prompt') }}</p>
                         <button type="button" data-test="draw-topic" :disabled="drawingTopic" @click="drawTopicCard">
@@ -568,6 +555,10 @@ onBeforeUnmount(() => {
                     </div>
 
                     <p v-if="drawError" class="intro-view__error-inline">{{ drawError }}</p>
+                </section>
+
+                <section v-show="currentStep.key === 'stickers'" class="intro-view__step-card">
+                    <StickerManager ref="stickerManagerRef" :initial="[]" />
                 </section>
 
                 <footer v-if="showOnboarding" class="intro-view__wizard-footer">

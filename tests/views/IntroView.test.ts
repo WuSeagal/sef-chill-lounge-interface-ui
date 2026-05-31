@@ -1,18 +1,31 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
-import { ref } from 'vue'
+import { h, ref } from 'vue'
 import { createAppI18n } from '@/i18n'
 
 vi.mock('@/api/userApi', () => ({
     fetchSelectableTags: vi.fn(),
 }))
 
-const { uploadAvatarMock } = vi.hoisted(() => ({
+const { uploadAvatarMock, stickerSaveAllSpy, stickerClearSpy } = vi.hoisted(() => ({
     uploadAvatarMock: vi.fn().mockResolvedValue({ avatarPath: '/user/u-uploaded.png' }),
+    stickerSaveAllSpy: vi.fn().mockResolvedValue(undefined),
+    stickerClearSpy: vi.fn(),
 }))
 
 vi.mock('@/api/avatarUploadApi', () => ({
     uploadAvatar: uploadAvatarMock,
+}))
+
+vi.mock('@/components/StickerManager.vue', () => ({
+    default: {
+        name: 'StickerManager',
+        props: ['initial'],
+        setup(_: unknown, { expose }: { expose: (exposed: Record<string, unknown>) => void }) {
+            expose({ isDirty: true, saveAll: stickerSaveAllSpy, clearStaging: stickerClearSpy })
+            return () => h('div', { 'data-test': 'sticker-manager-mock' })
+        },
+    },
 }))
 
 const createProfileMock = vi.fn().mockImplementation(async () => {
@@ -383,5 +396,57 @@ describe('IntroView', () => {
         expect(reviewAvatar.exists()).toBe(true)
         expect(reviewAvatar.attributes('src')).toContain('blob:http://localhost/staged-avatar')
         expect(reviewAvatar.attributes('style') ?? '').toContain('#ff8800')
+    })
+
+    it('stickers step 渲染 StickerManager 元件', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        // advance: nickname → avatar → tags → socials → stickers
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await flushPromises()
+
+        expect(wrapper.find('[data-test=sticker-manager-mock]').exists()).toBe(true)
+        expect(wrapper.text()).not.toContain('柔軟貼圖包')
+        expect(wrapper.text()).not.toContain('mock-bubble-pack')
+    })
+
+    it('完成 onboarding 且 stickers 未略過時，createProfile 後呼叫 saveAll', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        // nickname → avatar (skip) → tags (skip) → socials (skip) → stickers (next) → review → confirm
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await flushPromises()
+        // currently on stickers step — advance to review
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+
+        await wrapper.find('[data-test=confirm-create]').trigger('click')
+        await flushPromises()
+
+        expect(createProfileMock).toHaveBeenCalledTimes(1)
+        expect(stickerSaveAllSpy).toHaveBeenCalledTimes(1)
+        expect(createProfileMock.mock.invocationCallOrder[0]).toBeLessThan(stickerSaveAllSpy.mock.invocationCallOrder[0])
     })
 })
