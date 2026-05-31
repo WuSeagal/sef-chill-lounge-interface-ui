@@ -49,15 +49,15 @@ function onPick(url: string | null) {
         </div>
         <div v-else class="sticker-picker__grid">
             <button
-                v-for="s in stickers"
+                v-for="(s, idx) in stickers"
                 :key="s.id"
                 class="sticker-picker__item"
                 type="button"
                 data-test="picker-sticker"
-                :aria-label="'傳送貼圖 ' + s.stickerNo"
+                :aria-label="'傳送貼圖 ' + (idx + 1)"
                 @click="onPick(s.sticker)"
             >
-                <img class="sticker-picker__img" :src="assetUrl(s.sticker ?? '')" :alt="'貼圖 ' + s.stickerNo" />
+                <img class="sticker-picker__img" :src="assetUrl(s.sticker ?? '')" :alt="'貼圖 ' + (idx + 1)" />
             </button>
         </div>
     </div>

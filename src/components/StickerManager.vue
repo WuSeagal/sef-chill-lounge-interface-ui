@@ -5,101 +5,102 @@ import { uploadSticker, deleteSticker } from '@/api/stickerUploadApi'
 import type { Sticker } from '@/types/user'
 import { assetUrl } from '@/utils/assetUrl'
 
-const SLOTS = [1, 2, 3, 4, 5]
+const MAX_ACTIVE = 5
 const MAX_BYTES = 10 * 1024 * 1024
 
-interface SlotState {
-    slot: number
-    existingUrl: string | null
-    stagedFile: File | null
-    previewUrl: string | null
-    cleared: boolean
+interface ExistingItem {
+    id: number
+    url: string | null
+    stagedForDeletion: boolean
+}
+
+interface StagedItem {
+    file: File
+    previewUrl: string
 }
 
 const props = defineProps<{ initial: Sticker[] }>()
 
-const slotError = ref<string | null>(null)
+const error = ref<string | null>(null)
 
-const slots = reactive<SlotState[]>(
-    SLOTS.map((slot) => {
-        const found = props.initial.find((s) => s.stickerNo === slot)
-        return { slot, existingUrl: found?.sticker ?? null, stagedFile: null, previewUrl: null, cleared: false }
-    }),
+const existing = reactive<ExistingItem[]>(
+    props.initial.map((s) => ({ id: s.id, url: s.sticker ?? null, stagedForDeletion: false })),
 )
 
-const isDirty = computed(() => slots.some((s) => s.stagedFile !== null || s.cleared))
+const staged = reactive<StagedItem[]>([])
 
-function displaySrc(s: SlotState): string | null {
-    if (s.previewUrl) return s.previewUrl
-    if (s.cleared) return null
-    return s.existingUrl ? assetUrl(s.existingUrl) : null
-}
+const netActive = computed(
+    () => existing.filter((e) => !e.stagedForDeletion).length + staged.length,
+)
 
-function onFileChange(slot: SlotState, event: Event): void {
-    slotError.value = null
+const isDirty = computed(
+    () => existing.some((e) => e.stagedForDeletion) || staged.length > 0,
+)
+
+function onFileChange(event: Event): void {
+    error.value = null
     const input = event.target as HTMLInputElement
     const file = input.files?.[0]
     input.value = ''
     if (!file) return
     if (!file.type.startsWith('image/')) {
-        slotError.value = '不支援的圖片格式'
+        error.value = '不支援的圖片格式'
         return
     }
     if (file.size > MAX_BYTES) {
-        slotError.value = '貼圖超過 10MB 上限'
+        error.value = '貼圖超過 10MB 上限'
         return
     }
-    if (slot.previewUrl) URL.revokeObjectURL(slot.previewUrl)
-    slot.stagedFile = file
-    slot.previewUrl = URL.createObjectURL(file)
-    slot.cleared = false
+    staged.push({ file, previewUrl: URL.createObjectURL(file) })
 }
 
-function onClear(slot: SlotState): void {
-    if (slot.previewUrl) {
-        URL.revokeObjectURL(slot.previewUrl)
-        slot.previewUrl = null
-    }
-    slot.stagedFile = null
-    slot.cleared = true
+function removeExisting(item: ExistingItem): void {
+    item.stagedForDeletion = true
+}
+
+function removeStaged(item: StagedItem): void {
+    URL.revokeObjectURL(item.previewUrl)
+    const idx = staged.indexOf(item)
+    if (idx !== -1) staged.splice(idx, 1)
 }
 
 function clearStaging(): void {
-    for (const s of slots) {
-        if (s.previewUrl) URL.revokeObjectURL(s.previewUrl)
-        s.previewUrl = null
-        s.stagedFile = null
-        s.cleared = false
-    }
+    for (const s of staged) URL.revokeObjectURL(s.previewUrl)
+    staged.splice(0, staged.length)
+    for (const e of existing) e.stagedForDeletion = false
+    error.value = null
 }
 
-function resetSlotStaging(s: SlotState): void {
-    if (s.previewUrl) URL.revokeObjectURL(s.previewUrl)
-    s.previewUrl = null
-    s.stagedFile = null
-    s.cleared = false
-}
-
-// Clears each slot's staging as soon as that slot's request succeeds, so a
-// partial failure leaves only the unprocessed slots dirty — retry is then
-// idempotent (succeeded slots are no longer re-uploaded). On failure we throw
-// an error carrying the offending slot number so the caller can name it.
 async function saveAll(): Promise<void> {
-    for (const s of slots) {
+    // Process deletes first so the server never exceeds 5 active at once.
+    // Iterate over snapshots so we can mutate the live arrays as each op succeeds.
+    const toDelete = existing.filter((e) => e.stagedForDeletion)
+    const toUpload = [...staged]
+
+    for (const item of toDelete) {
         try {
-            if (s.stagedFile) {
-                const res = await uploadSticker(s.slot, s.stagedFile)
-                s.existingUrl = res.sticker
-                resetSlotStaging(s)
-            } else if (s.cleared) {
-                await deleteSticker(s.slot)
-                s.existingUrl = null
-                resetSlotStaging(s)
-            }
+            await deleteSticker(item.id)
+            const idx = existing.indexOf(item)
+            if (idx !== -1) existing.splice(idx, 1)
         } catch (err) {
             throw Object.assign(
                 err instanceof Error ? err : new Error('sticker_save_failed'),
-                { slot: s.slot },
+                {},
+            )
+        }
+    }
+
+    for (const item of toUpload) {
+        try {
+            const res = await uploadSticker(item.file)
+            URL.revokeObjectURL(item.previewUrl)
+            const idx = staged.indexOf(item)
+            if (idx !== -1) staged.splice(idx, 1)
+            existing.push({ id: res.id, url: res.sticker ?? null, stagedForDeletion: false })
+        } catch (err) {
+            throw Object.assign(
+                err instanceof Error ? err : new Error('sticker_save_failed'),
+                {},
             )
         }
     }
@@ -111,34 +112,86 @@ defineExpose({ isDirty, saveAll, clearStaging })
 <template>
     <div class="sticker-manager" data-test="sticker-manager">
         <p class="sticker-manager__hint">PNG / JPG / GIF / WEBP，≤10MB</p>
-        <div class="sticker-manager__grid">
+        <div class="sticker-manager__list">
+            <!-- Existing stickers (not staged for deletion) -->
             <div
-                v-for="s in slots"
-                :key="s.slot"
-                class="sticker-manager__slot"
-                data-test="sticker-slot"
+                v-for="item in existing.filter((e) => !e.stagedForDeletion)"
+                :key="item.id"
+                class="sticker-manager__tile"
+                data-test="sticker-tile"
             >
-                <div class="sticker-manager__thumb" :class="{ 'sticker-manager__thumb--empty': !displaySrc(s) }">
-                    <img v-if="displaySrc(s)" class="sticker-manager__img" :src="displaySrc(s)!" :alt="'貼圖 ' + s.slot" />
-                    <span v-else class="sticker-manager__placeholder" aria-hidden="true">+</span>
-                    <span v-if="s.stagedFile || s.cleared" class="sticker-manager__dirty-dot" title="未儲存"></span>
+                <div class="sticker-manager__thumb">
+                    <img
+                        v-if="item.url"
+                        class="sticker-manager__img"
+                        :src="assetUrl(item.url)"
+                        alt="貼圖"
+                    />
+                    <svg v-else class="sticker-manager__placeholder-icon" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                    </svg>
                 </div>
-                <div class="sticker-manager__actions">
-                    <label class="sticker-manager__btn" :aria-label="'上傳貼圖 ' + s.slot">
-                        {{ s.existingUrl && !s.cleared ? '替換' : '上傳' }}
-                        <input type="file" accept="image/*" hidden @change="onFileChange(s, $event)" />
-                    </label>
-                    <button
-                        type="button"
-                        class="sticker-manager__btn sticker-manager__btn--danger"
-                        data-test="sticker-clear"
-                        :disabled="!s.existingUrl && !s.stagedFile"
-                        :aria-label="'清空貼圖 ' + s.slot"
-                        @click="onClear(s)"
-                    >清空</button>
-                </div>
+                <button
+                    type="button"
+                    class="sticker-manager__remove-btn"
+                    data-test="sticker-remove"
+                    aria-label="移除貼圖"
+                    @click="removeExisting(item)"
+                >
+                    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                        <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    刪除
+                </button>
             </div>
+
+            <!-- Staged new previews -->
+            <div
+                v-for="item in staged"
+                :key="item.previewUrl"
+                class="sticker-manager__tile sticker-manager__tile--staged"
+                data-test="sticker-tile"
+            >
+                <div class="sticker-manager__thumb">
+                    <img class="sticker-manager__img" :src="item.previewUrl" alt="預覽" />
+                    <span class="sticker-manager__dirty-dot" title="未儲存"></span>
+                </div>
+                <button
+                    type="button"
+                    class="sticker-manager__remove-btn"
+                    data-test="sticker-remove"
+                    aria-label="移除預覽貼圖"
+                    @click="removeStaged(item)"
+                >
+                    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                        <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    </svg>
+                    刪除
+                </button>
+            </div>
+
+            <!-- Add tile (hidden when at max) -->
+            <label
+                v-if="netActive < MAX_ACTIVE"
+                class="sticker-manager__add-tile"
+                data-test="sticker-add"
+                aria-label="新增貼圖"
+            >
+                <svg class="sticker-manager__add-icon" viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+                    <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                    <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span class="sticker-manager__add-label">新增</span>
+                <input type="file" accept="image/*" hidden @change="onFileChange($event)" />
+            </label>
         </div>
-        <p v-if="slotError" class="sticker-manager__error" data-test="sticker-error" role="alert">{{ slotError }}</p>
+        <p
+            v-if="error"
+            class="sticker-manager__error"
+            data-test="sticker-error"
+            role="alert"
+        >{{ error }}</p>
     </div>
 </template>

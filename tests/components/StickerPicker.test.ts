@@ -4,8 +4,8 @@ vi.mock('@/utils/assetUrl', () => ({ assetUrl: (s: string) => s }))
 import StickerPicker from '@/components/StickerPicker.vue'
 
 const stickers = [
-    { id: 1, stickerNo: 1, sticker: '/sticker/u/1.png?v=1' },
-    { id: 2, stickerNo: 2, sticker: '/sticker/u/2.gif?v=1' },
+    { id: 1, sticker: '/sticker/u/1.png?v=1' },
+    { id: 2, sticker: '/sticker/u/2.gif?v=1' },
 ]
 
 describe('StickerPicker', () => {

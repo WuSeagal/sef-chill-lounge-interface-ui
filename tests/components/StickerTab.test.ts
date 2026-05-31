@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { ref } from 'vue'
 
-const profile = ref<{ stickers: { id: number; stickerNo: number; sticker: string }[] } | null>(null)
+const profile = ref<{ stickers: { id: number; sticker: string }[] } | null>(null)
 vi.mock('@/composables/useUser', () => ({
     useUser: () => ({ profile, fetchProfile: vi.fn() }),
 }))
@@ -23,7 +23,7 @@ import StickerTab from '@/components/StickerTab.vue'
 describe('StickerTab', () => {
     beforeEach(() => {
         saveAllSpy.mockReset()
-        profile.value = { stickers: [{ id: 1, stickerNo: 1, sticker: '/sticker/u/1.png?v=1' }] }
+        profile.value = { stickers: [{ id: 1, sticker: '/sticker/u/1.png?v=1' }] }
     })
 
     it('renders a save button', () => {

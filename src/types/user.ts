@@ -66,7 +66,6 @@ export interface Social {
 
 export interface Sticker {
     id: number
-    stickerNo: number
     sticker: string | null
 }
 

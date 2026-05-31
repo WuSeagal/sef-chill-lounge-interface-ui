@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 
 const { uploadStickerMock, deleteStickerMock } = vi.hoisted(() => ({
-    uploadStickerMock: vi.fn(), deleteStickerMock: vi.fn(),
+    uploadStickerMock: vi.fn(),
+    deleteStickerMock: vi.fn(),
 }))
 vi.mock('@/api/stickerUploadApi', () => ({
     uploadSticker: uploadStickerMock,
@@ -12,10 +13,17 @@ vi.mock('@/api/stickerUploadApi', () => ({
 vi.mock('@/utils/assetUrl', () => ({ assetUrl: (s: string) => s }))
 
 import StickerManager from '@/components/StickerManager.vue'
+import type { Sticker } from '@/types/user'
 
-function makeFile(name = 's.png') {
-    return new File(['x'], name, { type: 'image/png' })
+function makeFile(name = 's.png', sizeBytes = 100): File {
+    return new File([new Uint8Array(sizeBytes)], name, { type: 'image/png' })
 }
+
+function sticker(id: number, url: string): Sticker {
+    return { id, sticker: url }
+}
+
+type ManagerVm = { isDirty: boolean; saveAll: () => Promise<void>; clearStaging: () => void }
 
 describe('StickerManager', () => {
     beforeEach(() => {
@@ -23,44 +31,109 @@ describe('StickerManager', () => {
         deleteStickerMock.mockReset()
     })
 
-    it('renders exactly 5 slots', () => {
-        const wrapper = mount(StickerManager, { props: { initial: [] } })
-        expect(wrapper.findAll('[data-test="sticker-slot"]')).toHaveLength(5)
-    })
-
-    it('isDirty becomes true after staging a file', async () => {
-        const wrapper = mount(StickerManager, { props: { initial: [] } })
-        const input = wrapper.findAll('input[type="file"]')[0]
-        Object.defineProperty(input.element, 'files', { value: [makeFile()] })
-        await input.trigger('change')
-        expect((wrapper.vm as unknown as { isDirty: boolean }).isDirty).toBe(true)
-    })
-
-    it('saveAll uploads staged slots and deletes cleared slots', async () => {
-        uploadStickerMock.mockResolvedValue({ id: 1, stickerNo: 1, sticker: '/sticker/u/1.png?v=2' })
-        deleteStickerMock.mockResolvedValue(undefined)
+    // 1. renders existing stickers and an add tile when under 5
+    it('renders existing stickers and an add tile when under 5', () => {
         const wrapper = mount(StickerManager, {
-            props: { initial: [{ id: 9, stickerNo: 2, sticker: '/sticker/u/2.png?v=1' }] },
+            props: {
+                initial: [
+                    sticker(1, '/sticker/u/a.gif'),
+                    sticker(2, '/sticker/u/b.gif'),
+                ],
+            },
         })
-        const input1 = wrapper.findAll('input[type="file"]')[0]
-        Object.defineProperty(input1.element, 'files', { value: [makeFile()] })
-        await input1.trigger('change')
-        await wrapper.findAll('[data-test="sticker-clear"]')[1].trigger('click')
-
-        await (wrapper.vm as unknown as { saveAll: () => Promise<void> }).saveAll()
-
-        expect(uploadStickerMock).toHaveBeenCalledWith(1, expect.any(File))
-        expect(deleteStickerMock).toHaveBeenCalledWith(2)
-        expect((wrapper.vm as unknown as { isDirty: boolean }).isDirty).toBe(false)
+        expect(wrapper.findAll('[data-test="sticker-tile"]')).toHaveLength(2)
+        expect(wrapper.find('[data-test="sticker-add"]').exists()).toBe(true)
     })
 
-    it('rejects oversized file before upload (shows error, no upload)', async () => {
-        const wrapper = mount(StickerManager, { props: { initial: [] } })
-        const big = new File([new Uint8Array(11 * 1024 * 1024)], 'big.png', { type: 'image/png' })
-        const input = wrapper.findAll('input[type="file"]')[0]
-        Object.defineProperty(input.element, 'files', { value: [big] })
+    // 2. hides add tile when 5 active
+    it('hides add tile when 5 active', () => {
+        const wrapper = mount(StickerManager, {
+            props: {
+                initial: [
+                    sticker(1, '/sticker/u/a.gif'),
+                    sticker(2, '/sticker/u/b.gif'),
+                    sticker(3, '/sticker/u/c.gif'),
+                    sticker(4, '/sticker/u/d.gif'),
+                    sticker(5, '/sticker/u/e.gif'),
+                ],
+            },
+        })
+        expect(wrapper.find('[data-test="sticker-add"]').exists()).toBe(false)
+    })
+
+    // 3. staging a file sets isDirty and shows a new preview tile
+    it('staging a file sets isDirty and shows a new preview tile', async () => {
+        const wrapper = mount(StickerManager, {
+            props: {
+                initial: [
+                    sticker(1, '/sticker/u/a.gif'),
+                    sticker(2, '/sticker/u/b.gif'),
+                ],
+            },
+        })
+        const input = wrapper.find('[data-test="sticker-add"] input[type="file"]')
+        Object.defineProperty(input.element, 'files', { value: [makeFile()], configurable: true })
         await input.trigger('change')
+
+        expect((wrapper.vm as unknown as ManagerVm).isDirty).toBe(true)
+        expect(wrapper.findAll('[data-test="sticker-tile"]')).toHaveLength(3)
+    })
+
+    // 4. delete an existing sticker stages removal and sets isDirty
+    it('delete an existing sticker stages removal and sets isDirty', async () => {
+        const wrapper = mount(StickerManager, {
+            props: {
+                initial: [
+                    sticker(1, '/sticker/u/a.gif'),
+                    sticker(2, '/sticker/u/b.gif'),
+                ],
+            },
+        })
+        // Click delete on first existing tile
+        const removeBtn = wrapper.find('[data-test="sticker-remove"]')
+        await removeBtn.trigger('click')
+
+        expect((wrapper.vm as unknown as ManagerVm).isDirty).toBe(true)
+        // Visible existing tiles decreases by 1
+        expect(wrapper.findAll('[data-test="sticker-tile"]')).toHaveLength(1)
+    })
+
+    // 5. saveAll uploads staged-new and deletes staged-removed
+    it('saveAll uploads staged-new and deletes staged-removed', async () => {
+        uploadStickerMock.mockResolvedValue({ id: 10, sticker: '/sticker/u/new.png' })
+        deleteStickerMock.mockResolvedValue(undefined)
+
+        const wrapper = mount(StickerManager, {
+            props: { initial: [sticker(9, '/sticker/u/a.gif')] },
+        })
+
+        // Stage a new file
+        const input = wrapper.find('[data-test="sticker-add"] input[type="file"]')
+        Object.defineProperty(input.element, 'files', { value: [makeFile()], configurable: true })
+        await input.trigger('change')
+
+        // Stage-delete the existing id 9
+        const removeBtn = wrapper.find('[data-test="sticker-remove"]')
+        await removeBtn.trigger('click')
+
+        const vm = wrapper.vm as unknown as ManagerVm
+        await vm.saveAll()
+
+        expect(deleteStickerMock).toHaveBeenCalledWith(9)
+        expect(uploadStickerMock).toHaveBeenCalledWith(expect.any(File))
+        expect(vm.isDirty).toBe(false)
+    })
+
+    // 6. rejects oversized file (error shown, not staged, no upload)
+    it('rejects oversized file (error shown, not staged, no upload)', async () => {
+        const wrapper = mount(StickerManager, { props: { initial: [] } })
+        const bigFile = new File([new Uint8Array(11 * 1024 * 1024)], 'big.png', { type: 'image/png' })
+        const input = wrapper.find('[data-test="sticker-add"] input[type="file"]')
+        Object.defineProperty(input.element, 'files', { value: [bigFile], configurable: true })
+        await input.trigger('change')
+
         expect(wrapper.find('[data-test="sticker-error"]').exists()).toBe(true)
         expect(uploadStickerMock).not.toHaveBeenCalled()
+        expect((wrapper.vm as unknown as ManagerVm).isDirty).toBe(false)
     })
 })

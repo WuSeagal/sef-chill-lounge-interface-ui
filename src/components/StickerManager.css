@@ -4,23 +4,31 @@
     gap: var(--space-md);
     max-width: 480px;
 }
+
 .sticker-manager__hint {
     font-size: 0.85rem;
     color: var(--input-text);
     opacity: 0.7;
     margin: 0;
 }
-.sticker-manager__grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
+
+/* Dynamic tile list — wraps from left to right */
+.sticker-manager__list {
+    display: flex;
+    flex-wrap: wrap;
     gap: var(--space-sm);
 }
-.sticker-manager__slot {
+
+/* Each tile (existing or staged-new) */
+.sticker-manager__tile {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--space-xs);
+    width: calc(20% - var(--space-sm) * 4 / 5);
+    min-width: 64px;
 }
+
 .sticker-manager__thumb {
     position: relative;
     width: 100%;
@@ -33,20 +41,21 @@
     justify-content: center;
     overflow: hidden;
 }
-.sticker-manager__thumb--empty {
-    border-style: dashed;
-}
+
 .sticker-manager__img {
     width: 100%;
     height: 100%;
     object-fit: contain;
 }
-.sticker-manager__placeholder {
-    font-size: 1.5rem;
-    color: var(--input-text);
-    opacity: 0.5;
-    line-height: 1;
+
+.sticker-manager__placeholder-icon {
+    width: 28px;
+    height: 28px;
+    fill: none;
+    stroke: var(--input-text);
+    opacity: 0.35;
 }
+
 .sticker-manager__dirty-dot {
     position: absolute;
     top: 4px;
@@ -57,34 +66,60 @@
     background: #e6b800;
     box-shadow: 0 0 0 2px var(--bubble-bg);
 }
-.sticker-manager__actions {
-    display: flex;
-    gap: 4px;
-    width: 100%;
-}
-.sticker-manager__btn {
-    flex: 1;
-    min-height: 44px;
+
+.sticker-manager__remove-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 2px;
+    min-height: 44px;
+    width: 100%;
     font-size: 0.72rem;
     border: 1px solid var(--bubble-border);
     border-radius: var(--radius-sm);
     background: transparent;
-    color: var(--input-text);
+    color: #d98c8c;
     cursor: pointer;
+    padding: 0 var(--space-xs);
 }
-.sticker-manager__btn:hover {
+
+.sticker-manager__remove-btn:hover {
     background: rgba(255, 255, 255, 0.1);
 }
-.sticker-manager__btn--danger {
-    color: #d98c8c;
+
+/* Add tile — same size as regular tiles, dashed border */
+.sticker-manager__add-tile {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    width: calc(20% - var(--space-sm) * 4 / 5);
+    min-width: 64px;
+    aspect-ratio: 1 / 1;
+    border: 2px dashed var(--bubble-border);
+    border-radius: var(--radius-sm);
+    background: var(--bubble-bg);
+    color: var(--input-text);
+    cursor: pointer;
+    min-height: 44px;
 }
-.sticker-manager__btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
+
+.sticker-manager__add-tile:hover {
+    background: rgba(255, 255, 255, 0.15);
 }
+
+.sticker-manager__add-icon {
+    fill: none;
+    stroke: var(--input-text);
+    opacity: 0.6;
+}
+
+.sticker-manager__add-label {
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
 .sticker-manager__error {
     font-size: 0.8rem;
     color: #d98c8c;

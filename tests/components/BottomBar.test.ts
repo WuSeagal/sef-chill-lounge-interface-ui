@@ -143,7 +143,7 @@ describe('BottomBar', () => {
 })
 
 describe('BottomBar sticker picker', () => {
-    const stickers = [{ id: 1, stickerNo: 1, sticker: '/sticker/u/1.png?v=1' }]
+    const stickers = [{ id: 1, sticker: '/sticker/u/1.png?v=1' }]
 
     it('sticker button is enabled (not disabled)', () => {
         const wrapper = mount(BottomBar, { props: { inputValue: '', stickers } })

@@ -14,34 +14,34 @@ describe('stickerUploadApi', () => {
         deleteMock.mockReset()
     })
 
-    it('uploadSticker posts multipart to /upload/sticker/{slot} and returns Sticker', async () => {
-        postMock.mockResolvedValue({ code: 200, message: 'OK', data: { id: 1, stickerNo: 2, sticker: '/sticker/u-1/2.png?v=1' } })
+    it('uploadSticker posts multipart to /upload/sticker and returns Sticker', async () => {
+        postMock.mockResolvedValue({ code: 200, message: 'OK', data: { id: 1, sticker: '/sticker/u-1/u-1-x.png' } })
         const file = new File(['x'], 's.png', { type: 'image/png' })
 
-        const result = await uploadSticker(2, file)
+        const result = await uploadSticker(file)
 
-        expect(result).toEqual({ id: 1, stickerNo: 2, sticker: '/sticker/u-1/2.png?v=1' })
+        expect(result).toEqual({ id: 1, sticker: '/sticker/u-1/u-1-x.png' })
         const [url, formData] = postMock.mock.calls[0]
-        expect(url).toBe('/upload/sticker/2')
+        expect(url).toBe('/upload/sticker')
         expect(formData).toBeInstanceOf(FormData)
         expect((formData as FormData).get('file')).toBe(file)
     })
 
-    it('deleteSticker calls DELETE /upload/sticker/{slot}', async () => {
+    it('deleteSticker calls DELETE /upload/sticker/{id}', async () => {
         deleteMock.mockResolvedValue({ code: 200, message: 'OK', data: null })
-        await deleteSticker(3)
-        expect(deleteMock).toHaveBeenCalledWith('/upload/sticker/3')
+        await deleteSticker(7)
+        expect(deleteMock).toHaveBeenCalledWith('/upload/sticker/7')
     })
 
     it('uploadSticker throws structured StickerUploadError on 413', async () => {
         postMock.mockRejectedValue({ response: { status: 413, data: { message: 'file_too_large' } } })
         const file = new File(['x'], 'big.png', { type: 'image/png' })
-        await expect(uploadSticker(1, file)).rejects.toMatchObject({ code: 413, message: 'file_too_large' })
+        await expect(uploadSticker(file)).rejects.toMatchObject({ code: 413, message: 'file_too_large' })
     })
 
     it('thrown error is a StickerUploadError instance with fallback', async () => {
         postMock.mockRejectedValue({})
         const file = new File(['x'], 's.png', { type: 'image/png' })
-        await expect(uploadSticker(1, file)).rejects.toBeInstanceOf(StickerUploadError)
+        await expect(uploadSticker(file)).rejects.toBeInstanceOf(StickerUploadError)
     })
 })

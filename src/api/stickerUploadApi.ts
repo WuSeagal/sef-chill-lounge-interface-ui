@@ -11,11 +11,11 @@ export class StickerUploadError extends Error {
     }
 }
 
-export async function uploadSticker(slot: number, file: File): Promise<Sticker> {
+export async function uploadSticker(file: File): Promise<Sticker> {
     const formData = new FormData()
     formData.append('file', file)
     try {
-        const envelope = await request.post(`/upload/sticker/${slot}`, formData) as unknown as {
+        const envelope = await request.post('/upload/sticker', formData) as unknown as {
             code: number
             message: string
             data: Sticker
@@ -31,6 +31,6 @@ export async function uploadSticker(slot: number, file: File): Promise<Sticker> 
     }
 }
 
-export async function deleteSticker(slot: number): Promise<void> {
-    await request.delete(`/upload/sticker/${slot}`)
+export async function deleteSticker(id: number): Promise<void> {
+    await request.delete(`/upload/sticker/${id}`)
 }
