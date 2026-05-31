@@ -1,39 +1,40 @@
-import { describe, it, expect, vi } from 'vitest'
-import { ref } from 'vue'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import StickerTab from '@/components/StickerTab.vue'
-import type { UserProfile } from '@/types/user'
+import { ref } from 'vue'
 
-const profileRef = ref<UserProfile | null>({
-    userId: 'u-1', username: '小毛', furName: 'MaoMao', avatar: null,
-    avatarColor: null, topicId: null,
-    stickers: [
-        { id: 1, stickerNo: 1, sticker: '/mock/s1.png' },
-        { id: 2, stickerNo: 2, sticker: '/mock/s2.png' },
-        { id: 3, stickerNo: 3, sticker: '/mock/s3.png' },
-        { id: 4, stickerNo: 4, sticker: '/mock/s4.png' },
-        { id: 5, stickerNo: 5, sticker: '/mock/s5.png' },
-    ],
-})
-
+const profile = ref<{ stickers: { id: number; stickerNo: number; sticker: string }[] } | null>(null)
 vi.mock('@/composables/useUser', () => ({
-    useUser: () => ({ profile: profileRef }),
+    useUser: () => ({ profile, fetchProfile: vi.fn() }),
+}))
+const { saveAllSpy } = vi.hoisted(() => ({ saveAllSpy: vi.fn() }))
+vi.mock('@/components/StickerManager.vue', () => ({
+    default: {
+        name: 'StickerManager',
+        props: ['initial'],
+        setup(_: unknown, { expose }: { expose: (e: unknown) => void }) {
+            expose({ isDirty: ref(false), saveAll: saveAllSpy, clearStaging: vi.fn() })
+            return () => null
+        },
+    },
 }))
 
+import StickerTab from '@/components/StickerTab.vue'
+
 describe('StickerTab', () => {
-    it('渲染 5 個 slot', () => {
-        const wrapper = mount(StickerTab)
-        expect(wrapper.findAll('.sticker-tab__slot')).toHaveLength(5)
+    beforeEach(() => {
+        saveAllSpy.mockReset()
+        profile.value = { stickers: [{ id: 1, stickerNo: 1, sticker: '/sticker/u/1.png?v=1' }] }
     })
 
-    it('每個 slot 顯示 sticker img', () => {
+    it('renders a save button', () => {
         const wrapper = mount(StickerTab)
-        const imgs = wrapper.findAll('.sticker-tab__img')
-        expect(imgs[0].attributes('src')).toBe('/mock/s1.png')
+        expect(wrapper.find('[data-test="sticker-save"]').exists()).toBe(true)
     })
 
-    it('每個 slot 有上傳 input', () => {
+    it('exposes isDirty and saveAll', () => {
         const wrapper = mount(StickerTab)
-        expect(wrapper.findAll('.sticker-tab__upload')).toHaveLength(5)
+        const vm = wrapper.vm as unknown as { isDirty: boolean; saveAll: () => Promise<void> }
+        expect(typeof vm.saveAll).toBe('function')
+        expect('isDirty' in vm).toBe(true)
     })
 })
