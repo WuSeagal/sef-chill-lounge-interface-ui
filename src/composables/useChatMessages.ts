@@ -147,6 +147,21 @@ export function useChatMessages() {
         socket.send(envelope)
     }
 
+    function sendStickerMessage(stickerImageUrl: string) {
+        const trimmed = stickerImageUrl.trim()
+        if (!trimmed) return
+        const payload: ChatMessageSendPayload = {
+            messageType: 'STICKER',
+            stickerImageUrl: trimmed,
+        }
+        const envelope: ChatEnvelope<ChatMessageSendPayload> = {
+            type: 'CHAT_MESSAGE',
+            timestamp: Date.now(),
+            data: payload,
+        }
+        socket.send(envelope)
+    }
+
     return {
         messages: history.messages,
         loading: history.loading,
@@ -156,6 +171,7 @@ export function useChatMessages() {
         reconnect,
         dispose,
         sendChatMessage,
+        sendStickerMessage,
         kicked: socket.kicked,
         wsReconnecting: socket.wsReconnecting,
         wsFailed: socket.wsFailed,

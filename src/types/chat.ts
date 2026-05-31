@@ -19,11 +19,9 @@ export interface PresenceSnapshotPayload {
     onlineUserIds: string[]
 }
 
-export interface ChatMessageSendPayload {
-    messageType: 'TEXT'
-    content: string
-    imageUrls: string[]
-}
+export type ChatMessageSendPayload =
+    | { messageType: 'TEXT'; content: string; imageUrls: string[] }
+    | { messageType: 'STICKER'; stickerImageUrl: string }
 
 export type ChatMessageBroadcastPayload = MessageResponse
 

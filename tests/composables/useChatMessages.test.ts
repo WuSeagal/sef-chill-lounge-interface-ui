@@ -309,6 +309,25 @@ describe('useChatMessages', () => {
 
         expect(historyMessages.value).toBe(before)
     })
+
+    it('sendStickerMessage emits a STICKER envelope via WebSocket', async () => {
+        const { init, sendStickerMessage } = useChatMessages()
+        await init()
+
+        sendStickerMessage('/sticker/u-1/1.png?v=1')
+
+        expect(send).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'CHAT_MESSAGE',
+            data: { messageType: 'STICKER', stickerImageUrl: '/sticker/u-1/1.png?v=1' },
+        }))
+    })
+
+    it('sendStickerMessage ignores blank url', async () => {
+        const { init, sendStickerMessage } = useChatMessages()
+        await init()
+        sendStickerMessage('   ')
+        expect(send).not.toHaveBeenCalled()
+    })
 })
 
 describe('useChatMessages waitForConnectTime timeout', () => {
