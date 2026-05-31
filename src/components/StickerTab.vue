@@ -19,8 +19,9 @@ async function onSave(): Promise<void> {
         await managerRef.value.saveAll()
         await user.fetchProfile()
         push.success('貼圖已更新')
-    } catch {
-        push.warning('貼圖儲存失敗，請重試')
+    } catch (err) {
+        const slot = (err as { slot?: number }).slot
+        push.warning(slot ? `貼圖 ${slot} 儲存失敗，請重試` : '貼圖儲存失敗，請重試')
     } finally {
         saving.value = false
     }

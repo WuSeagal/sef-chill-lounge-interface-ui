@@ -73,17 +73,36 @@ function clearStaging(): void {
     }
 }
 
+function resetSlotStaging(s: SlotState): void {
+    if (s.previewUrl) URL.revokeObjectURL(s.previewUrl)
+    s.previewUrl = null
+    s.stagedFile = null
+    s.cleared = false
+}
+
+// Clears each slot's staging as soon as that slot's request succeeds, so a
+// partial failure leaves only the unprocessed slots dirty — retry is then
+// idempotent (succeeded slots are no longer re-uploaded). On failure we throw
+// an error carrying the offending slot number so the caller can name it.
 async function saveAll(): Promise<void> {
     for (const s of slots) {
-        if (s.stagedFile) {
-            const res = await uploadSticker(s.slot, s.stagedFile)
-            s.existingUrl = res.sticker
-        } else if (s.cleared) {
-            await deleteSticker(s.slot)
-            s.existingUrl = null
+        try {
+            if (s.stagedFile) {
+                const res = await uploadSticker(s.slot, s.stagedFile)
+                s.existingUrl = res.sticker
+                resetSlotStaging(s)
+            } else if (s.cleared) {
+                await deleteSticker(s.slot)
+                s.existingUrl = null
+                resetSlotStaging(s)
+            }
+        } catch (err) {
+            throw Object.assign(
+                err instanceof Error ? err : new Error('sticker_save_failed'),
+                { slot: s.slot },
+            )
         }
     }
-    clearStaging()
 }
 
 defineExpose({ isDirty, saveAll, clearStaging })
