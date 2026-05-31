@@ -46,6 +46,18 @@ describe('FloatingBubble — structure', () => {
         expect(img.attributes('src')).toBe('/mock-images/avatar-default.png')
     })
 
+    it('renders default avatar when avatarUrl is empty', () => {
+        const wrapper = mount(FloatingBubble, {
+            props: {
+                bubble: makeBubble({
+                    message: { ...makeBubble().message, avatarUrl: '' },
+                }),
+            },
+        })
+        const img = wrapper.find('.floating-bubble__avatar')
+        expect(img.attributes('src')).toContain('default-avatar.png')
+    })
+
     it('renders the message content text', () => {
         const wrapper = mount(FloatingBubble, {
             props: { bubble: makeBubble() },

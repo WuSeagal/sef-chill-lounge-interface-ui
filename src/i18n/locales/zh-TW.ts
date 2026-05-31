@@ -21,7 +21,7 @@ const zhTW = {
             },
             avatar: {
                 title: '頭像與顏色',
-                description: '這一步先用 mock 頭像與顏色，之後再接真圖床。',
+                description: '先上傳並裁切你的頭像，也可以只設定預設頭像與外框。',
             },
             tags: {
                 title: 'TAG',
@@ -76,7 +76,7 @@ const zhTW = {
             confirmCreate: '確認並建立',
         },
         options: {
-            avatar: '選一個 mock 頭像',
+            avatar: '設定你的頭像',
             avatarColor: '選一個頭像顏色',
             avatarBorder: '顯示頭像外框',
             avatarBorderEnable: '啟用',

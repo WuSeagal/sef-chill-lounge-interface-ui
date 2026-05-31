@@ -73,6 +73,14 @@ describe('UserPopup', () => {
         expect(style).not.toContain('box-shadow')
     })
 
+    it('renders default avatar when profile avatar is null', async () => {
+        ;(fetchProfileDetail as any).mockResolvedValue({ ...sampleProfile, avatar: null })
+        const wrapper = mount(UserPopup, { props: { open: true, userId: 'u-102' } })
+        await flushPromises()
+        const style = wrapper.find('.user-popup__avatar').attributes('style') ?? ''
+        expect(style).toContain('default-avatar.png')
+    })
+
     it('renders TAG block with only non-empty grouped rows', async () => {
         const wrapper = mount(UserPopup, { props: { open: true, userId: 'u-102' } })
         await flushPromises()

@@ -30,6 +30,9 @@ const addTagMock = vi.fn().mockResolvedValue(undefined)
 const removeTagMock = vi.fn().mockResolvedValue(undefined)
 const addSocialLinkMock = vi.fn().mockResolvedValue(undefined)
 const removeSocialLinkMock = vi.fn().mockResolvedValue(undefined)
+const { uploadAvatarMock } = vi.hoisted(() => ({
+    uploadAvatarMock: vi.fn().mockResolvedValue({ avatarPath: '/user/u-1.png' }),
+}))
 
 vi.mock('@/composables/useUser', () => ({
     useUser: () => ({
@@ -51,6 +54,10 @@ vi.mock('@/api/userApi', () => ({
         DEVOPS: [],
         CUSTOM: [],
     }),
+}))
+
+vi.mock('@/api/avatarUploadApi', () => ({
+    uploadAvatar: uploadAvatarMock,
 }))
 
 vi.mock('notivue', () => ({
@@ -144,6 +151,68 @@ describe('SettingsTab — staged save', () => {
         await flushPromises()
         const offStyle = wrapper.find('.settings-tab__avatar-img').attributes('style') ?? ''
         expect(offStyle).not.toContain('box-shadow')
+    })
+
+    it('avatar 為空時顯示 default avatar', () => {
+        profileRef.value = { ...initialProfile(), avatar: null }
+        const wrapper = mount(SettingsTab)
+        expect(wrapper.find('.settings-tab__avatar-img').attributes('src')).toContain('default-avatar.png')
+    })
+
+    it('回到基準點的 settings 頭像 row 版型', () => {
+        const wrapper = mount(SettingsTab)
+        expect(wrapper.find('.settings-tab__avatar-img').exists()).toBe(true)
+        expect(wrapper.find('.settings-tab__avatar-editor').exists()).toBe(false)
+    })
+
+    it('avatar file input 只接受靜態圖片格式', () => {
+        const wrapper = mount(SettingsTab)
+        expect(wrapper.find('.settings-tab__file-input').attributes('accept')).toBe('image/png,image/jpeg,image/webp')
+    })
+
+    it('有 staged avatar 時顯示重新裁切與更換圖片', async () => {
+        const wrapper = mount(SettingsTab)
+        await flushPromises()
+
+        await (wrapper.vm as any).avatarDraft.setCroppedResult(
+            new File(['demo'], 'avatar.png', { type: 'image/png' }),
+        )
+        await flushPromises()
+
+        expect(wrapper.text()).toContain('更換圖片')
+        expect(wrapper.text()).toContain('重新裁切')
+    })
+
+    it('裁切確認後只更新預覽,不立即 upload avatar', async () => {
+        const wrapper = mount(SettingsTab)
+        await flushPromises()
+
+        await (wrapper.vm as any).avatarDraft.setCroppedResult(
+            new File(['demo'], 'avatar.png', { type: 'image/png' }),
+        )
+        await flushPromises()
+
+        expect(uploadAvatarMock).not.toHaveBeenCalled()
+        expect(wrapper.find('.settings-tab__avatar-img').attributes('src')).toContain('blob:')
+    })
+
+    it('saveAll 會先 upload avatar,再 updateProfile 帶入 avatarPath', async () => {
+        uploadAvatarMock.mockResolvedValueOnce({ avatarPath: '/user/u-uploaded.png' })
+        const wrapper = mount(SettingsTab)
+        await flushPromises()
+
+        await (wrapper.vm as any).avatarDraft.setCroppedResult(
+            new File(['demo'], 'avatar.png', { type: 'image/png' }),
+        )
+        await flushPromises()
+
+        await wrapper.find('[data-test=save-all]').trigger('click')
+        await flushPromises()
+
+        expect(uploadAvatarMock).toHaveBeenCalledTimes(1)
+        expect(updateProfileMock).toHaveBeenCalledWith(
+            expect.objectContaining({ avatar: '/user/u-uploaded.png' }),
+        )
     })
 
     it('切換 avatarBorder 變 dirty,儲存送 updateProfile 帶 avatarBorder', async () => {

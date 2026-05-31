@@ -37,6 +37,7 @@
     display: flex;
     align-items: center;
     gap: var(--space-md);
+    flex-wrap: wrap;
 }
 
 .settings-tab__avatar-img {
@@ -44,6 +45,11 @@
     height: 64px;
     border-radius: 50%;
     object-fit: cover;
+    object-position: center;
+}
+
+.settings-tab__file-input {
+    display: none;
 }
 
 .settings-tab__border-row {
@@ -69,6 +75,13 @@
 
 .settings-tab__avatar-upload {
     font-size: 0.85rem;
+    min-width: 92px;
+}
+
+.settings-tab__avatar-recrop {
+    background: rgba(255, 255, 255, 0.82);
+    color: var(--input-text);
+    border: 1px solid var(--bubble-border);
 }
 
 .settings-tab__color-row {

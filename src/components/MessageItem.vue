@@ -4,6 +4,7 @@ import './MessageItem.css'
 import type { MessageResponse } from '@/types/message'
 import { assetUrl } from '@/utils/assetUrl'
 import { buildAvatarRingStyle } from '@/utils/avatarRing'
+import { resolveAvatarSrc } from '@/utils/avatarSource'
 
 const props = defineProps<{
     message: MessageResponse
@@ -28,7 +29,7 @@ function onAvatarClick() {
 }
 
 const avatarStyle = computed(() => ({
-    backgroundImage: props.message.avatar ? `url(${assetUrl(props.message.avatar)})` : undefined,
+    backgroundImage: `url(${resolveAvatarSrc(props.message.avatar)})`,
     ...buildAvatarRingStyle(props.message.avatarColor, props.message.avatarBorder, 'sm'),
 }))
 </script>

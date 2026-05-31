@@ -4,13 +4,18 @@ import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import './IntroView.css'
 import { fetchSelectableTags } from '@/api/userApi'
+import { uploadAvatar } from '@/api/avatarUploadApi'
+import AvatarCropModal from '@/components/AvatarCropModal.vue'
 import { useUser } from '@/composables/useUser'
+import { useAvatarUploadDraft } from '@/composables/useAvatarUploadDraft'
 import { useTagEditorState } from '@/composables/useTagEditorState'
 import { useAuthStore } from '@/stores/auth.ts'
 import TagEditorPreview from '@/components/TagEditorPreview.vue'
 import TagEditorModal from '@/components/TagEditorModal.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import { TAG_TYPE_ORDER, TagType, type GroupedTags, type Tag } from '@/types/user'
+import { buildAvatarRingStyle } from '@/utils/avatarRing'
+import { resolveAvatarSrc } from '@/utils/avatarSource'
 
 const TAG_MAX = 20
 
@@ -34,12 +39,6 @@ const steps = [
     { key: 'topic', optional: false },
 ] as const
 
-const avatarChoices = [
-    { id: 'mock-otter', label: 'Otter' },
-    { id: 'mock-fox', label: 'Fox' },
-    { id: 'mock-bear', label: 'Bear' },
-]
-
 const stickerChoices = [
     { id: 'mock-bubble-pack', label: '對話泡泡包' },
     { id: 'mock-soft-pack', label: '柔軟貼圖包' },
@@ -57,9 +56,10 @@ const tagEditorState = useTagEditorState({ maxPerUser: TAG_MAX })
 const tagModalOpen = ref(false)
 
 const furName = ref('')
-const selectedAvatarId = ref<string | null>(null)
 const avatarColor = ref<string>('#ffffff')
 const avatarBorder = ref<boolean>(false)
+const avatarDraft = useAvatarUploadDraft()
+const avatarInputRef = ref<HTMLInputElement | null>(null)
 const socialPlatformInput = ref('')
 const socialUrlInput = ref('')
 const selectedSocialLinks = ref<SocialDraft[]>([])
@@ -100,19 +100,25 @@ const isReviewStep = computed(() => currentStep.value.key === 'review')
 const isTopicStep = computed(() => currentStep.value.key === 'topic')
 const canSkipCurrent = computed(() => currentStep.value.optional)
 const hasDrawnTopic = computed(() => !!drawnTopicContent.value)
+const hasStagedAvatar = computed(() => avatarDraft.file.value !== null)
+const avatarPreviewSrc = computed(() => avatarDraft.previewUrl.value ?? resolveAvatarSrc(null))
+const avatarButtonLabel = computed(() => hasStagedAvatar.value ? '更換圖片' : '上傳圖片')
+const avatarPreviewStyle = computed(() => buildAvatarRingStyle(avatarColor.value, avatarBorder.value, 'lg'))
+const avatarPreviewHeadline = computed(() => hasStagedAvatar.value ? '這就是你目前的頭像預覽' : '先調整好你的頭像外觀')
+const avatarPreviewDescription = computed(() =>
+    hasStagedAvatar.value
+        ? '拖曳與縮放後的結果會先暫存，完成註冊時才會正式套用。'
+        : '拖曳與縮放，調整你的頭像顯示範圍。你也可以只設定預設頭像與頭像框。')
+const reviewAvatarSummary = computed(() => {
+    if (skippedStepKeys.value.includes('avatar')) return '這一步已先略過'
+    if (hasStagedAvatar.value) return avatarBorder.value ? `已設定裁切頭像與頭像框 ${avatarColor.value}` : '已設定裁切頭像'
+    return avatarBorder.value ? `使用預設頭像與頭像框 ${avatarColor.value}` : '使用預設頭像'
+})
 
 const reviewRows = computed(() => [
     {
         label: t('intro.review.displayName'),
         value: furName.value.trim() || t('intro.review.unfilled'),
-    },
-    {
-        label: t('intro.review.avatar'),
-        value: skippedStepKeys.value.includes('avatar')
-            ? t('intro.review.skipped')
-            : selectedAvatarId.value
-                ? `${selectedAvatarId.value} / ${avatarColor.value}`
-                : t('intro.review.empty'),
     },
     {
         label: t('intro.review.tags'),
@@ -199,7 +205,7 @@ function goPrev(): void {
 function skipCurrentStep(): void {
     if (!canSkipCurrent.value) return
     if (currentStep.value.key === 'avatar') {
-        selectedAvatarId.value = null
+        avatarDraft.clearDraft()
         avatarColor.value = '#ffffff'
         avatarBorder.value = false
     }
@@ -249,16 +255,43 @@ function removeSocialLink(idx: number): void {
     selectedSocialLinks.value.splice(idx, 1)
 }
 
+function openAvatarPicker(): void {
+    avatarInputRef.value?.click()
+}
+
+function reopenAvatarCrop(): void {
+    avatarDraft.reopenCrop()
+}
+
+function onAvatarFileChange(event: Event): void {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    if (!file) return
+    avatarDraft.setCropSource(file)
+    input.value = ''
+}
+
+async function onAvatarCropConfirm(file: File, cropState?: import('@/types/avatar').AvatarCropState): Promise<void> {
+    await avatarDraft.setCroppedResult(file, cropState)
+    clearCurrentStepSkipped()
+}
+
 async function confirmProfileSetup(): Promise<void> {
     if (submitting.value) return
     submitting.value = true
     submitError.value = null
     try {
+        let avatarPath: string | undefined
+        const avatarStepConfigured = !skippedStepKeys.value.includes('avatar')
+        if (avatarDraft.file.value) {
+            avatarPath = (await uploadAvatar(avatarDraft.file.value)).avatarPath
+        }
+
         await user.createProfile({
             furName: furName.value.trim(),
-            avatar: selectedAvatarId.value ?? undefined,
-            avatarColor: selectedAvatarId.value ? avatarColor.value : undefined,
-            avatarBorder: selectedAvatarId.value ? avatarBorder.value : undefined,
+            avatar: avatarPath,
+            avatarColor: avatarStepConfigured ? avatarColor.value : undefined,
+            avatarBorder: avatarStepConfigured ? avatarBorder.value : undefined,
         })
 
         const { toAdd, toCreate } = tagEditorState.diff([])
@@ -274,6 +307,7 @@ async function confirmProfileSetup(): Promise<void> {
         }
 
         await user.fetchProfile()
+        avatarDraft.clearDraft()
         currentStepIndex.value = steps.findIndex(step => step.key === 'topic')
     } catch {
         submitError.value = user.error.value ?? '建立資料失敗'
@@ -313,7 +347,7 @@ async function initializeOnboarding(): Promise<void> {
     wizardActive.value = true
     currentStepIndex.value = 0
     furName.value = defaultFurName.value
-    selectedAvatarId.value = null
+    avatarDraft.clearDraft()
     avatarColor.value = '#ffffff'
     avatarBorder.value = false
     tagEditorState.reset([])
@@ -342,6 +376,7 @@ watch(defaultFurName, (nextFurName) => {
 
 onBeforeUnmount(() => {
     wizardActive.value = false
+    avatarDraft.clearDraft()
     clearTimers()
 })
 </script>
@@ -380,17 +415,45 @@ onBeforeUnmount(() => {
                 <section v-else-if="currentStep.key === 'avatar'" class="intro-view__step-card">
                     <div class="intro-view__option-group">
                         <h2>{{ t('intro.options.avatar') }}</h2>
-                        <div class="intro-view__choice-grid">
-                            <button
-                                v-for="avatar in avatarChoices"
-                                :key="avatar.id"
-                                type="button"
-                                class="intro-view__choice-card"
-                                :class="{ 'intro-view__choice-card--selected': selectedAvatarId === avatar.id }"
-                                @click="selectedAvatarId = avatar.id; clearCurrentStepSkipped()">
-                                <strong>{{ avatar.label }}</strong>
-                                <span>{{ avatar.id }}</span>
-                            </button>
+                        <div class="intro-view__avatar-editor">
+                            <div class="intro-view__avatar-stage">
+                                <img
+                                    class="intro-view__avatar-preview"
+                                    :src="avatarPreviewSrc"
+                                    alt="avatar preview"
+                                    :style="avatarPreviewStyle"
+                                />
+                            </div>
+                            <div class="intro-view__avatar-config">
+                                <div class="intro-view__avatar-copy">
+                                    <strong>{{ avatarPreviewHeadline }}</strong>
+                                    <span>{{ avatarPreviewDescription }}</span>
+                                </div>
+                                <button
+                                    type="button"
+                                    class="intro-view__choice-card intro-view__choice-card--upload"
+                                    @click="openAvatarPicker"
+                                >
+                                    <strong>{{ avatarButtonLabel }}</strong>
+                                    <span>{{ hasStagedAvatar ? '改用另一張圖片重新裁切' : '支援 PNG / JPG / WEBP' }}</span>
+                                </button>
+                                <button
+                                    v-if="hasStagedAvatar"
+                                    type="button"
+                                    class="intro-view__choice-card intro-view__choice-card--upload intro-view__choice-card--secondary"
+                                    @click="reopenAvatarCrop"
+                                >
+                                    <strong>重新裁切</strong>
+                                    <span>延續目前結果再微調位置與縮放</span>
+                                </button>
+                                <input
+                                    ref="avatarInputRef"
+                                    class="intro-view__file-input"
+                                    type="file"
+                                    accept="image/png,image/jpeg,image/webp"
+                                    @change="onAvatarFileChange"
+                                />
+                            </div>
                         </div>
                     </div>
 
@@ -469,6 +532,18 @@ onBeforeUnmount(() => {
                 </section>
 
                 <section v-else-if="currentStep.key === 'review'" class="intro-view__step-card">
+                    <div class="intro-view__review-avatar-card" data-test="review-avatar">
+                        <img
+                            class="intro-view__review-avatar-image"
+                            :src="avatarPreviewSrc"
+                            alt="review avatar preview"
+                            :style="avatarPreviewStyle"
+                        />
+                        <div class="intro-view__review-avatar-copy">
+                            <span>頭像預覽</span>
+                            <strong>{{ reviewAvatarSummary }}</strong>
+                        </div>
+                    </div>
                     <ul class="intro-view__review-list">
                         <li v-for="row in reviewRows" :key="row.label">
                             <span>{{ row.label }}</span>
@@ -549,6 +624,17 @@ onBeforeUnmount(() => {
             :state="tagEditorState"
             :max-per-user="TAG_MAX"
             @close="onTagModalClose"
+        />
+
+        <AvatarCropModal
+            :open="avatarDraft.cropOpen.value"
+            :source-url="avatarDraft.sourceUrl.value"
+            :initial-zoom="avatarDraft.modalCropState.value?.zoom ?? 1"
+            :initial-offset-x="avatarDraft.modalCropState.value?.offsetX ?? 0"
+            :initial-offset-y="avatarDraft.modalCropState.value?.offsetY ?? 0"
+            output-file-name="avatar.png"
+            @close="avatarDraft.cancelCrop()"
+            @confirm="onAvatarCropConfirm"
         />
     </div>
 </template>

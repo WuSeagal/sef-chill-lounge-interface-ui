@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { push } from 'notivue'
 import './SettingsTab.css'
 import TagEditorPreview from './TagEditorPreview.vue'
 import TagEditorModal from './TagEditorModal.vue'
 import ToggleSwitch from './ToggleSwitch.vue'
+import AvatarCropModal from './AvatarCropModal.vue'
 import { buildAvatarRingStyle } from '@/utils/avatarRing'
 import { useUser } from '@/composables/useUser'
 import { useTagEditorState } from '@/composables/useTagEditorState'
+import { useAvatarUploadDraft } from '@/composables/useAvatarUploadDraft'
 import { fetchSelectableTags } from '@/api/userApi'
-import { assetUrl } from '@/utils/assetUrl'
+import { uploadAvatar } from '@/api/avatarUploadApi'
+import { resolveAvatarSrc } from '@/utils/avatarSource'
 import { TagType, TAG_TYPE_ORDER, type GroupedTags, type Tag, type AddSocialLinkRequest } from '@/types/user'
 
 const TAG_MAX = 20
@@ -21,6 +24,8 @@ const draftAvatarColor = ref<string | null>(null)
 const draftAvatarBorder = ref<boolean | null>(null)
 const draftSocialAdd = ref<AddSocialLinkRequest[]>([])
 const draftSocialRemove = ref<number[]>([])
+const avatarDraft = useAvatarUploadDraft()
+const avatarInputRef = ref<HTMLInputElement | null>(null)
 
 const tagEditorState = useTagEditorState({ maxPerUser: TAG_MAX })
 const tagModalOpen = ref(false)
@@ -41,7 +46,9 @@ const displayAvatarColor = computed(() =>
     draftAvatarColor.value ?? user.profile.value?.avatarColor ?? '#cccccc')
 const displayAvatarBorder = computed(() =>
     draftAvatarBorder.value ?? user.profile.value?.avatarBorder ?? false)
-const avatar = computed(() => user.profile.value?.avatar ?? '')
+const avatarSrc = computed(() => avatarDraft.previewUrl.value ?? resolveAvatarSrc(user.profile.value?.avatar))
+const hasRecroppableAvatar = computed(() => avatarDraft.file.value !== null)
+const avatarButtonLabel = computed(() => (avatarDraft.previewUrl.value || user.profile.value?.avatar) ? '更換圖片' : '上傳圖片')
 const avatarPreviewStyle = computed(() =>
     buildAvatarRingStyle(displayAvatarColor.value, displayAvatarBorder.value, 'lg'))
 
@@ -67,6 +74,7 @@ const previewSocials = computed(() => {
 })
 
 const isDirty = computed(() =>
+    avatarDraft.file.value !== null ||
     draftFurName.value !== null ||
     draftAvatarColor.value !== null ||
     draftAvatarBorder.value !== null ||
@@ -102,6 +110,26 @@ async function loadSelectable(): Promise<void> {
     }
 }
 void loadSelectable()
+
+function openAvatarPicker(): void {
+    avatarInputRef.value?.click()
+}
+
+function reopenAvatarCrop(): void {
+    avatarDraft.reopenCrop()
+}
+
+function onAvatarFileChange(event: Event): void {
+    const input = event.target as HTMLInputElement
+    const file = input.files?.[0]
+    if (!file) return
+    avatarDraft.setCropSource(file)
+    input.value = ''
+}
+
+async function onAvatarCropConfirm(file: File, cropState?: import('@/types/avatar').AvatarCropState): Promise<void> {
+    await avatarDraft.setCroppedResult(file, cropState)
+}
 
 function stageFurName(value: string): void {
     const current = user.profile.value?.furName ?? user.profile.value?.username ?? ''
@@ -141,9 +169,19 @@ async function saveAll(): Promise<void> {
     // already-applied changes won't be re-issued.
     let currentStep = ''
     try {
-        if (draftFurName.value !== null || draftAvatarColor.value !== null || draftAvatarBorder.value !== null) {
+        let uploadedAvatarPath: string | undefined
+        if (avatarDraft.file.value) {
+            currentStep = '頭像'
+            uploadedAvatarPath = (await uploadAvatar(avatarDraft.file.value)).avatarPath
+        }
+
+        if (uploadedAvatarPath !== undefined
+            || draftFurName.value !== null
+            || draftAvatarColor.value !== null
+            || draftAvatarBorder.value !== null) {
             currentStep = '個人資料'
             await user.updateProfile({
+                avatar: uploadedAvatarPath,
                 furName: draftFurName.value ?? undefined,
                 avatarColor: draftAvatarColor.value ?? undefined,
                 avatarBorder: draftAvatarBorder.value ?? undefined,
@@ -164,6 +202,7 @@ async function saveAll(): Promise<void> {
         }
 
         // Full success — now safe to clear all drafts atomically
+        avatarDraft.clearDraft()
         draftFurName.value = null
         draftAvatarColor.value = null
         draftAvatarBorder.value = null
@@ -179,7 +218,11 @@ async function saveAll(): Promise<void> {
     }
 }
 
-defineExpose({ isDirty, saveAll })
+onBeforeUnmount(() => {
+    avatarDraft.clearDraft()
+})
+
+defineExpose({ isDirty, saveAll, avatarDraft })
 </script>
 
 <template>
@@ -199,9 +242,27 @@ defineExpose({ isDirty, saveAll })
             <div class="settings-tab__avatar-row">
                 <img
                     class="settings-tab__avatar-img"
-                    :src="assetUrl(avatar)"
+                    :src="avatarSrc"
                     alt="avatar"
                     :style="avatarPreviewStyle"
+                />
+                <button
+                    type="button"
+                    class="settings-tab__btn settings-tab__avatar-upload"
+                    @click="openAvatarPicker"
+                >{{ avatarButtonLabel }}</button>
+                <button
+                    v-if="hasRecroppableAvatar"
+                    type="button"
+                    class="settings-tab__btn settings-tab__avatar-upload settings-tab__avatar-recrop"
+                    @click="reopenAvatarCrop"
+                >重新裁切</button>
+                <input
+                    ref="avatarInputRef"
+                    class="settings-tab__file-input"
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    @change="onAvatarFileChange"
                 />
             </div>
         </div>
@@ -271,6 +332,17 @@ defineExpose({ isDirty, saveAll })
             :state="tagEditorState"
             :max-per-user="TAG_MAX"
             @close="tagModalOpen = false"
+        />
+
+        <AvatarCropModal
+            :open="avatarDraft.cropOpen.value"
+            :source-url="avatarDraft.sourceUrl.value"
+            :initial-zoom="avatarDraft.modalCropState.value?.zoom ?? 1"
+            :initial-offset-x="avatarDraft.modalCropState.value?.offsetX ?? 0"
+            :initial-offset-y="avatarDraft.modalCropState.value?.offsetY ?? 0"
+            output-file-name="avatar.png"
+            @close="avatarDraft.cancelCrop()"
+            @confirm="onAvatarCropConfirm"
         />
     </div>
 </template>

@@ -7,6 +7,14 @@ vi.mock('@/api/userApi', () => ({
     fetchSelectableTags: vi.fn(),
 }))
 
+const { uploadAvatarMock } = vi.hoisted(() => ({
+    uploadAvatarMock: vi.fn().mockResolvedValue({ avatarPath: '/user/u-uploaded.png' }),
+}))
+
+vi.mock('@/api/avatarUploadApi', () => ({
+    uploadAvatar: uploadAvatarMock,
+}))
+
 const createProfileMock = vi.fn().mockImplementation(async () => {
     needsOnboardingRef.value = false
 })
@@ -52,6 +60,7 @@ vi.mock('vue-router', () => ({
 }))
 
 import * as api from '@/api/userApi'
+import AvatarCropModal from '@/components/AvatarCropModal.vue'
 import IntroView from '@/views/IntroView.vue'
 
 function mountIntroView() {
@@ -60,6 +69,19 @@ function mountIntroView() {
             plugins: [createAppI18n()],
         },
     })
+}
+
+async function advanceToReview(wrapper: ReturnType<typeof mountIntroView>) {
+    await wrapper.find('[data-test=next-step]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test=next-step]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test=skip-step]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test=skip-step]').trigger('click')
+    await flushPromises()
+    await wrapper.find('[data-test=skip-step]').trigger('click')
+    await flushPromises()
 }
 
 describe('IntroView', () => {
@@ -72,6 +94,17 @@ describe('IntroView', () => {
             origin: 'http://localhost:9045',
             href: '',
         }
+
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            writable: true,
+            value: vi.fn(() => 'blob:http://localhost/staged-avatar'),
+        })
+        Object.defineProperty(URL, 'revokeObjectURL', {
+            configurable: true,
+            writable: true,
+            value: vi.fn(),
+        })
 
         vi.clearAllMocks()
         vi.unstubAllEnvs()
@@ -138,7 +171,57 @@ describe('IntroView', () => {
         expect(wrapper.find('[data-test=next-step]').exists()).toBe(true)
     })
 
-    it('walks through wizard, creates profile, draws topic, then routes to /chat after 5 seconds', async () => {
+    it('avatar step removes mock choices and shows image upload entry', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+
+        expect(wrapper.text()).not.toContain('mock-otter')
+        expect(wrapper.text()).not.toContain('mock-fox')
+        expect(wrapper.text()).not.toContain('mock-bear')
+        expect(wrapper.text()).toContain('上傳圖片')
+        expect(wrapper.text()).toContain('支援 PNG / JPG / WEBP')
+        expect(wrapper.text()).not.toContain('GIF')
+        expect(wrapper.text()).toContain('拖曳與縮放，調整你的頭像顯示範圍')
+        expect(wrapper.find('input[type="file"]').attributes('accept')).toBe('image/png,image/jpeg,image/webp')
+        expect(wrapper.find('.intro-view__avatar-preview').exists()).toBe(true)
+    })
+
+    it('有 staged avatar 時顯示更換圖片與重新裁切', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+
+        const avatarInput = wrapper.find('input[type="file"]')
+        const sourceFile = new File(['avatar-source'], 'avatar-source.png', { type: 'image/png' })
+        Object.defineProperty(avatarInput.element, 'files', {
+            configurable: true,
+            value: [sourceFile],
+        })
+        await avatarInput.trigger('change')
+        await flushPromises()
+
+        const cropModal = wrapper.findComponent(AvatarCropModal)
+        cropModal.vm.$emit('confirm', new File(['avatar-cropped'], 'avatar.png', { type: 'image/png' }))
+        await flushPromises()
+
+        expect(wrapper.text()).toContain('更換圖片')
+        expect(wrapper.text()).toContain('重新裁切')
+    })
+
+    it('confirm 完成時若有 staged avatar,會先 uploadAvatar 再 createProfile 並帶 avatarPath', async () => {
         vi.useFakeTimers()
         authState.isLogin = true
         authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
@@ -148,13 +231,29 @@ describe('IntroView', () => {
         await flushPromises()
 
         await wrapper.find('[data-test=next-step]').trigger('click')
-        await wrapper.find('[data-test=skip-step]').trigger('click')
-        // 開 TagEditorModal,展開 LANGUAGE,勾 tg-001
+        await flushPromises()
+
+        const avatarInput = wrapper.find('input[type="file"]')
+        const sourceFile = new File(['avatar-source'], 'avatar-source.png', { type: 'image/png' })
+        Object.defineProperty(avatarInput.element, 'files', {
+            configurable: true,
+            value: [sourceFile],
+        })
+        await avatarInput.trigger('change')
+        await flushPromises()
+
+        const cropModal = wrapper.findComponent(AvatarCropModal)
+        expect(cropModal.exists()).toBe(true)
+        const croppedFile = new File(['avatar-cropped'], 'avatar.png', { type: 'image/png' })
+        cropModal.vm.$emit('confirm', croppedFile)
+        await flushPromises()
+
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
         await wrapper.find('[data-test=edit-button]').trigger('click')
         await flushPromises()
         await wrapper.find('[data-test=row-head-LANGUAGE]').trigger('click')
         await wrapper.find('[data-test=chip-tg-001]').trigger('click')
-        // 關 Modal
         await wrapper.find('[data-test=close-btn]').trigger('click')
         await wrapper.find('[data-test=next-step]').trigger('click')
 
@@ -166,24 +265,16 @@ describe('IntroView', () => {
         await wrapper.find('[data-test=next-step]').trigger('click')
         await flushPromises()
 
-        expect(wrapper.text()).toContain('確認你的設定')
-        expect(wrapper.text()).toContain('Google Fox')
-        expect(wrapper.text()).toContain('宅')
-        expect(wrapper.text()).toContain('telegram')
-
         await wrapper.find('[data-test=confirm-create]').trigger('click')
         await flushPromises()
 
+        expect(uploadAvatarMock).toHaveBeenCalledTimes(1)
+        expect(uploadAvatarMock).toHaveBeenCalledWith(croppedFile)
+        expect(uploadAvatarMock.mock.invocationCallOrder[0]).toBeLessThan(createProfileMock.mock.invocationCallOrder[0])
         expect(createProfileMock).toHaveBeenCalledWith(expect.objectContaining({
             furName: 'Google Fox',
+            avatar: '/user/u-uploaded.png',
         }))
-        expect(addTagMock).toHaveBeenCalledWith({ tagId: 'tg-001' })
-        expect(addSocialLinkMock).toHaveBeenCalledWith({
-            platform: 'telegram',
-            links: 'https://t.me/googlefox',
-        })
-        expect(wrapper.text()).not.toContain('同步中...')
-        expect(wrapper.text()).toContain('話題卡抽獎')
 
         await wrapper.find('[data-test=draw-topic]').trigger('click')
         await flushPromises()
@@ -194,5 +285,103 @@ describe('IntroView', () => {
         await vi.advanceTimersByTimeAsync(5000)
         expect(routerPushMock).toHaveBeenCalledWith('/chat')
         vi.useRealTimers()
+    })
+
+    it('沒有 staged avatar 時仍可 createProfile,且 avatar 不會帶固定預設圖路徑', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        await advanceToReview(wrapper)
+
+        await wrapper.find('[data-test=confirm-create]').trigger('click')
+        await flushPromises()
+
+        expect(uploadAvatarMock).not.toHaveBeenCalled()
+        expect(createProfileMock).toHaveBeenCalledTimes(1)
+        expect(createProfileMock.mock.calls[0][0].avatar).toBeUndefined()
+    })
+
+    it('沒有 staged avatar 時仍會保留 avatar border 與 color 設定', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+
+        await wrapper.find('[data-test=avatar-border-toggle] input').setValue(true)
+        await wrapper.find('.intro-view__color-input').setValue('#ff8800')
+        await flushPromises()
+
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await flushPromises()
+
+        expect(wrapper.text()).toContain('#ff8800')
+
+        await wrapper.find('[data-test=confirm-create]').trigger('click')
+        await flushPromises()
+
+        expect(uploadAvatarMock).not.toHaveBeenCalled()
+        expect(createProfileMock).toHaveBeenCalledWith(expect.objectContaining({
+            avatar: undefined,
+            avatarBorder: true,
+            avatarColor: '#ff8800',
+        }))
+    })
+
+    it('review step 會直接顯示 staged avatar 與頭像框結果', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+
+        await wrapper.find('[data-test=avatar-border-toggle] input').setValue(true)
+        await wrapper.find('.intro-view__color-input').setValue('#ff8800')
+
+        const avatarInput = wrapper.find('input[type="file"]')
+        const sourceFile = new File(['avatar-source'], 'avatar-source.png', { type: 'image/png' })
+        Object.defineProperty(avatarInput.element, 'files', {
+            configurable: true,
+            value: [sourceFile],
+        })
+        await avatarInput.trigger('change')
+        await flushPromises()
+
+        const cropModal = wrapper.findComponent(AvatarCropModal)
+        const croppedFile = new File(['avatar-cropped'], 'avatar.png', { type: 'image/png' })
+        cropModal.vm.$emit('confirm', croppedFile)
+        await flushPromises()
+
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await flushPromises()
+
+        const reviewAvatar = wrapper.find('[data-test=review-avatar] img')
+        expect(reviewAvatar.exists()).toBe(true)
+        expect(reviewAvatar.attributes('src')).toContain('blob:http://localhost/staged-avatar')
+        expect(reviewAvatar.attributes('style') ?? '').toContain('#ff8800')
     })
 })

@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import './FloatingBubble.css'
 import SpeechBubble from '@/components/SpeechBubble.vue'
 import { buildAvatarRingStyle } from '@/utils/avatarRing'
+import { resolveAvatarSrc } from '@/utils/avatarSource'
 import type { DashboardBubble } from '@/composables/useDashboardBubbles'
 
 const props = defineProps<{
@@ -37,7 +38,7 @@ const innerClass = computed(() => ({
             <img
                 class="floating-bubble__avatar"
                 :class="{ 'floating-bubble__avatar--right': bubble.direction === 'right' }"
-                :src="bubble.message.avatarUrl"
+                :src="resolveAvatarSrc(bubble.message.avatarUrl)"
                 :style="avatarRingStyle"
                 alt=""
             />

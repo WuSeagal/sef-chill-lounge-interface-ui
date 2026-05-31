@@ -2,8 +2,8 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import './UserPopup.css'
 import { fetchProfileDetail } from '@/api/userApi'
-import { assetUrl } from '@/utils/assetUrl'
 import { buildAvatarRingStyle } from '@/utils/avatarRing'
+import { resolveAvatarSrc } from '@/utils/avatarSource'
 import { TagType, TAG_TYPE_ORDER, TAG_TYPE_PREFIX, type Tag, type UserProfile } from '@/types/user'
 
 const props = defineProps<{
@@ -36,7 +36,7 @@ const visibleTagTypes = computed(() => TAG_TYPE_ORDER.filter(type => groupedTags
 const hasAnyTags = computed(() => (profile.value?.tags?.length ?? 0) > 0)
 
 const avatarHeaderStyle = computed(() => ({
-    backgroundImage: profile.value?.avatar ? `url(${assetUrl(profile.value.avatar)})` : undefined,
+    backgroundImage: `url(${resolveAvatarSrc(profile.value?.avatar)})`,
     ...buildAvatarRingStyle(profile.value?.avatarColor ?? null, profile.value?.avatarBorder ?? false, 'lg'),
 }))
 

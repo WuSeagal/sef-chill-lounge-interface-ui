@@ -115,6 +115,17 @@ describe('MessageItem', () => {
         expect(style).not.toContain('box-shadow')
     })
 
+    it('renders default avatar when avatar is null', () => {
+        const wrapper = mount(MessageItem, {
+            props: {
+                message: makeMessage({ avatar: null }),
+            },
+        })
+
+        const style = wrapper.find('.message-item__avatar').attributes('style') ?? ''
+        expect(style).toContain('default-avatar.png')
+    })
+
     it('emits avatar-click with the userId when the avatar is clicked', async () => {
         const wrapper = mount(MessageItem, {
             props: {
