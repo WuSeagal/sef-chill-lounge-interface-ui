@@ -30,10 +30,25 @@ interface SettingsTabExposed {
     saveAll: () => Promise<void>
 }
 const settingsTabRef = ref<(InstanceType<typeof SettingsTab> & SettingsTabExposed) | null>(null)
+const stickerTabRef = ref<{ isDirty: boolean; saveAll: () => Promise<void> } | null>(null)
+
+function activeDirty(): boolean {
+    if (activeTab.value === 'settings') return settingsTabRef.value?.isDirty ?? false
+    if (activeTab.value === 'sticker') return stickerTabRef.value?.isDirty ?? false
+    return false
+}
+
+function attemptSwitch(id: TabId): void {
+    if (id === activeTab.value) return
+    if (activeDirty()) {
+        const ok = window.confirm('有未儲存的變更,確定要切換頁簽?')
+        if (!ok) return
+    }
+    activeTab.value = id
+}
 
 function attemptClose(): void {
-    const dirty = settingsTabRef.value?.isDirty ?? false
-    if (dirty) {
+    if (activeDirty()) {
         const ok = window.confirm('有未儲存的變更,確定要關閉?')
         if (!ok) return
     }
@@ -78,7 +93,7 @@ onBeforeUnmount(() => {
                             type="button"
                             role="tab"
                             :aria-selected="tab.id === activeTab"
-                            @click="activeTab = tab.id"
+                            @click="attemptSwitch(tab.id)"
                         >{{ tab.label }}</button>
                     </div>
                     <button
@@ -90,7 +105,7 @@ onBeforeUnmount(() => {
                 </div>
                 <div class="settings-modal__body">
                     <SettingsTab v-if="activeTab === 'settings'" ref="settingsTabRef" />
-                    <StickerTab v-if="activeTab === 'sticker'" />
+                    <StickerTab v-if="activeTab === 'sticker'" ref="stickerTabRef" />
                     <TopicCardTab v-if="activeTab === 'topic'" />
                     <FeedbackTab v-if="activeTab === 'feedback'" />
                     <DonateTab v-if="activeTab === 'donate'" />
