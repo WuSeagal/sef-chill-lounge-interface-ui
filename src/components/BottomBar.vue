@@ -2,6 +2,8 @@
 import { nextTick, onMounted, ref, watch } from 'vue'
 import './BottomBar.css'
 import EmojiPicker from './EmojiPicker.vue'
+import StickerPicker from './StickerPicker.vue'
+import type { Sticker } from '@/types/user'
 // SVGs use stroke="currentColor" / fill="currentColor" so we inline
 // them via Vite's ?raw import and v-html. <img> would treat the SVG
 // as opaque image data and lose color inheritance.
@@ -16,10 +18,12 @@ const props = withDefaults(defineProps<{
     attachDisabled?: boolean
     autofillerOpen?: boolean
     autofillerHandleKeydown?: (event: KeyboardEvent) => boolean
+    stickers?: Sticker[]
 }>(), {
     attachDisabled: false,
     autofillerOpen: false,
     autofillerHandleKeydown: undefined,
+    stickers: () => [],
 })
 
 const emit = defineEmits<{
@@ -28,6 +32,7 @@ const emit = defineEmits<{
     (e: 'attach-click'): void
     (e: 'emoji-click'): void
     (e: 'sticker-click'): void
+    (e: 'sticker-select', url: string): void
     (e: 'send', v: string): void
     (e: 'image-paste', files: File[]): void
 }>()
@@ -50,6 +55,7 @@ function onPaste(event: ClipboardEvent) {
 }
 
 const emojiPickerOpen = ref(false)
+const stickerPickerOpen = ref(false)
 const textareaEl = ref<HTMLTextAreaElement | null>(null)
 
 // Auto-grow: reset to 'auto' to remeasure, then set height to the
@@ -116,6 +122,7 @@ onMounted(autoResize)
 // the EmojiPicker's window-level outside-click listener, which would
 // otherwise close the picker right after this handler opens it.
 function onEmojiButtonClick() {
+    stickerPickerOpen.value = false
     emojiPickerOpen.value = !emojiPickerOpen.value
     emit('emoji-click')
 }
@@ -126,6 +133,19 @@ function onEmojiSelect(emoji: string) {
 
 function onEmojiPickerClose() {
     emojiPickerOpen.value = false
+}
+
+// @click.stop on the sticker button prevents the click from bubbling to
+// StickerPicker's window-level outside-click listener (same pattern as emoji).
+function onStickerButtonClick() {
+    emojiPickerOpen.value = false
+    stickerPickerOpen.value = !stickerPickerOpen.value
+    emit('sticker-click')
+}
+
+function onStickerSelect(url: string) {
+    emit('sticker-select', url)
+    stickerPickerOpen.value = false
 }
 </script>
 
@@ -166,9 +186,7 @@ function onEmojiPickerClose() {
             class="bottom-bar__btn"
             data-btn="sticker"
             type="button"
-            disabled
-            title="即將推出"
-            @click.prevent
+            @click.stop="onStickerButtonClick"
         >
             <span class="bottom-bar__icon" v-html="iconStickerRaw"></span>
         </button>
@@ -180,6 +198,12 @@ function onEmojiPickerClose() {
             :open="emojiPickerOpen"
             @select="onEmojiSelect"
             @close="onEmojiPickerClose"
+        />
+        <StickerPicker
+            :open="stickerPickerOpen"
+            :stickers="stickers"
+            @select="onStickerSelect"
+            @close="stickerPickerOpen = false"
         />
         <slot name="popup" />
     </div>

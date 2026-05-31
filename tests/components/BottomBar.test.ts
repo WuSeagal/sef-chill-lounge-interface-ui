@@ -141,3 +141,42 @@ describe('BottomBar', () => {
         expect(wrapper.emitted('image-paste')).toBeUndefined()
     })
 })
+
+describe('BottomBar sticker picker', () => {
+    const stickers = [{ id: 1, stickerNo: 1, sticker: '/sticker/u/1.png?v=1' }]
+
+    it('sticker button is enabled (not disabled)', () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '', stickers } })
+        expect(wrapper.find('[data-btn="sticker"]').attributes('disabled')).toBeUndefined()
+    })
+
+    it('clicking sticker button opens StickerPicker', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '', stickers } })
+        await wrapper.find('[data-btn="sticker"]').trigger('click')
+        expect(wrapper.find('.sticker-picker').exists()).toBe(true)
+    })
+
+    it('opening emoji closes sticker picker (mutual exclusion)', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '', stickers } })
+        await wrapper.find('[data-btn="sticker"]').trigger('click')
+        expect(wrapper.find('.sticker-picker').exists()).toBe(true)
+        await wrapper.find('[data-btn="emoji"]').trigger('click')
+        expect(wrapper.find('.sticker-picker').exists()).toBe(false)
+    })
+
+    it('opening sticker closes emoji picker (mutual exclusion)', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '', stickers } })
+        await wrapper.find('[data-btn="emoji"]').trigger('click')
+        expect(wrapper.find('.emoji-picker').exists()).toBe(true)
+        await wrapper.find('[data-btn="sticker"]').trigger('click')
+        expect(wrapper.find('.emoji-picker').exists()).toBe(false)
+    })
+
+    it('selecting a sticker emits sticker-select and closes picker', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '', stickers } })
+        await wrapper.find('[data-btn="sticker"]').trigger('click')
+        await wrapper.find('[data-test="picker-sticker"]').trigger('click')
+        expect(wrapper.emitted('sticker-select')?.[0]).toEqual(['/sticker/u/1.png?v=1'])
+        expect(wrapper.find('.sticker-picker').exists()).toBe(false)
+    })
+})

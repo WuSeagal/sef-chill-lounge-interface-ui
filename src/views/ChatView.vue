@@ -25,12 +25,13 @@ function uploadErrorToMessage(code: string): string {
     return ERROR_CODE_TO_MESSAGE[code] ?? code
 }
 
-const { messages, loading, hasMore, loadMore, init, reconnect, dispose, sendChatMessage, kicked } = useChatMessages()
+const { messages, loading, hasMore, loadMore, init, reconnect, dispose, sendChatMessage, sendStickerMessage: sendChatStickerMessage, kicked } = useChatMessages()
 const wsClient = useChatWebSocket()
 const imageUpload = useChatImageUpload()
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const user = useUser()
 const currentProfile = computed(() => user.profile.value)
+const myStickers = computed(() => user.profile.value?.stickers ?? [])
 
 // UserPopup state — tracks which userId's popup is open. null = closed.
 const popupUserId = ref<string | null>(null)
@@ -131,6 +132,12 @@ async function onSend(value: string) {
     sendChatMessage(value, imageUrls)
     inputValue.value = ''
     imageUpload.reset()
+    await nextTick()
+    scrollToBottom(true)
+}
+
+async function onStickerSelect(url: string) {
+    sendChatStickerMessage(url)
     await nextTick()
     scrollToBottom(true)
 }
@@ -290,9 +297,11 @@ void currentProfile
             :attach-disabled="imageUpload.isAtLimit() || imageUpload.uploading.value"
             :autofiller-open="autofiller.isOpen.value"
             :autofiller-handle-keydown="handleAutofillerKey"
+            :stickers="myStickers"
             @gear-click="onGearClick"
             @attach-click="onAttachClick"
             @image-paste="onImagePaste"
+            @sticker-select="onStickerSelect"
             @send="onSend"
         >
             <template #popup>
