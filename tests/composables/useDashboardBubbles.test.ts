@@ -211,4 +211,16 @@ describe('useDashboardBubbles — patchProfile', () => {
         expect(bubbles.value[1].message.nickname).toBe('NewName')
         expect(bubbles.value[2].message.nickname).toBe('Test')
     })
+
+    it('null furName/avatar does not wipe existing values', () => {
+        const { bubbles, addBubble, patchProfile } = useDashboardBubbles()
+        addBubble(makeMsg('msg-1', 'u-1'))
+        const beforeName = bubbles.value[0].message.nickname
+        const beforeAvatar = bubbles.value[0].message.avatarUrl
+
+        patchProfile('u-1', { furName: null, avatar: null })
+
+        expect(bubbles.value[0].message.nickname).toBe(beforeName)
+        expect(bubbles.value[0].message.avatarUrl).toBe(beforeAvatar)
+    })
 })
