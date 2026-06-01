@@ -3,11 +3,9 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import './DashboardView.css'
 import '@/assets/grid-paper.css'
 import FloatingBubble from '@/components/FloatingBubble.vue'
-import { useDashboardBubbles } from '@/composables/useDashboardBubbles'
-import { useMockMessages } from '@/composables/useMockMessages'
+import { useDashboardFeed } from '@/composables/useDashboardFeed'
 
-const { messages } = useMockMessages()
-const { bubbles, addBubble, startAnimation, cleanup } = useDashboardBubbles()
+const { bubbles, connect, disconnect, startAnimation, cleanup } = useDashboardFeed()
 
 const isFullscreen = ref(false)
 
@@ -16,14 +14,14 @@ function onFullscreenChange() {
 }
 
 onMounted(() => {
-    const initial = messages.value.slice(0, 30)
-    initial.forEach(msg => addBubble(msg))
+    connect()
     startAnimation()
     document.addEventListener('fullscreenchange', onFullscreenChange)
 })
 
 onBeforeUnmount(() => {
     cleanup()
+    disconnect()
     document.removeEventListener('fullscreenchange', onFullscreenChange)
 })
 
