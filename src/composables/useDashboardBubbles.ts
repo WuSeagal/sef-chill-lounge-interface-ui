@@ -1,9 +1,9 @@
 import { ref, type Ref } from 'vue'
-import type { MockMessage } from '@/mocks/mockMessages'
+import type { DashboardMessage } from '@/types/dashboard'
 
 export type DashboardBubble = {
     id: string
-    message: MockMessage
+    message: DashboardMessage
     direction: 'left' | 'right'
     x: number
     y: number
@@ -22,7 +22,8 @@ const SPEED_MAX = 60
 
 export type UseDashboardBubblesReturn = {
     bubbles: Ref<DashboardBubble[]>
-    addBubble: (message: MockMessage) => void
+    addBubble: (message: DashboardMessage) => void
+    patchProfile: (userId: string, profile: { furName: string | null; avatar: string | null }) => void
     startAnimation: () => void
     stopAnimation: () => void
     cleanup: () => void
@@ -48,7 +49,11 @@ export function useDashboardBubbles(): UseDashboardBubblesReturn {
     let animFrameId: number | null = null
     let lastTime: number | null = null
 
-    function addBubble(message: MockMessage) {
+    function addBubble(message: DashboardMessage) {
+        if (bubbles.value.some(b => b.message.id === message.id)) {
+            return
+        }
+
         const nonExitingCount = bubbles.value.filter(b => !b.isExiting).length
         if (nonExitingCount >= MAX_BUBBLES) {
             evictOldest()
@@ -67,6 +72,15 @@ export function useDashboardBubbles(): UseDashboardBubblesReturn {
             isExiting: false,
         }
         bubbles.value.push(bubble)
+    }
+
+    function patchProfile(userId: string, profile: { furName: string | null; avatar: string | null }) {
+        for (const b of bubbles.value) {
+            if (b.message.userId === userId) {
+                if (profile.furName !== null) b.message.nickname = profile.furName
+                if (profile.avatar !== null) b.message.avatarUrl = profile.avatar
+            }
+        }
     }
 
     function evictOldest() {
@@ -130,5 +144,5 @@ export function useDashboardBubbles(): UseDashboardBubblesReturn {
         exitTimers.clear()
     }
 
-    return { bubbles, addBubble, startAnimation, stopAnimation, cleanup }
+    return { bubbles, addBubble, patchProfile, startAnimation, stopAnimation, cleanup }
 }
