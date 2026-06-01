@@ -198,29 +198,35 @@ describe('useDashboardBubbles — dedup', () => {
 })
 
 describe('useDashboardBubbles — patchProfile', () => {
-    it('updates nickname and avatarUrl of all bubbles with matching userId', () => {
+    it('updates nickname, avatarUrl, avatarColor and avatarBorder of all bubbles with matching userId', () => {
         const { bubbles, addBubble, patchProfile } = useDashboardBubbles()
         addBubble(makeMsg('msg-1', 'u-1'))
         addBubble(makeMsg('msg-2', 'u-1'))
         addBubble(makeMsg('msg-3', 'u-2'))
 
-        patchProfile('u-1', { furName: 'NewName', avatar: '/new.png' })
+        patchProfile('u-1', { furName: 'NewName', avatar: '/new.png', avatarColor: '#abcdef', avatarBorder: true })
 
         expect(bubbles.value[0].message.nickname).toBe('NewName')
         expect(bubbles.value[0].message.avatarUrl).toBe('/new.png')
-        expect(bubbles.value[1].message.nickname).toBe('NewName')
+        expect(bubbles.value[0].message.avatarColor).toBe('#abcdef')
+        expect(bubbles.value[0].message.avatarBorder).toBe(true)
+        expect(bubbles.value[1].message.avatarColor).toBe('#abcdef')
+        expect(bubbles.value[1].message.avatarBorder).toBe(true)
         expect(bubbles.value[2].message.nickname).toBe('Test')
+        expect(bubbles.value[2].message.avatarBorder).toBeUndefined()
     })
 
-    it('null furName/avatar does not wipe existing values', () => {
+    it('null furName/avatar does not wipe existing values, but color/border still apply', () => {
         const { bubbles, addBubble, patchProfile } = useDashboardBubbles()
         addBubble(makeMsg('msg-1', 'u-1'))
         const beforeName = bubbles.value[0].message.nickname
         const beforeAvatar = bubbles.value[0].message.avatarUrl
 
-        patchProfile('u-1', { furName: null, avatar: null })
+        patchProfile('u-1', { furName: null, avatar: null, avatarColor: '#123456', avatarBorder: true })
 
         expect(bubbles.value[0].message.nickname).toBe(beforeName)
         expect(bubbles.value[0].message.avatarUrl).toBe(beforeAvatar)
+        expect(bubbles.value[0].message.avatarColor).toBe('#123456')
+        expect(bubbles.value[0].message.avatarBorder).toBe(true)
     })
 })

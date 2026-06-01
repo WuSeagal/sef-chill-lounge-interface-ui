@@ -81,9 +81,11 @@ describe('useDashboardFeed', () => {
         const socket = FakeWebSocket.instances[0]
         socket.open()
         socket.deliver(chatMsg('msg-1'))
-        socket.deliver(JSON.stringify({ type: 'PROFILE_UPDATED', timestamp: 2, data: { userId: 'u-1', furName: 'NewName', avatar: '/new.png' } }))
+        socket.deliver(JSON.stringify({ type: 'PROFILE_UPDATED', timestamp: 2, data: { userId: 'u-1', furName: 'NewName', avatar: '/new.png', avatarColor: '#abcdef', avatarBorder: true } }))
         expect(feed.bubbles.value[0].message.nickname).toBe('NewName')
         expect(feed.bubbles.value[0].message.avatarUrl).toBe('/new.png')
+        expect(feed.bubbles.value[0].message.avatarColor).toBe('#abcdef')
+        expect(feed.bubbles.value[0].message.avatarBorder).toBe(true)
     })
 
     it('sends PING every 30s while open', () => {

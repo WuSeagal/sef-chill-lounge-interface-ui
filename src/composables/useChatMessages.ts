@@ -84,7 +84,7 @@ export function useChatMessages() {
                 const data = envelope.data
                 history.messages.value = history.messages.value.map((m) =>
                     m.userId === data.userId
-                        ? { ...m, furName: data.furName, avatar: data.avatar }
+                        ? { ...m, furName: data.furName, avatar: data.avatar, avatarColor: data.avatarColor, avatarBorder: data.avatarBorder }
                         : m
                 )
                 return

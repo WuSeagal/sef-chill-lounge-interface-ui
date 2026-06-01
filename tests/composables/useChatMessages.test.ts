@@ -163,20 +163,20 @@ describe('useChatMessages', () => {
         await init()
 
         historyMessages.value = [
-            fakeMessage({ messageId: 'm1', userId: 'u-1', furName: 'Old', avatar: '/old.png', content: 'one' }),
-            fakeMessage({ messageId: 'm2', userId: 'u-2', furName: 'Other', avatar: '/o.png', content: 'two' }),
-            fakeMessage({ messageId: 'm3', userId: 'u-1', furName: 'Old', avatar: '/old.png', content: 'three' }),
+            fakeMessage({ messageId: 'm1', userId: 'u-1', furName: 'Old', avatar: '/old.png', avatarColor: '#old', avatarBorder: false, content: 'one' }),
+            fakeMessage({ messageId: 'm2', userId: 'u-2', furName: 'Other', avatar: '/o.png', avatarColor: '#oth', avatarBorder: false, content: 'two' }),
+            fakeMessage({ messageId: 'm3', userId: 'u-1', furName: 'Old', avatar: '/old.png', avatarColor: '#old', avatarBorder: false, content: 'three' }),
         ]
 
         messageHandlers[0]({
             type: 'PROFILE_UPDATED',
-            data: { userId: 'u-1', furName: 'NewFur', avatar: '/new.png' },
+            data: { userId: 'u-1', furName: 'NewFur', avatar: '/new.png', avatarColor: '#new', avatarBorder: true },
         })
 
         expect(historyMessages.value).toEqual([
-            expect.objectContaining({ messageId: 'm1', furName: 'NewFur', avatar: '/new.png' }),
-            expect.objectContaining({ messageId: 'm2', furName: 'Other', avatar: '/o.png' }),
-            expect.objectContaining({ messageId: 'm3', furName: 'NewFur', avatar: '/new.png' }),
+            expect.objectContaining({ messageId: 'm1', furName: 'NewFur', avatar: '/new.png', avatarColor: '#new', avatarBorder: true }),
+            expect.objectContaining({ messageId: 'm2', furName: 'Other', avatar: '/o.png', avatarColor: '#oth', avatarBorder: false }),
+            expect.objectContaining({ messageId: 'm3', furName: 'NewFur', avatar: '/new.png', avatarColor: '#new', avatarBorder: true }),
         ])
     })
 

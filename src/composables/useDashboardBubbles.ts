@@ -23,7 +23,7 @@ const SPEED_MAX = 60
 export type UseDashboardBubblesReturn = {
     bubbles: Ref<DashboardBubble[]>
     addBubble: (message: DashboardMessage) => void
-    patchProfile: (userId: string, profile: { furName: string | null; avatar: string | null }) => void
+    patchProfile: (userId: string, profile: { furName: string | null; avatar: string | null; avatarColor: string | null; avatarBorder: boolean }) => void
     startAnimation: () => void
     stopAnimation: () => void
     cleanup: () => void
@@ -74,11 +74,16 @@ export function useDashboardBubbles(): UseDashboardBubblesReturn {
         bubbles.value.push(bubble)
     }
 
-    function patchProfile(userId: string, profile: { furName: string | null; avatar: string | null }) {
+    function patchProfile(
+        userId: string,
+        profile: { furName: string | null; avatar: string | null; avatarColor: string | null; avatarBorder: boolean },
+    ) {
         for (const b of bubbles.value) {
             if (b.message.userId === userId) {
                 if (profile.furName !== null) b.message.nickname = profile.furName
                 if (profile.avatar !== null) b.message.avatarUrl = profile.avatar
+                b.message.avatarColor = profile.avatarColor
+                b.message.avatarBorder = profile.avatarBorder
             }
         }
     }

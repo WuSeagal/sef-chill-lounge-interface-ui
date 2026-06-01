@@ -47,7 +47,7 @@ function handleEnvelope(env: ChatEnvelope) {
     }
     if (env.type === 'PROFILE_UPDATED' && env.data) {
         const p = env.data as ProfileUpdatedPayload
-        patchProfile(p.userId, { furName: p.furName, avatar: p.avatar })
+        patchProfile(p.userId, { furName: p.furName, avatar: p.avatar, avatarColor: p.avatarColor, avatarBorder: p.avatarBorder })
     }
 }
 

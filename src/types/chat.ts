@@ -34,4 +34,6 @@ export interface ProfileUpdatedPayload {
     userId: string
     furName: string | null
     avatar: string | null
+    avatarColor: string | null
+    avatarBorder: boolean
 }
