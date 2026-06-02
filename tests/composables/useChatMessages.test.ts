@@ -10,6 +10,9 @@ vi.mock('@/composables/useChatWebSocket', () => ({
     useChatWebSocket: vi.fn(),
 }))
 
+const { mockPushWarning } = vi.hoisted(() => ({ mockPushWarning: vi.fn() }))
+vi.mock('notivue', () => ({ push: { warning: mockPushWarning } }))
+
 import { useChatHistory } from '@/composables/useChatHistory'
 import { useChatWebSocket } from '@/composables/useChatWebSocket'
 import { useChatMessages } from '@/composables/useChatMessages'
@@ -97,6 +100,17 @@ describe('useChatMessages', () => {
         expect(onMessage).toHaveBeenCalled()
         expect(loadInitial).toHaveBeenCalledWith({ before: '2026-05-26T10:00:00' })
         expect(connect.mock.invocationCallOrder[0]).toBeLessThan(loadInitial.mock.invocationCallOrder[0])
+    })
+
+    it('shows a Notivue warning toast on RATE_LIMITED envelope', async () => {
+        const { init } = useChatMessages()
+        await init()
+        mockPushWarning.mockClear()
+
+        messageHandlers.forEach((h) => h({ type: 'RATE_LIMITED', data: { retryAfterMs: 4200 } }))
+
+        expect(mockPushWarning).toHaveBeenCalledTimes(1)
+        expect(mockPushWarning.mock.calls[0][0]).toContain('5') // ceil(4200/1000) = 5
     })
 
     it('appendLive deduplicates by messageId at the tail', async () => {

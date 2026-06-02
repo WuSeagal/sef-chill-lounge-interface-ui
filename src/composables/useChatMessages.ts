@@ -5,8 +5,10 @@ import type {
     ChatMessageBroadcastPayload,
     ChatMessageSendPayload,
     ProfileUpdatedPayload,
+    RateLimitedPayload,
 } from '@/types/chat'
 import type { Ref } from 'vue'
+import { push } from 'notivue'
 
 const WAIT_CONNECT_TIMEOUT_MS = 30_000
 
@@ -87,6 +89,12 @@ export function useChatMessages() {
                         ? { ...m, furName: data.furName, avatar: data.avatar, avatarColor: data.avatarColor, avatarBorder: data.avatarBorder }
                         : m
                 )
+                return
+            }
+            if (envelope.type === 'RATE_LIMITED') {
+                const data = envelope.data as RateLimitedPayload | undefined
+                const secs = Math.ceil((data?.retryAfterMs ?? 0) / 1000)
+                push.warning(`請慢一點再發送（${secs} 秒後可繼續）`)
                 return
             }
         })

@@ -8,6 +8,7 @@ export type ChatEventType =
     | 'PONG'
     | 'KICKED'
     | 'ERROR'
+    | 'RATE_LIMITED'
 
 export interface ChatEnvelope<T = unknown> {
     type: ChatEventType
@@ -36,4 +37,8 @@ export interface ProfileUpdatedPayload {
     avatar: string | null
     avatarColor: string | null
     avatarBorder: boolean
+}
+
+export interface RateLimitedPayload {
+    retryAfterMs: number
 }
