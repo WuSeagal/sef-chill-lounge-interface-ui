@@ -151,7 +151,8 @@ describe('IntroView', () => {
         expect(buttons[0].classes()).toContain('intro-view__google-btn')
         expect(wrapper.text()).toContain('SEF-CLI')
         expect(wrapper.text()).toContain('軟體工程獸互動系統')
-        expect(wrapper.text()).toContain('登入Google與軟體工程獸們互動')
+        expect(wrapper.text()).toContain('使用 Google 登入')
+        expect(wrapper.text()).toContain('與軟體工程獸們互動')
     })
 
     it('clicking login button sends user to Google OAuth', async () => {

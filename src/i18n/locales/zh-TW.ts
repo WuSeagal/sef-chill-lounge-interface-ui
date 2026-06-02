@@ -3,7 +3,8 @@ const zhTW = {
         login: {
             brand: 'SEF-CLI',
             subtitle: '軟體工程獸互動系統',
-            googleAction: '登入Google與軟體工程獸們互動',
+            googleAction: '使用 Google 登入',
+            googleTagline: '與軟體工程獸們互動',
         },
         fields: {
             displayName: '顯示名稱',
