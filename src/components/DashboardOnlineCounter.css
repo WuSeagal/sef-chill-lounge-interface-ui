@@ -8,16 +8,16 @@
     z-index: 50;
     display: inline-flex;
     align-items: center;
-    gap: 14px;
-    padding: 12px 20px;
+    gap: 10px;
+    padding: 8px 16px;
     border-radius: var(--radius-md);
     background: var(--bottom-bar-bg);
     box-shadow: var(--shadow-popup);
 }
 
 .dashboard-online-counter__dot {
-    width: 16px;
-    height: 16px;
+    width: 12px;
+    height: 12px;
     flex: 0 0 auto;
     border-radius: 50%;
     /* 斷線預設：灰、不閃 */
@@ -31,15 +31,18 @@
 
 .dashboard-online-counter__num {
     color: var(--bottom-bar-icon);
-    font-size: 2.4rem;
+    font-size: 1.5rem;
     font-weight: 700;
     line-height: 1;
     font-variant-numeric: tabular-nums;
+    /* line-height:1 下數字字形受 baseline/descender 影響，視覺上略偏低，
+       往上微調 1px 讓數字視覺中心對齊圓點。 */
+    transform: translateY(-1px);
 }
 
 @keyframes dashboard-online-blink {
     0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(226, 54, 47, 0.5); }
-    50%      { opacity: 0.3; box-shadow: 0 0 0 7px rgba(226, 54, 47, 0); }
+    50%      { opacity: 0.3; box-shadow: 0 0 0 5px rgba(226, 54, 47, 0); }
 }
 
 @media (prefers-reduced-motion: reduce) {
