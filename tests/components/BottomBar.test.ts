@@ -142,6 +142,47 @@ describe('BottomBar', () => {
     })
 })
 
+describe('BottomBar rate-limit', () => {
+    it('disables the textarea when rateLimited is true', () => {
+        const wrapper = mount(BottomBar, {
+            props: { inputValue: '', rateLimited: true, rateLimitRemaining: 3 },
+        })
+        expect(wrapper.find('.bottom-bar__input').attributes('disabled')).toBeDefined()
+    })
+
+    it('shows a countdown placeholder while rateLimited', () => {
+        const wrapper = mount(BottomBar, {
+            props: { inputValue: '', rateLimited: true, rateLimitRemaining: 3 },
+        })
+        const placeholder = wrapper.find('.bottom-bar__input').attributes('placeholder')
+        expect(placeholder).toContain('3')
+        expect(placeholder).toContain('秒後再發送')
+    })
+
+    it('disables attach/emoji/sticker/send but NOT gear while rateLimited', () => {
+        const wrapper = mount(BottomBar, {
+            props: { inputValue: '', rateLimited: true, rateLimitRemaining: 3 },
+        })
+        expect(wrapper.find('[data-btn="gear"]').attributes('disabled')).toBeUndefined()
+        expect(wrapper.find('[data-btn="attach"]').attributes('disabled')).toBeDefined()
+        expect(wrapper.find('[data-btn="emoji"]').attributes('disabled')).toBeDefined()
+        expect(wrapper.find('[data-btn="sticker"]').attributes('disabled')).toBeDefined()
+        expect(wrapper.find('[data-btn="send"]').attributes('disabled')).toBeDefined()
+    })
+
+    it('does not disable input or buttons when not rateLimited (default)', () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '' } })
+        expect(wrapper.find('.bottom-bar__input').attributes('disabled')).toBeUndefined()
+        expect(wrapper.find('[data-btn="send"]').attributes('disabled')).toBeUndefined()
+        expect(wrapper.find('[data-btn="emoji"]').attributes('disabled')).toBeUndefined()
+    })
+
+    it('uses the normal placeholder when not rateLimited', () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '' } })
+        expect(wrapper.find('.bottom-bar__input').attributes('placeholder')).toBe('輸入訊息…')
+    })
+})
+
 describe('BottomBar sticker picker', () => {
     const stickers = [{ id: 1, sticker: '/sticker/u/1.png?v=1' }]
 

@@ -25,7 +25,7 @@ function uploadErrorToMessage(code: string): string {
     return ERROR_CODE_TO_MESSAGE[code] ?? code
 }
 
-const { messages, loading, hasMore, loadMore, init, reconnect, dispose, sendChatMessage, sendStickerMessage: sendChatStickerMessage, kicked } = useChatMessages()
+const { messages, loading, hasMore, loadMore, init, reconnect, dispose, sendChatMessage, sendStickerMessage: sendChatStickerMessage, rateLimited, rateLimitRemaining, kicked } = useChatMessages()
 const wsClient = useChatWebSocket()
 const imageUpload = useChatImageUpload()
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -298,6 +298,8 @@ void currentProfile
             :autofiller-open="autofiller.isOpen.value"
             :autofiller-handle-keydown="handleAutofillerKey"
             :stickers="myStickers"
+            :rate-limited="rateLimited"
+            :rate-limit-remaining="rateLimitRemaining"
             @gear-click="onGearClick"
             @attach-click="onAttachClick"
             @image-paste="onImagePaste"

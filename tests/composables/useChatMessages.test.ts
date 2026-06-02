@@ -102,7 +102,7 @@ describe('useChatMessages', () => {
         expect(connect.mock.invocationCallOrder[0]).toBeLessThan(loadInitial.mock.invocationCallOrder[0])
     })
 
-    it('shows a Notivue warning toast on RATE_LIMITED envelope', async () => {
+    it('shows the unified rate-limit warning toast (no seconds) on RATE_LIMITED envelope', async () => {
         const { init } = useChatMessages()
         await init()
         mockPushWarning.mockClear()
@@ -110,7 +110,29 @@ describe('useChatMessages', () => {
         messageHandlers.forEach((h) => h({ type: 'RATE_LIMITED', data: { retryAfterMs: 4200 } }))
 
         expect(mockPushWarning).toHaveBeenCalledTimes(1)
-        expect(mockPushWarning.mock.calls[0][0]).toContain('5') // ceil(4200/1000) = 5
+        expect(mockPushWarning.mock.calls[0][0]).toBe('訊息發送太快了，請稍後再試！')
+    })
+
+    it('sets rateLimited state with a per-second countdown that clears on expiry', async () => {
+        vi.useFakeTimers()
+        try {
+            const { init, rateLimited, rateLimitRemaining } = useChatMessages()
+            await init()
+
+            messageHandlers.forEach((h) => h({ type: 'RATE_LIMITED', data: { retryAfterMs: 4200 } }))
+
+            expect(rateLimited.value).toBe(true)
+            expect(rateLimitRemaining.value).toBe(5) // ceil(4200/1000)
+
+            vi.advanceTimersByTime(1000)
+            expect(rateLimitRemaining.value).toBe(4)
+
+            vi.advanceTimersByTime(4000)
+            expect(rateLimited.value).toBe(false)
+            expect(rateLimitRemaining.value).toBe(0)
+        } finally {
+            vi.useRealTimers()
+        }
     })
 
     it('appendLive deduplicates by messageId at the tail', async () => {

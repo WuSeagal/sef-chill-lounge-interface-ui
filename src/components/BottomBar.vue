@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import './BottomBar.css'
 import EmojiPicker from './EmojiPicker.vue'
 import StickerPicker from './StickerPicker.vue'
@@ -19,12 +19,25 @@ const props = withDefaults(defineProps<{
     autofillerOpen?: boolean
     autofillerHandleKeydown?: (event: KeyboardEvent) => boolean
     stickers?: Sticker[]
+    rateLimited?: boolean
+    rateLimitRemaining?: number
 }>(), {
     attachDisabled: false,
     autofillerOpen: false,
     autofillerHandleKeydown: undefined,
     stickers: () => [],
+    rateLimited: false,
+    rateLimitRemaining: 0,
 })
+
+// During a server-imposed rate-limit window the composer is locked and the
+// placeholder counts down the remaining seconds; the gear (settings) button
+// stays usable so the user is never trapped.
+const inputPlaceholder = computed(() =>
+    props.rateLimited
+        ? `訊息發送太快了，請${props.rateLimitRemaining}秒後再發送！`
+        : '輸入訊息…'
+)
 
 const emit = defineEmits<{
     (e: 'update:inputValue', v: string): void
@@ -158,7 +171,7 @@ function onStickerSelect(url: string) {
             class="bottom-bar__btn"
             data-btn="attach"
             type="button"
-            :disabled="attachDisabled"
+            :disabled="attachDisabled || rateLimited"
             :title="attachDisabled ? '已達 5 張上限' : ''"
             @click="emit('attach-click')"
         >
@@ -169,7 +182,8 @@ function onStickerSelect(url: string) {
             class="bottom-bar__input"
             rows="1"
             :value="inputValue"
-            placeholder="輸入訊息…"
+            :placeholder="inputPlaceholder"
+            :disabled="rateLimited"
             @input="onInput"
             @keydown="onKeydown"
             @paste="onPaste"
@@ -178,6 +192,7 @@ function onStickerSelect(url: string) {
             class="bottom-bar__btn"
             data-btn="emoji"
             type="button"
+            :disabled="rateLimited"
             @click.stop="onEmojiButtonClick"
         >
             <span class="bottom-bar__icon" v-html="iconEmojiRaw"></span>
@@ -186,11 +201,18 @@ function onStickerSelect(url: string) {
             class="bottom-bar__btn"
             data-btn="sticker"
             type="button"
+            :disabled="rateLimited"
             @click.stop="onStickerButtonClick"
         >
             <span class="bottom-bar__icon" v-html="iconStickerRaw"></span>
         </button>
-        <button class="bottom-bar__btn" data-btn="send" type="button" @click="onSend">
+        <button
+            class="bottom-bar__btn"
+            data-btn="send"
+            type="button"
+            :disabled="rateLimited"
+            @click="onSend"
+        >
             <span class="bottom-bar__icon" v-html="iconSendRaw"></span>
         </button>
 

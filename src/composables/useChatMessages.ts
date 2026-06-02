@@ -7,7 +7,7 @@ import type {
     ProfileUpdatedPayload,
     RateLimitedPayload,
 } from '@/types/chat'
-import type { Ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import { push } from 'notivue'
 
 const WAIT_CONNECT_TIMEOUT_MS = 30_000
@@ -58,6 +58,36 @@ export function useChatMessages() {
     const pendingLive: ChatMessageBroadcastPayload[] = []
     let historyLoaded = false
 
+    // Rate-limit UX state: when the server rejects a send with RATE_LIMITED,
+    // disable the composer for the reported window and tick a per-second
+    // countdown so the input placeholder can show「請 X 秒後再發送」。
+    const rateLimited = ref(false)
+    const rateLimitRemaining = ref(0)
+    let rateLimitTimer: ReturnType<typeof setInterval> | null = null
+
+    function clearRateLimitTimer() {
+        if (rateLimitTimer !== null) {
+            clearInterval(rateLimitTimer)
+            rateLimitTimer = null
+        }
+    }
+
+    function startRateLimit(retryAfterMs: number) {
+        const secs = Math.ceil(retryAfterMs / 1000)
+        clearRateLimitTimer()
+        rateLimitRemaining.value = Math.max(0, secs)
+        rateLimited.value = rateLimitRemaining.value > 0
+        if (!rateLimited.value) return
+        rateLimitTimer = setInterval(() => {
+            rateLimitRemaining.value -= 1
+            if (rateLimitRemaining.value <= 0) {
+                rateLimitRemaining.value = 0
+                rateLimited.value = false
+                clearRateLimitTimer()
+            }
+        }, 1000)
+    }
+
     function subscribe() {
         // Replace any prior subscription so init / reconnect can be called
         // multiple times without accumulating handlers in the singleton.
@@ -93,8 +123,8 @@ export function useChatMessages() {
             }
             if (envelope.type === 'RATE_LIMITED') {
                 const data = envelope.data as RateLimitedPayload | undefined
-                const secs = Math.ceil((data?.retryAfterMs ?? 0) / 1000)
-                push.warning(`請慢一點再發送（${secs} 秒後可繼續）`)
+                push.warning('訊息發送太快了，請稍後再試！')
+                startRateLimit(data?.retryAfterMs ?? 0)
                 return
             }
         })
@@ -137,6 +167,9 @@ export function useChatMessages() {
         }
         pendingLive.length = 0
         historyLoaded = false
+        clearRateLimitTimer()
+        rateLimited.value = false
+        rateLimitRemaining.value = 0
     }
 
     function sendChatMessage(content: string, imageUrls: string[] = []) {
@@ -180,6 +213,8 @@ export function useChatMessages() {
         dispose,
         sendChatMessage,
         sendStickerMessage,
+        rateLimited,
+        rateLimitRemaining,
         kicked: socket.kicked,
         wsReconnecting: socket.wsReconnecting,
         wsFailed: socket.wsFailed,
