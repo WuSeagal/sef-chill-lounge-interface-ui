@@ -77,6 +77,8 @@ const previewTags = computed<Tag[]>(() => {
             if (tagEditorState.selectedTagIds.value.has(tag.tagId)) result.push(tag)
         }
         for (const content of tagEditorState.newCustomTags.value.get(type) ?? []) {
+            // 自訂 tag 尚未存檔、後端還沒配發真 tagId，先用 __new__{type}__{content}
+            // 合成一個 client-only key（僅供預覽 v-for :key；存檔後由後端真 id 取代）。
             result.push({ tagId: `__new__${type}__${content}`, type, content, isCustom: true })
         }
     }
