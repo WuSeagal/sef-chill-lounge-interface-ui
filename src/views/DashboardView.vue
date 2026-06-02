@@ -3,9 +3,10 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
 import './DashboardView.css'
 import '@/assets/grid-paper.css'
 import FloatingBubble from '@/components/FloatingBubble.vue'
+import DashboardOnlineCounter from '@/components/DashboardOnlineCounter.vue'
 import { useDashboardFeed } from '@/composables/useDashboardFeed'
 
-const { bubbles, connect, disconnect, startAnimation, cleanup } = useDashboardFeed()
+const { bubbles, onlineCount, connected, connect, disconnect, startAnimation, cleanup } = useDashboardFeed()
 
 const isFullscreen = ref(false)
 
@@ -36,6 +37,8 @@ function onFullscreenClick() {
 
 <template>
     <div class="dashboard-view grid-paper">
+        <DashboardOnlineCounter :count="onlineCount" :connected="connected" />
+
         <FloatingBubble
             v-for="b in bubbles"
             :key="b.id"
