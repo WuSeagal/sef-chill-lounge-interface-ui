@@ -32,16 +32,13 @@ describe('axios response interceptor', () => {
         })
     })
 
-    it('404 response 觸發 router.push to /error with code=404', async () => {
+    it('404 response 不觸發 router.push（交由呼叫端處理，如 profile-not-found = 尚未 onboarding）', async () => {
         const error = {
             response: { status: 404, data: {} },
-            config: { url: '/api/messages/999' },
+            config: { url: '/api/user/profile' },
         }
         await expect(rejectedHandler(error)).rejects.toBeDefined()
-        expect(pushMock).toHaveBeenCalledWith({
-            path: '/error',
-            query: { code: 404, from: '/api/messages/999' },
-        })
+        expect(pushMock).not.toHaveBeenCalled()
     })
 
     it('401 response 不觸發 router.push（保留既有 OAuth 流程）', async () => {

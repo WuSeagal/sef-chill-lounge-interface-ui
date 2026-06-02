@@ -24,8 +24,11 @@ service.interceptors.response.use(
     error => {
         const status = error.response?.status ?? 0
         const from = error.config?.url ?? ''
-        if (status === 401) {
-            // session expired — 既有 OAuth 流程接手，不轉跳 ErrorPage
+        if (status === 401 || status === 404) {
+            // 401：session expired — 既有 OAuth 流程接手。
+            // 404：資源不存在交由呼叫端處理（如 GET /user/profile 404 = 尚未建 profile
+            //      → useUser 視為 needs-onboarding）。不轉跳 ErrorPage，否則 onboarding
+            //      中途 F5 會被導去 /error。未知「前端」路由仍由 router catch-all 進 /error。
             return Promise.reject(error)
         }
         // 已在 /error 頁時不再 push /error（防 redirect loop）；只 gate push，不吞其他錯誤處理
