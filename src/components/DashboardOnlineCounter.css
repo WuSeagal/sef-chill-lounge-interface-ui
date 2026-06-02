@@ -1,0 +1,50 @@
+/* Dashboard 線上人數計數器（投影用）。深橄欖底 + cream 大字 + 紅點，
+   右上角固定。connected 時紅點脈衝閃爍；斷線時轉灰停閃（數字保留最後值）。
+   遵守 prefers-reduced-motion：減少動態時恆亮不閃。 */
+.dashboard-online-counter {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 50;
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 20px;
+    border-radius: var(--radius-md);
+    background: var(--bottom-bar-bg);
+    box-shadow: var(--shadow-popup);
+}
+
+.dashboard-online-counter__dot {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    /* 斷線預設：灰、不閃 */
+    background: #9a9384;
+}
+
+.dashboard-online-counter__dot.is-live {
+    background: #e2362f;
+    animation: dashboard-online-blink 1.1s ease-in-out infinite;
+}
+
+.dashboard-online-counter__num {
+    color: var(--bottom-bar-icon);
+    font-size: 2.4rem;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+@keyframes dashboard-online-blink {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(226, 54, 47, 0.5); }
+    50%      { opacity: 0.3; box-shadow: 0 0 0 7px rgba(226, 54, 47, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-online-counter__dot.is-live {
+        animation: none;
+        opacity: 1;
+    }
+}
