@@ -115,4 +115,23 @@ describe('useDashboardFeed', () => {
         vi.advanceTimersByTime(10_000)
         expect(FakeWebSocket.instances).toHaveLength(closedCount)
     })
+
+    it('PRESENCE_SNAPSHOT sets onlineCount to the number of online users', () => {
+        const feed = useDashboardFeed()
+        feed.connect()
+        const socket = FakeWebSocket.instances[0]
+        socket.open()
+        socket.deliver(JSON.stringify({ type: 'PRESENCE_SNAPSHOT', timestamp: 1, data: { onlineUserIds: ['u-1', 'u-2', 'u-3'] } }))
+        expect(feed.onlineCount.value).toBe(3)
+    })
+
+    it('connected is true after open and false after unexpected close', () => {
+        const feed = useDashboardFeed()
+        feed.connect()
+        const socket = FakeWebSocket.instances[0]
+        socket.open()
+        expect(feed.connected.value).toBe(true)
+        socket.close(1006)
+        expect(feed.connected.value).toBe(false)
+    })
 })
