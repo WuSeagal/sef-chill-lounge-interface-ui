@@ -1,0 +1,19 @@
+.circle-close {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #9a907a;
+    color: #fff;
+    border: 2px solid #f9f5e5;
+    box-shadow: 0 1px 3px rgba(74, 68, 51, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+}
+
+.circle-close svg {
+    width: 14px;
+    height: 14px;
+}
