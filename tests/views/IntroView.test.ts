@@ -59,6 +59,7 @@ vi.mock('@/composables/useUser', () => ({
         addSocialLink: addSocialLinkMock,
         fetchProfile: fetchProfileMock,
         redrawTopicCard: redrawTopicCardMock,
+        error: ref(null),
     }),
 }))
 
@@ -84,17 +85,39 @@ function mountIntroView() {
     })
 }
 
+/** Navigate from nickname to avatar (next-step click) */
+async function goToAvatar(wrapper: ReturnType<typeof mountIntroView>) {
+    await wrapper.find('[data-test=next-step]').trigger('click')
+    await flushPromises()
+}
+
+/**
+ * Advance through optional steps using skip (later-edit / later-fill).
+ * Steps: avatar → skip, tags → skip, socials → skip (later-fill), stickers → skip
+ * Lands on review.
+ */
+async function skipOptionalStepsToReview(wrapper: ReturnType<typeof mountIntroView>) {
+    // avatar (untouched → later-edit)
+    await wrapper.find('[data-test=later-edit]').trigger('click')
+    await flushPromises()
+    // tags (untouched → later-edit)
+    await wrapper.find('[data-test=later-edit]').trigger('click')
+    await flushPromises()
+    // socials (untouched → later-fill)
+    await wrapper.find('[data-test=later-fill]').trigger('click')
+    await flushPromises()
+    // stickers — mock always has isDirty:true, so it's touched → reset-step + next-step
+    // advance via next-step
+    await wrapper.find('[data-test=next-step]').trigger('click')
+    await flushPromises()
+}
+
+/** Full advance to review with all optional steps skipped (avatar/tags/socials skipped, stickers advanced via next-step) */
 async function advanceToReview(wrapper: ReturnType<typeof mountIntroView>) {
+    // nickname → avatar
     await wrapper.find('[data-test=next-step]').trigger('click')
     await flushPromises()
-    await wrapper.find('[data-test=next-step]').trigger('click')
-    await flushPromises()
-    await wrapper.find('[data-test=skip-step]').trigger('click')
-    await flushPromises()
-    await wrapper.find('[data-test=skip-step]').trigger('click')
-    await flushPromises()
-    await wrapper.find('[data-test=skip-step]').trigger('click')
-    await flushPromises()
+    await skipOptionalStepsToReview(wrapper)
 }
 
 describe('IntroView', () => {
@@ -180,10 +203,257 @@ describe('IntroView', () => {
         expect(wrapper.text()).not.toContain('Step 1 / 7')
         expect(wrapper.find('[data-test=username]').exists()).toBe(false)
         expect(wrapper.text()).not.toContain('furName')
-        expect(wrapper.find('label').text()).toBe('顯示名稱 *')
         expect(wrapper.find<HTMLInputElement>('[data-test=furName]').element.value).toBe('Google Fox')
         expect(wrapper.find('[data-test=next-step]').exists()).toBe(true)
     })
+
+    // =========================================================
+    // State machine: nickname step
+    // =========================================================
+
+    it('nickname step: next-step disabled when furName is empty', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: '' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        // Clear input
+        await wrapper.find('[data-test=furName]').setValue('')
+        await flushPromises()
+
+        const nextBtn = wrapper.find('[data-test=next-step]')
+        expect(nextBtn.exists()).toBe(true)
+        expect((nextBtn.element as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('nickname step: next-step enabled when furName has value', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        const nextBtn = wrapper.find('[data-test=next-step]')
+        expect((nextBtn.element as HTMLButtonElement).disabled).toBe(false)
+    })
+
+    it('nickname step: no later-edit or skip button', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        expect(wrapper.find('[data-test=later-edit]').exists()).toBe(false)
+        expect(wrapper.find('[data-test=later-fill]').exists()).toBe(false)
+        expect(wrapper.find('[data-test=reset-step]').exists()).toBe(false)
+        expect(wrapper.find('[data-test=skip-step]').exists()).toBe(false)
+    })
+
+    // =========================================================
+    // State machine: optional step untouched → later-edit/later-fill
+    // =========================================================
+
+    it('avatar step: untouched shows later-edit (no next-step, no reset)', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+        await goToAvatar(wrapper)
+
+        expect(wrapper.find('[data-test=later-edit]').exists()).toBe(true)
+        expect(wrapper.find('[data-test=next-step]').exists()).toBe(false)
+        expect(wrapper.find('[data-test=reset-step]').exists()).toBe(false)
+    })
+
+    it('tags step: untouched shows later-edit', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+        await goToAvatar(wrapper)
+        // skip avatar
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+
+        expect(wrapper.find('[data-test=later-edit]').exists()).toBe(true)
+        expect(wrapper.find('[data-test=next-step]').exists()).toBe(false)
+    })
+
+    it('socials step: untouched shows later-fill (not later-edit)', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+        await goToAvatar(wrapper)
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+
+        expect(wrapper.find('[data-test=later-fill]').exists()).toBe(true)
+        expect(wrapper.find('[data-test=later-edit]').exists()).toBe(false)
+        expect(wrapper.find('[data-test=next-step]').exists()).toBe(false)
+    })
+
+    // =========================================================
+    // State machine: optional step touched → reset + next-step
+    // =========================================================
+
+    it('avatar step: enabling border makes it touched → shows reset-step + next-step', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+        await goToAvatar(wrapper)
+
+        // Enable border → touched
+        await wrapper.find('[data-test=avatar-border-toggle] input').setValue(true)
+        await flushPromises()
+
+        expect(wrapper.find('[data-test=reset-step]').exists()).toBe(true)
+        expect(wrapper.find('[data-test=next-step]').exists()).toBe(true)
+        expect(wrapper.find('[data-test=later-edit]').exists()).toBe(false)
+    })
+
+    it('avatar step: reset-step returns to untouched state (later-edit reappears)', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+        await goToAvatar(wrapper)
+
+        // Touch: enable border
+        await wrapper.find('[data-test=avatar-border-toggle] input').setValue(true)
+        await flushPromises()
+
+        expect(wrapper.find('[data-test=reset-step]').exists()).toBe(true)
+
+        // Reset
+        await wrapper.find('[data-test=reset-step]').trigger('click')
+        await flushPromises()
+
+        // Should return to untouched: later-edit shown, no next/reset
+        expect(wrapper.find('[data-test=later-edit]').exists()).toBe(true)
+        expect(wrapper.find('[data-test=reset-step]').exists()).toBe(false)
+        expect(wrapper.find('[data-test=next-step]').exists()).toBe(false)
+    })
+
+    // =========================================================
+    // Socials: per-row validation state machine
+    // =========================================================
+
+    it('socials: adding a row makes it touched; empty platform+url → next-step disabled', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+        await goToAvatar(wrapper)
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        // Now on socials
+        await wrapper.find('[data-test=add-social-link]').trigger('click')
+        await flushPromises()
+
+        // touched → shows next-step (and reset-step), but disabled
+        expect(wrapper.find('[data-test=next-step]').exists()).toBe(true)
+        expect((wrapper.find('[data-test=next-step]').element as HTMLButtonElement).disabled).toBe(true)
+        expect(wrapper.find('[data-test=later-fill]').exists()).toBe(false)
+    })
+
+    it('socials: valid row enables next-step', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+        await goToAvatar(wrapper)
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        // On socials
+        await wrapper.find('[data-test=add-social-link]').trigger('click')
+        await flushPromises()
+
+        // Select platform X and enter valid X URL
+        await wrapper.find('[data-test=social-platform-0]').setValue('X')
+        await wrapper.find('[data-test=social-url-0]').setValue('https://x.com/googlefox')
+        await flushPromises()
+
+        expect((wrapper.find('[data-test=next-step]').element as HTMLButtonElement).disabled).toBe(false)
+    })
+
+    it('socials: mismatched URL blocks next-step and shows error', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+        await goToAvatar(wrapper)
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        // On socials
+        await wrapper.find('[data-test=add-social-link]').trigger('click')
+        await flushPromises()
+
+        // GITHUB platform but x.com URL → mismatch
+        await wrapper.find('[data-test=social-platform-0]').setValue('GITHUB')
+        await wrapper.find('[data-test=social-url-0]').setValue('https://x.com/googlefox')
+        await flushPromises()
+
+        expect((wrapper.find('[data-test=next-step]').element as HTMLButtonElement).disabled).toBe(true)
+        expect(wrapper.find('[data-test=social-error-0]').exists()).toBe(true)
+        expect(wrapper.find('[data-test=social-error-0]').text()).toContain('與所選平台')
+    })
+
+    it('socials: later-fill (untouched) skips the step', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+        await goToAvatar(wrapper)
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        // On socials — no rows → later-fill shown
+        expect(wrapper.find('[data-test=later-fill]').exists()).toBe(true)
+
+        await wrapper.find('[data-test=later-fill]').trigger('click')
+        await flushPromises()
+
+        // Should advance to stickers
+        expect(wrapper.find('[data-test=sticker-manager-mock]').exists()).toBe(true)
+    })
+
+    // =========================================================
+    // Avatar step: upload and crop flow
+    // =========================================================
 
     it('avatar step removes mock choices and shows image upload entry', async () => {
         authState.isLogin = true
@@ -193,13 +463,11 @@ describe('IntroView', () => {
         const wrapper = mountIntroView()
         await flushPromises()
 
-        await wrapper.find('[data-test=next-step]').trigger('click')
-        await flushPromises()
+        await goToAvatar(wrapper)
 
         expect(wrapper.text()).not.toContain('mock-otter')
         expect(wrapper.text()).not.toContain('mock-fox')
         expect(wrapper.text()).not.toContain('mock-bear')
-        expect(wrapper.text()).toContain('上傳圖片')
         expect(wrapper.text()).toContain('支援 PNG / JPG / WEBP')
         expect(wrapper.text()).not.toContain('GIF')
         expect(wrapper.text()).toContain('拖曳與縮放，調整你的頭像顯示範圍')
@@ -215,8 +483,7 @@ describe('IntroView', () => {
         const wrapper = mountIntroView()
         await flushPromises()
 
-        await wrapper.find('[data-test=next-step]').trigger('click')
-        await flushPromises()
+        await goToAvatar(wrapper)
 
         const avatarInput = wrapper.find('input[type="file"]')
         const sourceFile = new File(['avatar-source'], 'avatar-source.png', { type: 'image/png' })
@@ -244,8 +511,7 @@ describe('IntroView', () => {
         const wrapper = mountIntroView()
         await flushPromises()
 
-        await wrapper.find('[data-test=next-step]').trigger('click')
-        await flushPromises()
+        await goToAvatar(wrapper)
 
         const avatarInput = wrapper.find('input[type="file"]')
         const sourceFile = new File(['avatar-source'], 'avatar-source.png', { type: 'image/png' })
@@ -262,23 +528,24 @@ describe('IntroView', () => {
         cropModal.vm.$emit('confirm', croppedFile)
         await flushPromises()
 
-        await wrapper.find('[data-test=next-step]').trigger('click')
-        await flushPromises()
-        await wrapper.find('[data-test=edit-button]').trigger('click')
-        await flushPromises()
-        await wrapper.find('[data-test=row-head-LANGUAGE]').trigger('click')
-        await wrapper.find('[data-test=chip-tg-001]').trigger('click')
-        await wrapper.find('[data-test=close-btn]').trigger('click')
-        await wrapper.find('[data-test=next-step]').trigger('click')
-
-        const socialInputs = wrapper.findAll('[data-field="social-links"] input')
-        await socialInputs[0].setValue('telegram')
-        await socialInputs[1].setValue('https://t.me/googlefox')
-        await wrapper.find('[data-test=add-social-link]').trigger('click')
-        await wrapper.find('[data-test=next-step]').trigger('click')
+        // avatar is now touched → next-step visible
         await wrapper.find('[data-test=next-step]').trigger('click')
         await flushPromises()
 
+        // tags: untouched → later-edit
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+
+        // socials: open tag editor to add a tag instead; go to socials directly
+        // Actually we go to socials untouched → later-fill
+        await wrapper.find('[data-test=later-fill]').trigger('click')
+        await flushPromises()
+
+        // stickers: touched (mock isDirty:true) → next-step
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+
+        // Now on review
         await wrapper.find('[data-test=confirm-create]').trigger('click')
         await flushPromises()
 
@@ -327,22 +594,26 @@ describe('IntroView', () => {
         const wrapper = mountIntroView()
         await flushPromises()
 
-        await wrapper.find('[data-test=next-step]').trigger('click')
-        await flushPromises()
+        await goToAvatar(wrapper)
 
         await wrapper.find('[data-test=avatar-border-toggle] input').setValue(true)
         await wrapper.find('.intro-view__color-input').setValue('#ff8800')
         await flushPromises()
 
+        // avatar is now touched → next-step
         await wrapper.find('[data-test=next-step]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=skip-step]').trigger('click')
+        // tags → later-edit
+        await wrapper.find('[data-test=later-edit]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=skip-step]').trigger('click')
+        // socials → later-fill
+        await wrapper.find('[data-test=later-fill]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=skip-step]').trigger('click')
+        // stickers → next-step (isDirty:true always)
+        await wrapper.find('[data-test=next-step]').trigger('click')
         await flushPromises()
 
+        // On review
         expect(wrapper.text()).toContain('#ff8800')
 
         await wrapper.find('[data-test=confirm-create]').trigger('click')
@@ -364,8 +635,7 @@ describe('IntroView', () => {
         const wrapper = mountIntroView()
         await flushPromises()
 
-        await wrapper.find('[data-test=next-step]').trigger('click')
-        await flushPromises()
+        await goToAvatar(wrapper)
 
         await wrapper.find('[data-test=avatar-border-toggle] input').setValue(true)
         await wrapper.find('.intro-view__color-input').setValue('#ff8800')
@@ -384,13 +654,14 @@ describe('IntroView', () => {
         cropModal.vm.$emit('confirm', croppedFile)
         await flushPromises()
 
+        // avatar touched → next-step
         await wrapper.find('[data-test=next-step]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await wrapper.find('[data-test=later-edit]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await wrapper.find('[data-test=later-fill]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await wrapper.find('[data-test=next-step]').trigger('click')
         await flushPromises()
 
         const reviewAvatar = wrapper.find('[data-test=review-avatar] img')
@@ -407,14 +678,14 @@ describe('IntroView', () => {
         const wrapper = mountIntroView()
         await flushPromises()
 
-        // advance: nickname → avatar → tags → socials → stickers
+        // nickname → avatar → tags → socials → stickers
         await wrapper.find('[data-test=next-step]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=next-step]').trigger('click')
+        await wrapper.find('[data-test=later-edit]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await wrapper.find('[data-test=later-edit]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await wrapper.find('[data-test=later-fill]').trigger('click')
         await flushPromises()
 
         expect(wrapper.find('[data-test=sticker-manager-mock]').exists()).toBe(true)
@@ -430,16 +701,16 @@ describe('IntroView', () => {
         const wrapper = mountIntroView()
         await flushPromises()
 
-        // nickname → avatar (skip) → tags (skip) → socials (skip) → stickers (next) → review → confirm
+        // nickname → avatar (skip) → tags (skip) → socials (skip) → stickers (next via isDirty) → review → confirm
         await wrapper.find('[data-test=next-step]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await wrapper.find('[data-test=later-edit]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await wrapper.find('[data-test=later-edit]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=skip-step]').trigger('click')
+        await wrapper.find('[data-test=later-fill]').trigger('click')
         await flushPromises()
-        // currently on stickers step — advance to review
+        // stickers: mock isDirty=true → touched, next-step available
         await wrapper.find('[data-test=next-step]').trigger('click')
         await flushPromises()
 
@@ -449,5 +720,45 @@ describe('IntroView', () => {
         expect(createProfileMock).toHaveBeenCalledTimes(1)
         expect(stickerSaveAllSpy).toHaveBeenCalledTimes(1)
         expect(createProfileMock.mock.invocationCallOrder[0]).toBeLessThan(stickerSaveAllSpy.mock.invocationCallOrder[0])
+    })
+
+    // =========================================================
+    // socials: confirmProfileSetup passes SocialPlatform enum value
+    // =========================================================
+
+    it('confirm 時 addSocialLink 帶 SocialPlatform enum value', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        // Navigate to socials
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+
+        // Add a valid X link
+        await wrapper.find('[data-test=add-social-link]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=social-platform-0]').setValue('X')
+        await wrapper.find('[data-test=social-url-0]').setValue('https://x.com/googlefox')
+        await flushPromises()
+
+        // next-step to stickers
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+        // stickers → next-step
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+
+        await wrapper.find('[data-test=confirm-create]').trigger('click')
+        await flushPromises()
+
+        expect(addSocialLinkMock).toHaveBeenCalledWith({ platform: 'X', links: 'https://x.com/googlefox' })
     })
 })

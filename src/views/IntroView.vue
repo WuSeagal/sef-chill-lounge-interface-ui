@@ -17,12 +17,15 @@ import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import { TAG_TYPE_ORDER, TagType, type GroupedTags, type Tag } from '@/types/user'
 import { buildAvatarRingStyle } from '@/utils/avatarRing'
 import { resolveAvatarSrc } from '@/utils/avatarSource'
+import { PLATFORM_LIST, type SocialPlatform } from '@/constants/platforms'
+import { validateSocialUrl } from '@/utils/socialUrlValidation'
 import lizardchiEgg from '@/assets/lizardchi.png'
+import defaultAvatarImg from '@/assets/avatars/default-avatar.png'
 
 const TAG_MAX = 20
 
 type SocialDraft = {
-    platform: string
+    platform: SocialPlatform | ''
     links: string
 }
 
@@ -56,8 +59,6 @@ const avatarColor = ref<string>('#ffffff')
 const avatarBorder = ref<boolean>(false)
 const avatarDraft = useAvatarUploadDraft()
 const avatarInputRef = ref<HTMLInputElement | null>(null)
-const socialPlatformInput = ref('')
-const socialUrlInput = ref('')
 const selectedSocialLinks = ref<SocialDraft[]>([])
 const stickerManagerRef = ref<InstanceType<typeof StickerManager> | null>(null)
 const skippedStepKeys = ref<string[]>([])
@@ -78,8 +79,6 @@ const previewTags = computed<Tag[]>(() => {
             if (tagEditorState.selectedTagIds.value.has(tag.tagId)) result.push(tag)
         }
         for (const content of tagEditorState.newCustomTags.value.get(type) ?? []) {
-            // 自訂 tag 尚未存檔、後端還沒配發真 tagId，先用 __new__{type}__{content}
-            // 合成一個 client-only key（僅供預覽 v-for :key；存檔後由後端真 id 取代）。
             result.push({ tagId: `__new__${type}__${content}`, type, content, isCustom: true })
         }
     }
@@ -96,17 +95,41 @@ const currentStepTitle = computed(() => t(`intro.steps.${currentStep.value.key}.
 const currentStepDescription = computed(() => t(`intro.steps.${currentStep.value.key}.description`))
 const isReviewStep = computed(() => currentStep.value.key === 'review')
 const isTopicStep = computed(() => currentStep.value.key === 'topic')
-const canSkipCurrent = computed(() => currentStep.value.optional)
 const hasDrawnTopic = computed(() => !!drawnTopicContent.value)
 const hasStagedAvatar = computed(() => avatarDraft.file.value !== null)
 const avatarPreviewSrc = computed(() => avatarDraft.previewUrl.value ?? resolveAvatarSrc(null))
-const avatarButtonLabel = computed(() => hasStagedAvatar.value ? '更換圖片' : '上傳圖片')
 const avatarPreviewStyle = computed(() => buildAvatarRingStyle(avatarColor.value, avatarBorder.value, 'lg'))
-const avatarPreviewHeadline = computed(() => hasStagedAvatar.value ? '這就是你目前的頭像預覽' : '先調整好你的頭像外觀')
-const avatarPreviewDescription = computed(() =>
-    hasStagedAvatar.value
-        ? '拖曳與縮放後的結果會先暫存，完成註冊時才會正式套用。'
-        : '拖曳與縮放，調整你的頭像顯示範圍。你也可以只設定預設頭像與頭像框。')
+
+// Per-row social validation
+const socialRowValidations = computed(() =>
+    selectedSocialLinks.value.map(row => {
+        if (!row.platform) return { valid: false as const, reason: 'invalid_url' as const }
+        if (!row.links.trim()) return { valid: false as const, reason: 'invalid_url' as const }
+        return validateSocialUrl(row.platform, row.links.trim())
+    })
+)
+
+const allSocialsValid = computed(() =>
+    selectedSocialLinks.value.length > 0 &&
+    socialRowValidations.value.every(r => r.valid)
+)
+
+// touched states per optional step
+const touchedAvatar = computed(() => hasStagedAvatar.value || avatarBorder.value)
+const touchedTags = computed(() => previewTags.value.length > 0)
+const touchedSocials = computed(() => selectedSocialLinks.value.length > 0)
+const touchedStickers = computed(() => !!(stickerManagerRef.value?.isDirty))
+
+const currentTouched = computed(() => {
+    switch (currentStep.value.key) {
+        case 'avatar': return touchedAvatar.value
+        case 'tags': return touchedTags.value
+        case 'socials': return touchedSocials.value
+        case 'stickers': return touchedStickers.value
+        default: return false
+    }
+})
+
 const reviewAvatarSummary = computed(() => {
     if (skippedStepKeys.value.includes('avatar')) return '這一步已先略過'
     if (hasStagedAvatar.value) return avatarBorder.value ? `已設定裁切頭像與頭像框 ${avatarColor.value}` : '已設定裁切頭像'
@@ -126,8 +149,11 @@ const reviewRows = computed(() => [
     },
     {
         label: t('intro.review.socials'),
-        value: selectedSocialLinks.value.length
-            ? selectedSocialLinks.value.map(link => `${link.platform}: ${link.links}`).join(' / ')
+        value: selectedSocialLinks.value.filter(l => l.platform).length
+            ? selectedSocialLinks.value
+                .filter(l => l.platform)
+                .map(link => `${link.platform}: ${link.links}`)
+                .join(' / ')
             : skippedStepKeys.value.includes('socials') ? t('intro.review.skipped') : t('intro.review.empty'),
     },
     {
@@ -144,6 +170,8 @@ const canNext = computed(() => {
     switch (currentStep.value.key) {
         case 'nickname':
             return !!furName.value.trim()
+        case 'socials':
+            return allSocialsValid.value
         case 'review':
             return !submitting.value
         case 'topic':
@@ -204,8 +232,8 @@ function goPrev(): void {
     currentStepIndex.value -= 1
 }
 
-function skipCurrentStep(): void {
-    if (!canSkipCurrent.value) return
+/** Clear current page's draft but stay on this page and do NOT mark skipped */
+function resetCurrentStep(): void {
     if (currentStep.value.key === 'avatar') {
         avatarDraft.clearDraft()
         avatarColor.value = '#ffffff'
@@ -215,15 +243,36 @@ function skipCurrentStep(): void {
         tagEditorState.reset([])
     }
     if (currentStep.value.key === 'socials') {
-        socialPlatformInput.value = ''
-        socialUrlInput.value = ''
         selectedSocialLinks.value = []
     }
     if (currentStep.value.key === 'stickers') {
         stickerManagerRef.value?.clearStaging()
     }
+}
+
+/** Skip: clear draft + mark skipped + advance */
+function skipCurrentStep(): void {
+    if (!currentStep.value.optional) return
+    resetCurrentStep()
     markCurrentStepSkipped()
     currentStepIndex.value += 1
+}
+
+function addSocialRow(): void {
+    selectedSocialLinks.value = [...selectedSocialLinks.value, { platform: '', links: '' }]
+}
+
+function removeSocialRow(idx: number): void {
+    selectedSocialLinks.value.splice(idx, 1)
+}
+
+function getSocialErrorMsg(validation: ReturnType<typeof validateSocialUrl>): string {
+    if (validation.valid) return ''
+    switch (validation.reason) {
+        case 'invalid_url': return t('intro.social.invalidUrl')
+        case 'unsafe_url': return t('intro.social.unsafe')
+        case 'platform_mismatch': return t('intro.social.mismatch')
+    }
 }
 
 async function loadTags(): Promise<void> {
@@ -241,20 +290,6 @@ async function loadTags(): Promise<void> {
 function onTagModalClose(): void {
     tagModalOpen.value = false
     if (previewTags.value.length > 0) clearCurrentStepSkipped()
-}
-
-function addSocialLink(): void {
-    const platform = socialPlatformInput.value.trim()
-    const links = socialUrlInput.value.trim()
-    if (!platform || !links) return
-    selectedSocialLinks.value = [...selectedSocialLinks.value, { platform, links }]
-    socialPlatformInput.value = ''
-    socialUrlInput.value = ''
-    clearCurrentStepSkipped()
-}
-
-function removeSocialLink(idx: number): void {
-    selectedSocialLinks.value.splice(idx, 1)
 }
 
 function openAvatarPicker(): void {
@@ -305,7 +340,9 @@ async function confirmProfileSetup(): Promise<void> {
         }
 
         for (const socialLink of selectedSocialLinks.value) {
-            await user.addSocialLink(socialLink)
+            if (socialLink.platform) {
+                await user.addSocialLink({ platform: socialLink.platform, links: socialLink.links })
+            }
         }
 
         if (!skippedStepKeys.value.includes('stickers') && stickerManagerRef.value?.isDirty) {
@@ -357,8 +394,6 @@ async function initializeOnboarding(): Promise<void> {
     avatarColor.value = '#ffffff'
     avatarBorder.value = false
     tagEditorState.reset([])
-    socialPlatformInput.value = ''
-    socialUrlInput.value = ''
     selectedSocialLinks.value = []
     skippedStepKeys.value = []
     submitError.value = null
@@ -416,50 +451,84 @@ onBeforeUnmount(() => {
             </div>
 
             <div v-else-if="showOnboarding" class="intro-view__onboarding-card" data-test="onboarding-card">
+                <!-- Wizard header -->
                 <header class="intro-view__wizard-header">
-                    <h1 class="intro-view__title">{{ currentStepTitle }}</h1>
-                    <p class="intro-view__copy">{{ currentStepDescription }}</p>
+                    <h1 class="intro-view__wz-title">{{ currentStepTitle }}</h1>
+                    <p class="intro-view__wz-sub">
+                        {{ currentStepDescription }}
+                        <template v-if="currentStep.key === 'nickname'"><br>{{ t('intro.steps.nickname.note') }}</template>
+                    </p>
                 </header>
 
+                <!-- Nickname step -->
                 <section v-if="currentStep.key === 'nickname'" class="intro-view__step-card">
-                    <label class="intro-view__field">
-                        <span>{{ t('intro.fields.displayName') }} <span class="intro-view__required">*</span></span>
+                    <div class="intro-view__nick-wrap">
                         <input
                             data-test="furName"
+                            class="intro-view__nick-input"
                             v-model="furName"
                             maxlength="30"
                             autocomplete="nickname"
                             :placeholder="t('intro.placeholders.displayName')" />
-                    </label>
+                    </div>
                 </section>
 
+                <!-- Avatar step -->
                 <section v-else-if="currentStep.key === 'avatar'" class="intro-view__step-card">
-                    <div class="intro-view__option-group">
-                        <h2>{{ t('intro.options.avatar') }}</h2>
-                        <div class="intro-view__avatar-editor">
-                            <div class="intro-view__avatar-stage">
-                                <img
-                                    class="intro-view__avatar-preview"
-                                    :src="avatarPreviewSrc"
-                                    alt="avatar preview"
-                                    :style="avatarPreviewStyle"
-                                />
-                            </div>
-                            <div class="intro-view__avatar-config">
-                                <div class="intro-view__avatar-copy">
-                                    <strong>{{ avatarPreviewHeadline }}</strong>
-                                    <span>{{ avatarPreviewDescription }}</span>
+                    <div class="intro-view__av-grid">
+                        <!-- Left: circular avatar with + overlay -->
+                        <div class="intro-view__av-photo-wrap" title="點擊上傳" @click="hasStagedAvatar ? reopenAvatarCrop() : openAvatarPicker()">
+                            <img
+                                class="intro-view__av-photo intro-view__avatar-preview"
+                                :src="hasStagedAvatar ? avatarPreviewSrc : defaultAvatarImg"
+                                alt="avatar preview"
+                                :style="avatarPreviewStyle"
+                            />
+                            <span v-if="!hasStagedAvatar" class="intro-view__av-plus"><b>＋</b></span>
+                        </div>
+                        <input
+                            ref="avatarInputRef"
+                            class="intro-view__file-input"
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            @change="onAvatarFileChange"
+                        />
+
+                        <!-- Right: avatar border config -->
+                        <div class="intro-view__av-right">
+                            <div class="intro-view__av-row">
+                                <span class="intro-view__av-lbl">{{ t('intro.options.avatarBorder') }}</span>
+                                <div class="intro-view__av-toggle">
+                                    <ToggleSwitch
+                                        data-test="avatar-border-toggle"
+                                        :aria-label="t('intro.options.avatarBorder')"
+                                        :model-value="avatarBorder"
+                                        @update:model-value="(v: boolean) => { avatarBorder = v; clearCurrentStepSkipped() }"
+                                    />
                                 </div>
+                            </div>
+                            <div v-if="avatarBorder" class="intro-view__av-row">
+                                <span class="intro-view__av-lbl">{{ t('intro.options.avatarBorderColor') }}</span>
+                                <div class="intro-view__swatch">
+                                    <input
+                                        class="intro-view__color-input intro-view__swatch-circle"
+                                        type="color"
+                                        :value="avatarColor"
+                                        @input="avatarColor = ($event.target as HTMLInputElement).value; clearCurrentStepSkipped()"
+                                    />
+                                    <span class="intro-view__color-value">{{ avatarColor }}</span>
+                                </div>
+                            </div>
+                            <div v-if="hasStagedAvatar" class="intro-view__av-row">
                                 <button
                                     type="button"
-                                    class="intro-view__choice-card intro-view__choice-card--upload"
+                                    class="intro-view__choice-card intro-view__choice-card--upload intro-view__choice-card--secondary"
                                     @click="openAvatarPicker"
                                 >
-                                    <strong>{{ avatarButtonLabel }}</strong>
-                                    <span>{{ hasStagedAvatar ? '改用另一張圖片重新裁切' : '支援 PNG / JPG / WEBP' }}</span>
+                                    <strong>更換圖片</strong>
+                                    <span>改用另一張圖片重新裁切</span>
                                 </button>
                                 <button
-                                    v-if="hasStagedAvatar"
                                     type="button"
                                     class="intro-view__choice-card intro-view__choice-card--upload intro-view__choice-card--secondary"
                                     @click="reopenAvatarCrop"
@@ -467,43 +536,15 @@ onBeforeUnmount(() => {
                                     <strong>重新裁切</strong>
                                     <span>延續目前結果再微調位置與縮放</span>
                                 </button>
-                                <input
-                                    ref="avatarInputRef"
-                                    class="intro-view__file-input"
-                                    type="file"
-                                    accept="image/png,image/jpeg,image/webp"
-                                    @change="onAvatarFileChange"
-                                />
                             </div>
-                        </div>
-                    </div>
-
-                    <div class="intro-view__option-group">
-                        <h2>{{ t('intro.options.avatarBorder') }}</h2>
-                        <div class="intro-view__border-row">
-                            <div class="intro-view__border-enable">
-                                <span class="intro-view__sublabel">{{ t('intro.options.avatarBorderEnable') }}</span>
-                                <ToggleSwitch
-                                    data-test="avatar-border-toggle"
-                                    :aria-label="t('intro.options.avatarBorder')"
-                                    :model-value="avatarBorder"
-                                    @update:model-value="(v: boolean) => { avatarBorder = v; clearCurrentStepSkipped() }"
-                                />
-                            </div>
-                            <div v-if="avatarBorder" class="intro-view__border-color">
-                                <span class="intro-view__sublabel">{{ t('intro.options.avatarBorderColor') }}</span>
-                                <input
-                                    class="intro-view__color-input"
-                                    type="color"
-                                    :value="avatarColor"
-                                    @input="avatarColor = ($event.target as HTMLInputElement).value; clearCurrentStepSkipped()"
-                                />
-                                <span class="intro-view__color-value">{{ avatarColor }}</span>
+                            <div v-else class="intro-view__av-row">
+                                <p class="intro-view__av-hint">支援 PNG / JPG / WEBP<br>拖曳與縮放，調整你的頭像顯示範圍。你也可以只設定預設頭像與頭像框。</p>
                             </div>
                         </div>
                     </div>
                 </section>
 
+                <!-- Tags step -->
                 <section v-else-if="currentStep.key === 'tags'" class="intro-view__step-card">
                     <div v-if="loadingTags" class="intro-view__state-text">{{ t('intro.tags.loading') }}</div>
                     <div v-else-if="tagsError" class="intro-view__error-block">
@@ -517,26 +558,66 @@ onBeforeUnmount(() => {
                     />
                 </section>
 
+                <!-- Socials step -->
                 <section v-else-if="currentStep.key === 'socials'" class="intro-view__step-card" data-field="social-links">
-                    <div class="intro-view__social-inputs">
-                        <div class="intro-view__inline-inputs intro-view__inline-inputs--double">
-                            <input v-model="socialPlatformInput" :placeholder="t('intro.placeholders.socialPlatform')" />
-                            <input v-model="socialUrlInput" :placeholder="t('intro.placeholders.socialUrl')" type="url" inputmode="url" />
-                        </div>
-                        <button type="button" data-test="add-social-link" @click="addSocialLink">{{ t('intro.actions.addSocialLink') }}</button>
-                    </div>
-
-                    <ul class="intro-view__social-list">
-                        <li v-for="(link, idx) in selectedSocialLinks" :key="`${link.platform}-${idx}`">
-                            <span>{{ link.platform }}: {{ link.links }}</span>
+                    <div
+                        v-for="(row, idx) in selectedSocialLinks"
+                        :key="idx"
+                        class="intro-view__so-row-wrap"
+                    >
+                        <div class="intro-view__so-row">
+                            <select
+                                class="intro-view__so-sel"
+                                :data-test="`social-platform-${idx}`"
+                                :value="row.platform"
+                                @change="row.platform = ($event.target as HTMLSelectElement).value as SocialPlatform | ''"
+                            >
+                                <option value="">{{ t('intro.social.selectPlatform') }}</option>
+                                <option
+                                    v-for="p in PLATFORM_LIST"
+                                    :key="p.value"
+                                    :value="p.value"
+                                >{{ p.label }}</option>
+                            </select>
+                            <input
+                                class="intro-view__so-url"
+                                :class="{
+                                    'intro-view__so-url--ok': row.platform && row.links && socialRowValidations[idx]?.valid,
+                                    'intro-view__so-url--bad': row.platform && row.links && !socialRowValidations[idx]?.valid
+                                }"
+                                type="url"
+                                inputmode="url"
+                                :data-test="`social-url-${idx}`"
+                                v-model="row.links"
+                                :placeholder="t('intro.placeholders.socialUrl')"
+                            />
                             <button
                                 type="button"
+                                class="intro-view__so-x"
                                 :data-test="`remove-social-${idx}`"
-                                @click="removeSocialLink(idx)">{{ t('intro.actions.remove') }}</button>
-                        </li>
-                    </ul>
+                                @click="removeSocialRow(idx)"
+                            >✕</button>
+                        </div>
+                        <div
+                            v-if="row.platform && row.links && !socialRowValidations[idx]?.valid"
+                            class="intro-view__so-msg intro-view__so-msg--bad"
+                            :data-test="`social-error-${idx}`"
+                        >{{ getSocialErrorMsg(socialRowValidations[idx]) }}</div>
+                        <div
+                            v-else-if="row.platform && row.links && socialRowValidations[idx]?.valid"
+                            class="intro-view__so-msg intro-view__so-msg--ok"
+                        >✓ 連結有效</div>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="intro-view__so-add"
+                        data-test="add-social-link"
+                        @click="addSocialRow"
+                    >＋ 新增</button>
                 </section>
 
+                <!-- Review step -->
                 <section v-else-if="currentStep.key === 'review'" class="intro-view__step-card">
                     <div class="intro-view__review-avatar-card" data-test="review-avatar">
                         <img
@@ -559,6 +640,7 @@ onBeforeUnmount(() => {
                     <p v-if="submitError" class="intro-view__error-inline">{{ submitError }}</p>
                 </section>
 
+                <!-- Topic step -->
                 <section v-else-if="currentStep.key === 'topic'" class="intro-view__step-card intro-view__topic-step">
                     <div v-if="!hasDrawnTopic" class="intro-view__topic-prompt">
                         <p>{{ t('intro.topic.prompt') }}</p>
@@ -568,57 +650,107 @@ onBeforeUnmount(() => {
                     </div>
 
                     <div v-else class="intro-view__topic-result">
-                        <span class="intro-view__eyebrow">{{ t('intro.topic.result') }}</span>
+                        <span class="intro-view__eyebrow">{{ t('intro.topic.eyebrow') }}</span>
                         <p class="intro-view__topic-content">{{ drawnTopicContent }}</p>
                         <p class="intro-view__state-text">{{ t('intro.topic.redirect', { seconds: drawCountdown }) }}</p>
+                        <div class="intro-view__topic-btn-wrap">
+                            <button
+                                type="button"
+                                class="intro-view__wz-btn intro-view__wz-btn--primary"
+                                @click="router.push('/chat')"
+                            >{{ t('intro.topic.manualRedirect') }}</button>
+                        </div>
                     </div>
 
                     <p v-if="drawError" class="intro-view__error-inline">{{ drawError }}</p>
                 </section>
 
+                <!-- Stickers step (v-show to keep ref alive) -->
                 <section v-show="currentStep.key === 'stickers'" class="intro-view__step-card">
                     <StickerManager ref="stickerManagerRef" :initial="[]" />
                 </section>
 
-                <footer v-if="showOnboarding" class="intro-view__wizard-footer">
+                <!-- Footer action bar -->
+                <footer v-if="showOnboarding" class="intro-view__wz-foot">
+                    <!-- Left: prev button -->
                     <button
                         v-if="currentStepIndex > 0 && !hasDrawnTopic"
                         type="button"
-                        class="intro-view__ghost-btn"
+                        class="intro-view__wz-btn intro-view__wz-btn--ghost"
                         data-test="prev-step"
                         @click="goPrev">
                         {{ t('intro.actions.previous') }}
                     </button>
+                    <span v-else></span>
 
-                    <div class="intro-view__footer-actions">
-                        <button
-                            v-if="canSkipCurrent"
-                            type="button"
-                            class="intro-view__ghost-btn"
-                            data-test="skip-step"
-                            @click="skipCurrentStep">
-                            {{ t('intro.actions.skip') }}
-                        </button>
+                    <!-- Right: context-sensitive action buttons -->
+                    <div class="intro-view__wz-foot-right">
+                        <!-- Nickname: single 下一步 (disabled when empty) -->
+                        <template v-if="currentStep.key === 'nickname'">
+                            <button
+                                type="button"
+                                class="intro-view__wz-btn intro-view__wz-btn--primary"
+                                data-test="next-step"
+                                :disabled="!canNext"
+                                @click="goNext">
+                                {{ t('intro.actions.next') }}
+                            </button>
+                        </template>
 
-                        <button
-                            v-if="!isReviewStep && !isTopicStep"
-                            type="button"
-                            class="intro-view__primary-btn"
-                            data-test="next-step"
-                            :disabled="!canNext"
-                            @click="goNext">
-                            {{ t('intro.actions.next') }}
-                        </button>
+                        <!-- Optional steps (avatar/tags/socials/stickers) -->
+                        <template v-else-if="currentStep.optional && !isReviewStep && !isTopicStep">
+                            <!-- Untouched: single later-edit/later-fill button -->
+                            <template v-if="!currentTouched">
+                                <button
+                                    v-if="currentStep.key === 'socials'"
+                                    type="button"
+                                    class="intro-view__wz-btn intro-view__wz-btn--primary"
+                                    data-test="later-fill"
+                                    @click="skipCurrentStep">
+                                    {{ t('intro.actions.laterFill') }}
+                                </button>
+                                <button
+                                    v-else
+                                    type="button"
+                                    class="intro-view__wz-btn intro-view__wz-btn--primary"
+                                    data-test="later-edit"
+                                    @click="skipCurrentStep">
+                                    {{ t('intro.actions.laterEdit') }}
+                                </button>
+                            </template>
+                            <!-- Touched: reset (ghost) + 下一步 (primary) -->
+                            <template v-else>
+                                <button
+                                    type="button"
+                                    class="intro-view__wz-btn intro-view__wz-btn--ghost"
+                                    data-test="reset-step"
+                                    @click="resetCurrentStep">
+                                    {{ t('intro.actions.reset') }}
+                                </button>
+                                <button
+                                    type="button"
+                                    class="intro-view__wz-btn intro-view__wz-btn--primary"
+                                    data-test="next-step"
+                                    :disabled="!canNext"
+                                    @click="goNext">
+                                    {{ t('intro.actions.next') }}
+                                </button>
+                            </template>
+                        </template>
 
-                        <button
-                            v-if="isReviewStep"
-                            type="button"
-                            class="intro-view__primary-btn"
-                            data-test="confirm-create"
-                            :disabled="submitting"
-                            @click="confirmProfileSetup">
-                            {{ submitting ? '建立中...' : t('intro.actions.confirmCreate') }}
-                        </button>
+                        <!-- Review step: 建立資料 -->
+                        <template v-else-if="isReviewStep">
+                            <button
+                                type="button"
+                                class="intro-view__wz-btn intro-view__wz-btn--primary"
+                                data-test="confirm-create"
+                                :disabled="submitting"
+                                @click="confirmProfileSetup">
+                                {{ submitting ? '建立中...' : t('intro.actions.createProfile') }}
+                            </button>
+                        </template>
+
+                        <!-- Topic step: no footer buttons -->
                     </div>
                 </footer>
             </div>

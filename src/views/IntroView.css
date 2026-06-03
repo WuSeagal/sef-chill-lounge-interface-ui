@@ -10,9 +10,7 @@
     background-size: 28px 28px;
 }
 
-/* stage 包住 panel:負責置中/寬度,並用 z-index:0 建立 stacking context,
-   讓 z-index:-1 的彩蛋夾在「page 背景之上、panel 背景之下」——
-   panel 不透明背景蓋住蜥蜴身體,只有超出 panel 右緣的尾巴露出來 */
+/* stage 包住 panel:負責置中/寬度,並用 z-index:0 建立 stacking context */
 .intro-view__stage {
     position: relative;
     z-index: 0;
@@ -35,17 +33,14 @@
 /* 彩蛋:像素蜥蜴躲在面板背後,從上緣偏右處逆時針微傾、只露出尾巴 */
 .intro-view__easter-egg {
     position: absolute;
-    /* 負 top + 往右靠 → 尾巴與部分屁股朝右上角探出面板,身體沒入背景後方 */
     top: -52px;
     right: 12px;
     width: 140px;
     height: auto;
     z-index: -1;
-    /* 保留像素藝術的銳利邊緣,縮放不模糊 */
     image-rendering: pixelated;
     pointer-events: none;
     user-select: none;
-    /* 逆時針翹起,尾巴朝右上角 */
     transform: rotate(-54deg);
     filter: drop-shadow(0 6px 10px rgba(98, 89, 69, 0.18));
 }
@@ -69,7 +64,6 @@
     display: flex;
 }
 
-/* margin: auto 在 flex item 上可雙軸置中,且內容超高時仍可正常捲動(overflow-safe) */
 .intro-view__stage--focus {
     width: min(440px, 100%);
     margin: auto;
@@ -85,7 +79,6 @@
     gap: 20px;
 }
 
-/* Focus 畫面字距稍微拉開,讓品牌字更舒展 */
 .intro-view__panel--focus .intro-view__title {
     letter-spacing: 0.04em;
 }
@@ -94,19 +87,31 @@
     letter-spacing: 0.12em;
 }
 
-.intro-view__eyebrow {
-    display: inline-flex;
-    align-self: flex-start;
-    padding: 8px 14px;
-    border-radius: 999px;
-    background: rgba(98, 89, 69, 0.08);
-    color: var(--input-text);
-    font-size: 0.82rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+/* === Wizard header === */
+.intro-view__wizard-header {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+    margin-bottom: 4px;
 }
 
+.intro-view__wz-title {
+    margin: 0;
+    font-size: 1.7rem;
+    font-weight: 800;
+    color: #3f3a2c;
+    line-height: 1.2;
+}
+
+.intro-view__wz-sub {
+    margin: 0 0 4px;
+    font-size: 0.86rem;
+    color: #8c8672;
+    line-height: 1.6;
+}
+
+/* === Login card title/subtitle === */
 .intro-view__title {
     margin: 0;
     color: #4f4635;
@@ -123,18 +128,7 @@
     letter-spacing: 0.08em;
 }
 
-.intro-view__copy {
-    margin: 0;
-    color: var(--input-text);
-    line-height: 1.7;
-}
-
-.intro-view__wizard-header {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
+/* === Step cards === */
 .intro-view__step-card {
     padding: 22px;
     border: 1px solid rgba(116, 105, 85, 0.16);
@@ -142,60 +136,73 @@
     background: rgba(255, 255, 255, 0.86);
 }
 
-.intro-view__field {
+/* === Footer action bar (wz-foot) === */
+.intro-view__wz-foot {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin-top: 26px;
+    padding-top: 18px;
+    border-top: 1px solid #ece3c9;
 }
 
-.intro-view__field input,
-.intro-view__inline-inputs input {
-    width: 100%;
-    padding: 12px 14px;
-    border: 1px solid #cbd5e1;
-    border-radius: 12px;
-    font: inherit;
+.intro-view__wz-foot-right {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
 }
 
-.intro-view__required {
-    color: #dc2626;
-}
-
-.intro-view__google-btn,
-.intro-view__primary-btn,
-.intro-view__ghost-btn,
-.intro-view__social-inputs > button,
-.intro-view__custom-tag button,
-.intro-view__error-block button,
-.intro-view__topic-prompt button {
-    cursor: pointer;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.intro-view__google-btn,
-.intro-view__primary-btn,
-.intro-view__topic-prompt button {
-    align-self: flex-start;
-    padding: 14px 20px;
-    border: none;
+/* === Flat buttons (mockup .btn / .b-ghost / .b-primary) === */
+.intro-view__wz-btn {
+    padding: 10px 22px;
     border-radius: 999px;
-    background: #625945;
-    color: #ffffff;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    border: 1.5px solid transparent;
+    line-height: 1;
+    transition: opacity 0.18s ease, transform 0.18s ease;
 }
 
+.intro-view__wz-btn--ghost {
+    background: transparent;
+    border-color: #c3b78f;
+    color: #6b5d3e;
+}
+
+.intro-view__wz-btn--primary {
+    background: #625945;
+    color: #f4efe2;
+    border-color: transparent;
+}
+
+.intro-view__wz-btn--primary:disabled {
+    background: #cabf9f;
+    color: #f4efe2;
+    cursor: not-allowed;
+    opacity: 0.9;
+}
+
+.intro-view__wz-btn:not(:disabled):hover {
+    opacity: 0.88;
+    transform: translateY(-1px);
+}
+
+/* === Google login button (legacy; keep for login card) === */
 .intro-view__google-btn {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 14px;
     width: 100%;
-    /* 兩行文字 + 較高 padding,把按鈕高度拉高、更顯眼 */
     padding: 14px 24px;
     background: #ffffff;
     border: 1.5px solid #dadce0;
+    border-radius: 999px;
     color: #3c4043;
     box-shadow: 0 8px 22px rgba(98, 89, 69, 0.16);
-    /* 共用 transition 只含 opacity/transform,這裡補上 hover 會變動的 border/shadow 才會平滑 */
+    cursor: pointer;
     transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
@@ -211,7 +218,6 @@
     flex-shrink: 0;
 }
 
-/* 主標(大字)+ tagline(小字)兩行直排 */
 .intro-view__google-text {
     display: flex;
     flex-direction: column;
@@ -234,124 +240,177 @@
     color: #6b7280;
 }
 
-/* 登入卡內的 Google 按鈕水平置中（覆寫共用的 align-self: flex-start），並稍微拉開字距 */
 .intro-view__login-card .intro-view__google-btn {
     align-self: center;
     letter-spacing: 0.03em;
 }
 
-.intro-view__ghost-btn {
-    padding: 12px 18px;
-    border: 1px solid rgba(116, 105, 85, 0.18);
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.75);
-    color: #4f4635;
+/* === Nickname step === */
+.intro-view__nick-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 0 4px;
 }
 
-.intro-view__primary-btn:hover,
-.intro-view__ghost-btn:hover,
-.intro-view__social-inputs > button:hover,
-.intro-view__custom-tag button:hover,
-.intro-view__error-block button:hover,
-.intro-view__topic-prompt button:hover {
-    opacity: 0.92;
-    transform: translateY(-1px);
+.intro-view__nick-input {
+    width: 100%;
+    max-width: 460px;
+    padding: 16px 22px;
+    border: 1.5px solid #d7cdaf;
+    border-radius: 14px;
+    background: #fffdf6;
+    font: inherit;
+    font-size: 1.12rem;
+    color: #3f3a2c;
+    text-align: center;
 }
 
-.intro-view__primary-btn:disabled,
-.intro-view__topic-prompt button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
+.intro-view__nick-input::placeholder {
+    color: #bcb190;
 }
 
-.intro-view__option-group + .intro-view__option-group {
-    margin-top: 20px;
+/* === Avatar step (.av-grid) === */
+.intro-view__av-grid {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 58px;
+    align-items: start;
 }
 
-.intro-view__option-group h2 {
-    margin: 0 0 12px;
-    color: #4f4635;
-    font-size: 1rem;
+.intro-view__av-photo-wrap {
+    position: relative;
+    width: 150px;
+    height: 150px;
+    cursor: pointer;
+    grid-column: 1;
+    grid-row: 1;
 }
 
-.intro-view__border-row {
+/* The hidden file input is in the grid but hidden */
+.intro-view__file-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.intro-view__av-photo {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    object-fit: cover;
+    object-position: center;
+    background: #8c8672;
+    display: block;
+}
+
+.intro-view__av-plus {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
     display: flex;
     align-items: center;
-    gap: 24px;
-    flex-wrap: wrap;
-    /* 保留含選色時的高度（選色 32px），避免開關切換造成版面跳動 */
-    min-height: 32px;
+    justify-content: center;
+    background: rgba(58, 52, 38, 0.48);
+    pointer-events: none;
 }
 
-.intro-view__border-enable,
-.intro-view__border-color {
+.intro-view__av-plus b {
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    background: rgba(249, 245, 229, 0.95);
+    color: #5a5340;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.6rem;
+    font-weight: 400;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+
+.intro-view__av-right {
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding-top: 6px;
+}
+
+.intro-view__av-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.intro-view__av-lbl {
+    font-size: 0.78rem;
+    color: #8c8672;
+    font-weight: 700;
+}
+
+.intro-view__av-toggle {
     display: flex;
     align-items: center;
     gap: 10px;
 }
 
-.intro-view__sublabel {
-    font-size: 0.85rem;
-    color: #4f4635;
-}
-
-.intro-view__avatar-stage {
-    flex-shrink: 0;
-    display: flex;
-    justify-content: center;
-}
-
-.intro-view__avatar-editor {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    flex-wrap: wrap;
-}
-
-.intro-view__avatar-config {
-    flex: 1;
-    min-width: min(320px, 100%);
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-}
-
-.intro-view__avatar-preview {
-    width: 132px;
-    height: 132px;
-    border-radius: 50%;
-    object-fit: cover;
-    object-position: center;
-    background: #f5efdc;
-    border: 1px solid rgba(116, 105, 85, 0.12);
-    box-shadow: 0 10px 24px rgba(98, 89, 69, 0.08);
-}
-
-.intro-view__avatar-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    color: #625945;
+.intro-view__av-hint {
+    margin: 0;
+    font-size: 0.84rem;
+    color: #8c8672;
     line-height: 1.6;
 }
 
-.intro-view__avatar-copy strong {
-    color: #4f4635;
-    font-size: 1.02rem;
+/* Swatch (round color indicator) */
+.intro-view__swatch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.intro-view__choice-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
+.intro-view__swatch-circle {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid #f9f5e5;
+    box-shadow: 0 0 0 1px #d7cdaf;
+    cursor: pointer;
+    padding: 2px;
 }
 
+/* Keep old selector for tests that use it */
+.intro-view__color-input {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 2px solid #f9f5e5;
+    box-shadow: 0 0 0 1px #d7cdaf;
+    cursor: pointer;
+    padding: 2px;
+}
+
+.intro-view__color-value {
+    font-size: 0.82rem;
+    color: #5a5340;
+    font-family: monospace;
+}
+
+/* avatar preview (keep class for existing test selectors) */
+.intro-view__avatar-preview {
+    /* already sized via av-photo */
+}
+
+/* Choice card (for avatar upload buttons) */
 .intro-view__choice-card {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    padding: 18px 16px;
+    padding: 14px 16px;
     border: 1px solid #d7d0b8;
     border-radius: 18px;
     background: #ffffff;
@@ -371,18 +430,11 @@
 }
 
 .intro-view__choice-card--upload {
-    width: min(100%, 320px);
-    cursor: pointer;
+    width: min(100%, 280px);
 }
 
 .intro-view__choice-card--secondary {
     background: rgba(255, 255, 255, 0.74);
-}
-
-.intro-view__choice-card--selected {
-    border-color: #625945;
-    box-shadow: inset 0 0 0 1px #625945;
-    background: #f9f5e5;
 }
 
 .intro-view__choice-card:hover {
@@ -390,93 +442,106 @@
     transform: translateY(-1px);
 }
 
-.intro-view__color-input {
-    width: 48px;
-    height: 32px;
-    border: 1px solid var(--bubble-border);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-    padding: 2px;
+/* === Socials step === */
+.intro-view__so-row-wrap {
+    margin-bottom: 10px;
 }
 
-.intro-view__color-value {
-    font-size: 0.85rem;
-    color: #4f4635;
-    font-family: monospace;
-}
-
-.intro-view__file-input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    opacity: 0;
-    pointer-events: none;
-}
-
-.intro-view__default-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}
-
-.intro-view__chip-option {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 12px;
-    border: 1px solid #d7d0b8;
-    border-radius: 999px;
-    background: #ffffff;
-}
-
-.intro-view__custom-tag,
-.intro-view__social-inputs {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 16px;
-}
-
-.intro-view__inline-inputs {
+.intro-view__so-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: 180px 1fr 38px;
     gap: 10px;
-}
-
-.intro-view__inline-inputs--double {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.intro-view__social-list,
-.intro-view__custom-tag ul,
-.intro-view__review-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.intro-view__social-list li,
-.intro-view__custom-tag li,
-.intro-view__review-list li {
-    display: flex;
-    justify-content: space-between;
     align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
-    border: 1px solid #e6deca;
-    border-radius: 16px;
-    background: #ffffff;
 }
 
-.intro-view__review-list li {
-    align-items: flex-start;
-    flex-direction: column;
+.intro-view__so-sel {
+    padding: 11px 14px;
+    border: 1.5px solid #d7cdaf;
+    border-radius: 11px;
+    background: #fffdf6;
+    font-size: 0.9rem;
+    color: #3f3a2c;
+    font: inherit;
+    appearance: none;
+    background-image:
+        linear-gradient(45deg, transparent 50%, #8c8672 50%),
+        linear-gradient(135deg, #8c8672 50%, transparent 50%);
+    background-position: calc(100% - 18px) center, calc(100% - 13px) center;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    cursor: pointer;
 }
 
+.intro-view__so-url {
+    padding: 11px 14px;
+    border: 1.5px solid #d7cdaf;
+    border-radius: 11px;
+    background: #fffdf6;
+    font: inherit;
+    font-size: 0.9rem;
+    color: #3f3a2c;
+}
+
+.intro-view__so-url--ok {
+    border-color: #6b8a4a;
+    background: #f3f7ec;
+}
+
+.intro-view__so-url--bad {
+    border-color: #c2695c;
+    background: #f9eeec;
+}
+
+.intro-view__so-x {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1.5px solid #d7cdaf;
+    background: #fff;
+    color: #9a8f70;
+    cursor: pointer;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.18s ease;
+}
+
+.intro-view__so-x:hover {
+    opacity: 0.78;
+}
+
+.intro-view__so-msg {
+    font-size: 0.72rem;
+    margin: 4px 0 0 190px;
+}
+
+.intro-view__so-msg--bad {
+    color: #c2695c;
+}
+
+.intro-view__so-msg--ok {
+    color: #6b8a4a;
+}
+
+.intro-view__so-add {
+    background: #fff;
+    border: 1.5px dashed #c3b78f;
+    color: #6b5d3e;
+    padding: 9px 16px;
+    border-radius: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.9rem;
+    transition: opacity 0.18s ease;
+}
+
+.intro-view__so-add:hover {
+    opacity: 0.82;
+}
+
+/* === Review step === */
 .intro-view__review-avatar-card {
     display: flex;
     align-items: center;
@@ -514,6 +579,26 @@
     line-height: 1.55;
 }
 
+.intro-view__review-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.intro-view__review-list li {
+    display: flex;
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 14px;
+    border: 1px solid #e6deca;
+    border-radius: 16px;
+    background: #ffffff;
+}
+
 .intro-view__review-list span {
     color: #8c8672;
     font-size: 0.88rem;
@@ -524,27 +609,7 @@
     line-height: 1.5;
 }
 
-.intro-view__social-list button,
-.intro-view__custom-tag li button {
-    padding: 0;
-    border: none;
-    background: transparent;
-    color: #8c8672;
-}
-
-.intro-view__wizard-footer {
-    display: flex;
-    justify-content: space-between;
-    gap: 16px;
-    align-items: center;
-}
-
-.intro-view__footer-actions {
-    display: flex;
-    gap: 12px;
-    margin-left: auto;
-}
-
+/* === Topic step === */
 .intro-view__topic-step {
     display: flex;
     flex-direction: column;
@@ -558,6 +623,11 @@
     gap: 12px;
 }
 
+.intro-view__topic-btn-wrap {
+    text-align: center;
+    margin-top: 10px;
+}
+
 .intro-view__topic-content {
     margin: 0;
     color: #4f4635;
@@ -566,6 +636,43 @@
     line-height: 1.5;
 }
 
+.intro-view__eyebrow {
+    display: inline-flex;
+    align-self: flex-start;
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: rgba(98, 89, 69, 0.08);
+    color: var(--input-text);
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/* topic draw button — keep old style */
+.intro-view__topic-prompt button {
+    align-self: flex-start;
+    padding: 10px 22px;
+    border-radius: 999px;
+    background: #625945;
+    color: #f4efe2;
+    border: none;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    transition: opacity 0.18s ease;
+}
+
+.intro-view__topic-prompt button:hover {
+    opacity: 0.88;
+}
+
+.intro-view__topic-prompt button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* === Misc === */
 .intro-view__state-text {
     color: #64748b;
 }
@@ -575,37 +682,56 @@
     color: #b91c1c;
 }
 
+.intro-view__error-block button {
+    cursor: pointer;
+    margin-top: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid #c3b78f;
+    background: #fff;
+    color: #6b5d3e;
+}
+
 @media (max-width: 720px) {
     .intro-view__panel {
         padding: 18px 16px;
         border-radius: 24px;
     }
 
-    .intro-view__progress {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
-    .intro-view__choice-grid,
-    .intro-view__inline-inputs,
-    .intro-view__inline-inputs--double {
+    .intro-view__av-grid {
         grid-template-columns: 1fr;
+        gap: 24px;
     }
 
-    .intro-view__avatar-editor,
+    .intro-view__av-photo-wrap {
+        margin: 0 auto;
+    }
+
+    .intro-view__av-right {
+        grid-column: 1;
+        grid-row: 2;
+    }
+
+    .intro-view__so-row {
+        grid-template-columns: 1fr 1fr 38px;
+    }
+
+    .intro-view__so-msg {
+        margin-left: 0;
+    }
+
     .intro-view__review-avatar-card {
         align-items: flex-start;
         flex-direction: column;
     }
 
-    .intro-view__wizard-footer,
-    .intro-view__footer-actions,
-    .intro-view__social-list li,
-    .intro-view__custom-tag li {
-        align-items: stretch;
+    .intro-view__wz-foot {
         flex-direction: column;
+        align-items: stretch;
     }
 
-    .intro-view__footer-actions {
+    .intro-view__wz-foot-right {
         margin-left: 0;
+        flex-direction: column;
     }
 }
