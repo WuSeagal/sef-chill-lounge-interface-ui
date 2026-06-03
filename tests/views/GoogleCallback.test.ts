@@ -43,4 +43,24 @@ describe('GoogleCallback', () => {
         )
         expect(replaceMock).toHaveBeenCalledWith('/chat')
     })
+
+    it('renders lizard img element', () => {
+        const wrapper = mount(GoogleCallback)
+        expect(wrapper.find('img').exists()).toBe(true)
+    })
+
+    it('lizard img has alt attribute "lizardchi"', () => {
+        const wrapper = mount(GoogleCallback)
+        expect(wrapper.find('img').attributes('alt')).toBe('lizardchi')
+    })
+
+    it('renders the SEF·CLI title', () => {
+        const wrapper = mount(GoogleCallback)
+        expect(wrapper.text()).toContain('SEF·CLI')
+    })
+
+    it('renders the loading message 正在替你找位子', () => {
+        const wrapper = mount(GoogleCallback)
+        expect(wrapper.text()).toContain('正在替你找位子')
+    })
 })
