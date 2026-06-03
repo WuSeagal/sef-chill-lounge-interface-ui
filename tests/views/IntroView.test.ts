@@ -176,7 +176,7 @@ describe('IntroView', () => {
         await flushPromises()
 
         expect(wrapper.find('[data-test=onboarding-card]').exists()).toBe(true)
-        expect(wrapper.text()).toContain('請告訴系統要怎麼顯示你')
+        expect(wrapper.text()).toContain('如何稱呼您？')
         expect(wrapper.text()).not.toContain('Step 1 / 7')
         expect(wrapper.find('[data-test=username]').exists()).toBe(false)
         expect(wrapper.text()).not.toContain('furName')

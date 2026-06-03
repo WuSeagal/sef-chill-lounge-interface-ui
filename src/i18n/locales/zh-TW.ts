@@ -10,31 +10,32 @@ const zhTW = {
             displayName: '顯示名稱',
         },
         placeholders: {
-            displayName: '你想在聊天室裡怎麼被看見？',
+            displayName: '例：毛毛朋友',
             customTag: '新增自訂 TAG',
             socialPlatform: '平台，例如 Telegram',
             socialUrl: 'URL',
         },
         steps: {
             nickname: {
-                title: '請告訴系統要怎麼顯示你',
-                description: '先決定聊天室裡要怎麼顯示你。',
+                title: '如何稱呼您？',
+                description: '決定其他獸看見你的名字',
+                note: '最多 30 字；請勿使用攻擊性或可能傷害他人的名稱',
             },
             avatar: {
-                title: '頭像與顏色',
-                description: '先上傳並裁切你的頭像，也可以只設定預設頭像與外框。',
+                title: '證件照拍攝處',
+                description: '請上傳您的形象（支援 PNG / JPG / WEBP，最大 10 MB）',
             },
             tags: {
-                title: 'TAG',
-                description: '先補幾個標籤，讓別人比較快認識你。',
+                title: '標籤領取處',
+                description: '選幾個標籤，讓同好更快找到你',
             },
             socials: {
-                title: '社群連結',
-                description: '留一個最常用的聯絡方式就夠了，也可以先略過。',
+                title: '更多關於您的資訊',
+                description: '請填寫您的社群連結',
             },
             stickers: {
-                title: '上傳貼圖',
-                description: '可上傳最多 5 張個人貼圖，也可以先略過。',
+                title: '貼圖打包處',
+                description: '請上傳您想在此使用的貼圖（支援 JPG / PNG / GIF / WEBP，最大 10 MB，最多 5 張）',
             },
             review: {
                 title: '確認你的設定',
@@ -62,6 +63,9 @@ const zhTW = {
             drawButton: '抽出話題卡',
             result: '抽獎結果',
             redirect: '{seconds} 秒後進入 chat...',
+            eyebrow: '你的話題卡是',
+            tail: '快進入 SEF-CLI 和工程獸友們聊聊吧！',
+            manualRedirect: '如果沒有自動跳轉 請點擊我',
         },
         tags: {
             loading: '載入標籤中...',
@@ -76,6 +80,10 @@ const zhTW = {
             skip: '先略過',
             next: '下一步',
             confirmCreate: '確認並建立',
+            laterEdit: '稍後編輯',
+            laterFill: '稍後填寫',
+            reset: '重置',
+            createProfile: '建立資料',
         },
         options: {
             avatar: '設定你的頭像',
@@ -83,6 +91,12 @@ const zhTW = {
             avatarBorder: '顯示頭像外框',
             avatarBorderEnable: '啟用',
             avatarBorderColor: '邊框顏色',
+        },
+        social: {
+            invalidUrl: '請輸入合法的 http/https 連結',
+            unsafe: '不可使用 localhost 或 IP 連結',
+            mismatch: '與所選平台的連結格式不符',
+            selectPlatform: '選擇平台…',
         },
     },
     error: {
