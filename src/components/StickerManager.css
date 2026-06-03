@@ -16,41 +16,35 @@
 .sticker-manager__list {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-sm);
+    gap: 14px;
+    justify-content: flex-start;
 }
 
-/* Each tile (existing or staged-new) */
+/* Each tile (existing or staged-new) — ~96px, position:relative for corner X */
 .sticker-manager__tile {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-xs);
-    width: calc(20% - var(--space-sm) * 4 / 5);
-    min-width: 64px;
-}
-
-.sticker-manager__thumb {
     position: relative;
-    width: 100%;
-    aspect-ratio: 1 / 1;
-    border: 1px solid var(--bubble-border);
-    border-radius: var(--radius-sm);
+    width: 96px;
+    height: 96px;
+    border-radius: 16px;
     background: var(--bubble-bg);
+    border: 1px solid var(--bubble-border);
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
+    box-shadow: 0 3px 8px rgba(74, 68, 51, 0.08);
+    overflow: visible;
 }
 
 .sticker-manager__img {
     width: 100%;
     height: 100%;
     object-fit: contain;
+    border-radius: 14px;
 }
 
 .sticker-manager__placeholder-icon {
-    width: 28px;
-    height: 28px;
+    width: 32px;
+    height: 32px;
     fill: none;
     stroke: var(--input-text);
     opacity: 0.35;
@@ -58,7 +52,7 @@
 
 .sticker-manager__dirty-dot {
     position: absolute;
-    top: 4px;
+    bottom: 4px;
     right: 4px;
     width: 8px;
     height: 8px;
@@ -67,42 +61,27 @@
     box-shadow: 0 0 0 2px var(--bubble-bg);
 }
 
+/* Corner circle-X — positioned at top-right outside the tile */
 .sticker-manager__remove-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    min-height: 44px;
-    width: 100%;
-    font-size: 0.72rem;
-    border: 1px solid var(--bubble-border);
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: #d98c8c;
-    cursor: pointer;
-    padding: 0 var(--space-xs);
+    position: absolute;
+    top: -9px;
+    right: -9px;
 }
 
-.sticker-manager__remove-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-/* Add tile — same size as regular tiles, dashed border */
+/* Add tile — same 96px size, dashed border */
 .sticker-manager__add-tile {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: var(--space-xs);
-    width: calc(20% - var(--space-sm) * 4 / 5);
-    min-width: 64px;
-    aspect-ratio: 1 / 1;
+    width: 96px;
+    height: 96px;
+    border-radius: 16px;
     border: 2px dashed var(--bubble-border);
-    border-radius: var(--radius-sm);
     background: var(--bubble-bg);
     color: var(--input-text);
     cursor: pointer;
-    min-height: 44px;
 }
 
 .sticker-manager__add-tile:hover {

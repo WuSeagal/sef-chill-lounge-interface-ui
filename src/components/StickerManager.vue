@@ -4,6 +4,7 @@ import './StickerManager.css'
 import { uploadSticker, deleteSticker } from '@/api/stickerUploadApi'
 import type { Sticker } from '@/types/user'
 import { assetUrl } from '@/utils/assetUrl'
+import CircleCloseButton from './CircleCloseButton.vue'
 
 const MAX_ACTIVE = 5
 const MAX_BYTES = 10 * 1024 * 1024
@@ -120,30 +121,21 @@ defineExpose({ isDirty, saveAll, clearStaging })
                 class="sticker-manager__tile"
                 data-test="sticker-tile"
             >
-                <div class="sticker-manager__thumb">
-                    <img
-                        v-if="item.url"
-                        class="sticker-manager__img"
-                        :src="assetUrl(item.url)"
-                        alt="貼圖"
-                    />
-                    <svg v-else class="sticker-manager__placeholder-icon" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                    </svg>
-                </div>
-                <button
-                    type="button"
+                <img
+                    v-if="item.url"
+                    class="sticker-manager__img"
+                    :src="assetUrl(item.url)"
+                    alt="貼圖"
+                />
+                <svg v-else class="sticker-manager__placeholder-icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <CircleCloseButton
                     class="sticker-manager__remove-btn"
+                    :ariaLabel="'移除貼圖'"
                     data-test="sticker-remove"
-                    aria-label="移除貼圖"
-                    @click="removeExisting(item)"
-                >
-                    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                        <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                        <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                    </svg>
-                    刪除
-                </button>
+                    @remove="removeExisting(item)"
+                />
             </div>
 
             <!-- Staged new previews -->
@@ -153,23 +145,14 @@ defineExpose({ isDirty, saveAll, clearStaging })
                 class="sticker-manager__tile sticker-manager__tile--staged"
                 data-test="sticker-tile"
             >
-                <div class="sticker-manager__thumb">
-                    <img class="sticker-manager__img" :src="item.previewUrl" alt="預覽" />
-                    <span class="sticker-manager__dirty-dot" title="未儲存"></span>
-                </div>
-                <button
-                    type="button"
+                <img class="sticker-manager__img" :src="item.previewUrl" alt="預覽" />
+                <span class="sticker-manager__dirty-dot" title="未儲存"></span>
+                <CircleCloseButton
                     class="sticker-manager__remove-btn"
+                    :ariaLabel="'移除預覽貼圖'"
                     data-test="sticker-remove"
-                    aria-label="移除預覽貼圖"
-                    @click="removeStaged(item)"
-                >
-                    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                        <line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                        <line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                    </svg>
-                    刪除
-                </button>
+                    @remove="removeStaged(item)"
+                />
             </div>
 
             <!-- Add tile (hidden when at max) -->
