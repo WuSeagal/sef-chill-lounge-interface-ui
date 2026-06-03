@@ -48,3 +48,7 @@ export const PLATFORMS: Record<SocialPlatform, PlatformMeta> = {
 }
 
 export const PLATFORM_LIST: PlatformMeta[] = SOCIAL_PLATFORMS.map((p) => PLATFORMS[p])
+
+export function resolvePlatformMeta(value: string): PlatformMeta {
+  return (PLATFORMS as Record<string, PlatformMeta>)[value] ?? PLATFORMS.OTHER
+}

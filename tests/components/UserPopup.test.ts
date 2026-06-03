@@ -21,7 +21,10 @@ const sampleProfile = {
         { tagId: 'tg-x', type: 'LANGUAGE', content: 'Java', isCustom: false },
         { tagId: 'tg-y', type: 'CUSTOM', content: '露營', isCustom: true },
     ],
-    socials: [{ id: 1, platform: 'twitter', links: 'https://twitter.com/foxy' }],
+    socials: [
+        { id: 1, platform: 'X', links: 'https://x.com/foxy' },
+        { id: 2, platform: 'legacyfoo', links: 'https://legacyfoo.example.com/foxy' },
+    ],
     stickers: [],
 }
 
@@ -49,7 +52,25 @@ describe('UserPopup', () => {
         expect(wrapper.text()).toContain('FoxyFur')
         expect(wrapper.text()).toContain('Java')
         expect(wrapper.text()).toContain('露營')
-        expect(wrapper.find('a[href="https://twitter.com/foxy"]').exists()).toBe(true)
+        expect(wrapper.find('a[href="https://x.com/foxy"]').exists()).toBe(true)
+    })
+
+    it('renders known platform (X) with label "X" and correct href', async () => {
+        const wrapper = mount(UserPopup, { props: { open: true, userId: 'u-102' } })
+        await flushPromises()
+        const xLink = wrapper.find('a[href="https://x.com/foxy"]')
+        expect(xLink.exists()).toBe(true)
+        expect(xLink.find('.user-popup__social-label').text()).toBe('X')
+        expect(xLink.find('.user-popup__social-icon').exists()).toBe(true)
+    })
+
+    it('renders unknown platform (legacyfoo) with OTHER label "其他" and correct href', async () => {
+        const wrapper = mount(UserPopup, { props: { open: true, userId: 'u-102' } })
+        await flushPromises()
+        const otherLink = wrapper.find('a[href="https://legacyfoo.example.com/foxy"]')
+        expect(otherLink.exists()).toBe(true)
+        expect(otherLink.find('.user-popup__social-label').text()).toBe('其他')
+        expect(otherLink.find('.user-popup__social-icon').exists()).toBe(true)
     })
 
     it('renders avatar with color ring to the left of nickname', async () => {

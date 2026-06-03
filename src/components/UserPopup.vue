@@ -5,6 +5,7 @@ import { fetchProfileDetail } from '@/api/userApi'
 import { buildAvatarRingStyle } from '@/utils/avatarRing'
 import { resolveAvatarSrc } from '@/utils/avatarSource'
 import { TagType, TAG_TYPE_ORDER, TAG_TYPE_PREFIX, type Tag, type UserProfile } from '@/types/user'
+import { resolvePlatformMeta } from '@/constants/platforms'
 
 const props = defineProps<{
     open: boolean
@@ -146,7 +147,15 @@ onBeforeUnmount(() => {
                         :href="link.links"
                         target="_blank"
                         rel="noopener noreferrer"
-                    >{{ link.platform }} →</a>
+                    >
+                        <span
+                            class="user-popup__social-icon"
+                            :style="{ backgroundColor: resolvePlatformMeta(link.platform).brandColor }"
+                            v-html="resolvePlatformMeta(link.platform).icon"
+                            aria-hidden="true"
+                        ></span>
+                        <span class="user-popup__social-label">{{ resolvePlatformMeta(link.platform).label }}</span>
+                    </a>
                 </li>
             </ul>
         </template>

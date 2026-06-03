@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SOCIAL_PLATFORMS, PLATFORMS, PLATFORM_LIST, type SocialPlatform } from '@/constants/platforms'
+import { SOCIAL_PLATFORMS, PLATFORMS, PLATFORM_LIST, resolvePlatformMeta, type SocialPlatform } from '@/constants/platforms'
 
 describe('urlPattern host matching', () => {
   const host = (p: SocialPlatform, h: string) => PLATFORMS[p].urlPattern!.test(h)
@@ -54,5 +54,19 @@ describe('platforms registry', () => {
   })
   it('PLATFORM_LIST 順序與 SOCIAL_PLATFORMS 一致', () => {
     expect(PLATFORM_LIST.map(m => m.value)).toEqual([...SOCIAL_PLATFORMS])
+  })
+})
+
+describe('resolvePlatformMeta', () => {
+  it('已知值（X）回傳正確的 X meta', () => {
+    const meta = resolvePlatformMeta('X')
+    expect(meta).toBe(PLATFORMS.X)
+    expect(meta.label).toBe('X')
+  })
+
+  it('未知值（myspace）fallback 至 PLATFORMS.OTHER', () => {
+    const meta = resolvePlatformMeta('myspace')
+    expect(meta).toBe(PLATFORMS.OTHER)
+    expect(meta.label).toBe('其他')
   })
 })
