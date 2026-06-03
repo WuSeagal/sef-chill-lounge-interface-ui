@@ -17,7 +17,7 @@ import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import { TAG_TYPE_ORDER, TagType, type GroupedTags, type Tag } from '@/types/user'
 import { buildAvatarRingStyle } from '@/utils/avatarRing'
 import { resolveAvatarSrc } from '@/utils/avatarSource'
-import { PLATFORM_LIST, type SocialPlatform } from '@/constants/platforms'
+import { PLATFORM_LIST, PLATFORMS, type SocialPlatform } from '@/constants/platforms'
 import { validateSocialUrl } from '@/utils/socialUrlValidation'
 import lizardchiEgg from '@/assets/lizardchi.png'
 import defaultAvatarImg from '@/assets/avatars/default-avatar.png'
@@ -130,41 +130,6 @@ const currentTouched = computed(() => {
     }
 })
 
-const reviewAvatarSummary = computed(() => {
-    if (skippedStepKeys.value.includes('avatar')) return '這一步已先略過'
-    if (hasStagedAvatar.value) return avatarBorder.value ? `已設定裁切頭像與頭像框 ${avatarColor.value}` : '已設定裁切頭像'
-    return avatarBorder.value ? `使用預設頭像與頭像框 ${avatarColor.value}` : '使用預設頭像'
-})
-
-const reviewRows = computed(() => [
-    {
-        label: t('intro.review.displayName'),
-        value: furName.value.trim() || t('intro.review.unfilled'),
-    },
-    {
-        label: t('intro.review.tags'),
-        value: previewTags.value.length
-            ? previewTags.value.map(tag => tag.content).join('、')
-            : skippedStepKeys.value.includes('tags') ? t('intro.review.skipped') : t('intro.review.empty'),
-    },
-    {
-        label: t('intro.review.socials'),
-        value: selectedSocialLinks.value.filter(l => l.platform).length
-            ? selectedSocialLinks.value
-                .filter(l => l.platform)
-                .map(link => `${link.platform}: ${link.links}`)
-                .join(' / ')
-            : skippedStepKeys.value.includes('socials') ? t('intro.review.skipped') : t('intro.review.empty'),
-    },
-    {
-        label: t('intro.review.stickers'),
-        value: skippedStepKeys.value.includes('stickers')
-            ? t('intro.review.skipped')
-            : stickerManagerRef.value?.isDirty
-                ? t('intro.review.stickersSelected')
-                : t('intro.review.empty'),
-    },
-])
 
 const canNext = computed(() => {
     switch (currentStep.value.key) {
@@ -350,8 +315,29 @@ async function confirmProfileSetup(): Promise<void> {
         }
 
         await user.fetchProfile()
+
+        try {
+            await user.redrawTopicCard()
+        } catch {
+            drawError.value = user.error.value ?? '抽話題卡失敗'
+        }
+
+        const topicContent = user.profile.value?.topic?.content ?? null
+        drawnTopicContent.value = topicContent
+
         avatarDraft.clearDraft()
         currentStepIndex.value = steps.findIndex(step => step.key === 'topic')
+
+        if (topicContent) {
+            drawCountdown.value = 5
+            countdownTimer = setInterval(() => {
+                drawCountdown.value -= 1
+            }, 1000)
+            redirectTimer = setTimeout(() => {
+                clearTimers()
+                router.push('/chat')
+            }, 5000)
+        }
     } catch {
         submitError.value = user.error.value ?? '建立資料失敗'
     } finally {
@@ -359,31 +345,6 @@ async function confirmProfileSetup(): Promise<void> {
     }
 }
 
-async function drawTopicCard(): Promise<void> {
-    if (drawingTopic.value) return
-    drawingTopic.value = true
-    drawError.value = null
-    clearTimers()
-    try {
-        await user.redrawTopicCard()
-        const topicContent = user.profile.value?.topic?.content
-        if (!topicContent) {
-            drawError.value = user.error.value ?? '抽話題卡失敗'
-            return
-        }
-        drawnTopicContent.value = topicContent
-        drawCountdown.value = 5
-        countdownTimer = setInterval(() => {
-            drawCountdown.value -= 1
-        }, 1000)
-        redirectTimer = setTimeout(() => {
-            clearTimers()
-            router.push('/chat')
-        }, 5000)
-    } finally {
-        drawingTopic.value = false
-    }
-}
 
 async function initializeOnboarding(): Promise<void> {
     clearTimers()
@@ -617,52 +578,130 @@ onBeforeUnmount(() => {
                     >＋ 新增</button>
                 </section>
 
-                <!-- Review step -->
-                <section v-else-if="currentStep.key === 'review'" class="intro-view__step-card">
-                    <div class="intro-view__review-avatar-card" data-test="review-avatar">
-                        <img
-                            class="intro-view__review-avatar-image"
-                            :src="avatarPreviewSrc"
-                            alt="review avatar preview"
-                            :style="avatarPreviewStyle"
-                        />
-                        <div class="intro-view__review-avatar-copy">
-                            <span>頭像預覽</span>
-                            <strong>{{ reviewAvatarSummary }}</strong>
+                <!-- Review step: passport layout -->
+                <section v-else-if="currentStep.key === 'review'" class="intro-view__step-card intro-view__step-card--passport" data-test="review-passport">
+                    <div class="passport">
+                        <!-- Inner dashed frame via ::before -->
+                        <div class="ps-head">
+                            <span class="ps-brand">SEF·CLI</span>
+                            <span class="ps-kind">
+                                ✈ BOARDING&nbsp;PASS
+                                <span class="ps-bars">
+                                    <i></i><i></i><i></i><i></i><i></i><i></i>
+                                    <i></i><i></i><i></i><i></i><i></i><i></i>
+                                </span>
+                            </span>
+                        </div>
+
+                        <div class="ps-body">
+                            <!-- LEFT: avatar + tags -->
+                            <div class="ps-left">
+                                <div class="ps-photo-wrap" data-test="review-avatar">
+                                    <img
+                                        class="ps-photo"
+                                        :src="avatarPreviewSrc"
+                                        alt="avatar"
+                                        :style="avatarPreviewStyle"
+                                    />
+                                    <span class="ps-photo-tick tick-tl"></span>
+                                    <span class="ps-photo-tick tick-br"></span>
+                                </div>
+                                <div class="ps-tags" v-if="previewTags.length > 0">
+                                    <p class="ps-tags-label">TAGS</p>
+                                    <div class="ps-chiprow">
+                                        <span
+                                            v-for="tag in previewTags"
+                                            :key="tag.tagId"
+                                            class="ps-chip"
+                                        >{{ tag.content }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- RIGHT: furname / socials / stickers -->
+                            <div class="ps-right">
+                                <div>
+                                    <p class="ps-furname-label">FUR NAME</p>
+                                    <h3 class="ps-furname" data-test="review-furname">{{ furName }}</h3>
+                                </div>
+                                <div class="ps-section-line"></div>
+                                <div v-if="selectedSocialLinks.filter(l => l.platform).length > 0">
+                                    <p class="ps-social-label">SOCIAL LINKS</p>
+                                    <ul class="ps-social" data-test="review-socials">
+                                        <li
+                                            v-for="link in selectedSocialLinks.filter(l => l.platform).slice(0, 3)"
+                                            :key="link.platform + link.links"
+                                        >
+                                            <span
+                                                class="ps-ic"
+                                                :style="{ background: (PLATFORMS[link.platform as SocialPlatform] ?? PLATFORMS.OTHER).brandColor }"
+                                                v-html="(PLATFORMS[link.platform as SocialPlatform] ?? PLATFORMS.OTHER).icon"
+                                            ></span>
+                                            <span class="ps-handle">{{ link.links }}</span>
+                                        </li>
+                                        <li
+                                            v-if="selectedSocialLinks.filter(l => l.platform).length > 3"
+                                            class="ps-more"
+                                            data-test="review-socials-more"
+                                        >more...</li>
+                                    </ul>
+                                </div>
+                                <div v-if="stickerManagerRef?.previews?.length">
+                                    <p class="ps-stk-label">STICKERS</p>
+                                    <div class="ps-stickers">
+                                        <img
+                                            v-for="(url, i) in stickerManagerRef.previews"
+                                            :key="i"
+                                            class="ps-sticker"
+                                            :src="url"
+                                            alt="sticker"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ps-stamp" aria-hidden="true">
+                            <span class="ps-stamp-l1">SEF-CLI</span>
+                            <span class="ps-stamp-l2">for UTFG</span>
+                            <span class="ps-stamp-l3">環遊世界</span>
                         </div>
                     </div>
-                    <ul class="intro-view__review-list">
-                        <li v-for="row in reviewRows" :key="row.label">
-                            <span>{{ row.label }}</span>
-                            <strong>{{ row.value }}</strong>
-                        </li>
-                    </ul>
                     <p v-if="submitError" class="intro-view__error-inline">{{ submitError }}</p>
                 </section>
 
-                <!-- Topic step -->
+                <!-- Topic step: auto-drawn topic card -->
                 <section v-else-if="currentStep.key === 'topic'" class="intro-view__step-card intro-view__topic-step">
-                    <div v-if="!hasDrawnTopic" class="intro-view__topic-prompt">
-                        <p>{{ t('intro.topic.prompt') }}</p>
-                        <button type="button" data-test="draw-topic" :disabled="drawingTopic" @click="drawTopicCard">
-                            {{ drawingTopic ? t('intro.topic.drawing') : t('intro.topic.drawButton') }}
-                        </button>
-                    </div>
-
-                    <div v-else class="intro-view__topic-result">
-                        <span class="intro-view__eyebrow">{{ t('intro.topic.eyebrow') }}</span>
-                        <p class="intro-view__topic-content">{{ drawnTopicContent }}</p>
-                        <p class="intro-view__state-text">{{ t('intro.topic.redirect', { seconds: drawCountdown }) }}</p>
-                        <div class="intro-view__topic-btn-wrap">
+                    <div v-if="hasDrawnTopic" class="intro-view__topic-result">
+                        <p class="tp-eyebrow">{{ t('intro.topic.eyebrow') }}</p>
+                        <p class="tp-quote" data-test="topic-content">
+                            <b>"</b>{{ drawnTopicContent }}<b>"</b>
+                        </p>
+                        <p class="tp-tail">{{ t('intro.topic.tail') }}</p>
+                        <div class="tp-btn-wrap">
                             <button
                                 type="button"
                                 class="intro-view__wz-btn intro-view__wz-btn--primary"
+                                data-test="topic-manual-redirect"
                                 @click="router.push('/chat')"
                             >{{ t('intro.topic.manualRedirect') }}</button>
                         </div>
                     </div>
 
-                    <p v-if="drawError" class="intro-view__error-inline">{{ drawError }}</p>
+                    <div v-else-if="!drawError" class="intro-view__topic-result">
+                        <p class="tp-eyebrow">{{ t('intro.topic.eyebrow') }}</p>
+                        <p class="intro-view__state-text">{{ t('intro.topic.drawing') }}</p>
+                    </div>
+
+                    <p v-if="drawError" class="intro-view__error-inline" data-test="topic-draw-error">{{ drawError }}</p>
+                    <div v-if="drawError" class="tp-btn-wrap">
+                        <button
+                            type="button"
+                            class="intro-view__wz-btn intro-view__wz-btn--primary"
+                            data-test="topic-manual-redirect"
+                            @click="router.push('/chat')"
+                        >{{ t('intro.topic.manualRedirect') }}</button>
+                    </div>
                 </section>
 
                 <!-- Stickers step (v-show to keep ref alive) -->

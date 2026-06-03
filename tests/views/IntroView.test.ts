@@ -545,7 +545,7 @@ describe('IntroView', () => {
         await wrapper.find('[data-test=next-step]').trigger('click')
         await flushPromises()
 
-        // Now on review
+        // Now on review — confirm triggers auto-draw
         await wrapper.find('[data-test=confirm-create]').trigger('click')
         await flushPromises()
 
@@ -557,10 +557,9 @@ describe('IntroView', () => {
             avatar: '/user/u-uploaded.png',
         }))
 
-        await wrapper.find('[data-test=draw-topic]').trigger('click')
-        await flushPromises()
-
+        // redrawTopicCard is called automatically (no manual draw button needed)
         expect(redrawTopicCardMock).toHaveBeenCalledTimes(1)
+        // Topic content is shown on topic step
         expect(wrapper.text()).toContain('今晚想一起聊什麼？')
 
         await vi.advanceTimersByTimeAsync(5000)
@@ -613,8 +612,8 @@ describe('IntroView', () => {
         await wrapper.find('[data-test=next-step]').trigger('click')
         await flushPromises()
 
-        // On review
-        expect(wrapper.text()).toContain('#ff8800')
+        // On review (passport layout — border color is applied via style, not shown as text)
+        expect(wrapper.find('[data-test=review-passport]').exists()).toBe(true)
 
         await wrapper.find('[data-test=confirm-create]').trigger('click')
         await flushPromises()
@@ -760,5 +759,176 @@ describe('IntroView', () => {
         await flushPromises()
 
         expect(addSocialLinkMock).toHaveBeenCalledWith({ platform: 'X', links: 'https://x.com/googlefox' })
+    })
+
+    // =========================================================
+    // Passport confirm page: visual assertions
+    // =========================================================
+
+    it('passport review: 顯示 furName、tags、socials（≤3）', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        // Navigate to socials and add a valid link
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+        // avatar → later-edit
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        // tags → later-edit
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        // socials: add one valid link
+        await wrapper.find('[data-test=add-social-link]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=social-platform-0]').setValue('GITHUB')
+        await wrapper.find('[data-test=social-url-0]').setValue('https://github.com/googlefox')
+        await flushPromises()
+        // next-step to stickers
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+        // stickers → next-step
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+
+        // On review (passport)
+        const passport = wrapper.find('[data-test=review-passport]')
+        expect(passport.exists()).toBe(true)
+        expect(passport.find('[data-test=review-furname]').text()).toContain('Google Fox')
+        // Social entry shows handle
+        expect(passport.find('[data-test=review-socials]').text()).toContain('https://github.com/googlefox')
+        // No more... row since only 1 link
+        expect(passport.find('[data-test=review-socials-more]').exists()).toBe(false)
+    })
+
+    it('passport review: 社群超過 3 筆顯示 more...', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        // Navigate to socials
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+
+        // Add 4 valid social links
+        for (let i = 0; i < 4; i++) {
+            await wrapper.find('[data-test=add-social-link]').trigger('click')
+            await flushPromises()
+            await wrapper.find(`[data-test=social-platform-${i}]`).setValue('GITHUB')
+            await wrapper.find(`[data-test=social-url-${i}]`).setValue(`https://github.com/user${i}`)
+            await flushPromises()
+        }
+
+        // next-step to stickers
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+        // stickers → next-step
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+
+        // On review: 3 items shown + more...
+        const passport = wrapper.find('[data-test=review-passport]')
+        const socialItems = passport.findAll('[data-test=review-socials] li:not(.ps-more)')
+        expect(socialItems).toHaveLength(3)
+        expect(passport.find('[data-test=review-socials-more]').exists()).toBe(true)
+        expect(passport.find('[data-test=review-socials-more]').text()).toContain('more...')
+    })
+
+    it('passport review: social icon 帶 platform brandColor', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        // Navigate to socials and add X link
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=add-social-link]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=social-platform-0]').setValue('X')
+        await wrapper.find('[data-test=social-url-0]').setValue('https://x.com/googlefox')
+        await flushPromises()
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+
+        // The social icon should have X's brandColor (#000000)
+        const icon = wrapper.find('[data-test=review-socials] li .ps-ic')
+        expect(icon.exists()).toBe(true)
+        expect(icon.attributes('style') ?? '').toContain('#000000')
+    })
+
+    // =========================================================
+    // Submit flow: auto-draw ordering + topic display + 5s redirect
+    // =========================================================
+
+    it('confirm-create 後依序呼叫 createProfile→fetchProfile→redrawTopicCard，進 topic step 顯示話題', async () => {
+        vi.useFakeTimers()
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        await advanceToReview(wrapper)
+
+        await wrapper.find('[data-test=confirm-create]').trigger('click')
+        await flushPromises()
+
+        // Call ordering
+        expect(createProfileMock).toHaveBeenCalledTimes(1)
+        expect(fetchProfileMock).toHaveBeenCalledTimes(1)
+        expect(redrawTopicCardMock).toHaveBeenCalledTimes(1)
+        expect(fetchProfileMock.mock.invocationCallOrder[0]).toBeLessThan(redrawTopicCardMock.mock.invocationCallOrder[0])
+
+        // Topic content visible on topic step
+        expect(wrapper.find('[data-test=topic-content]').exists()).toBe(true)
+        expect(wrapper.text()).toContain('今晚想一起聊什麼？')
+
+        // 5 seconds auto-redirect to /chat
+        await vi.advanceTimersByTimeAsync(5000)
+        expect(routerPushMock).toHaveBeenCalledWith('/chat')
+
+        vi.useRealTimers()
+    })
+
+    it('topic step: 手動按鈕立即 push /chat', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        await advanceToReview(wrapper)
+
+        await wrapper.find('[data-test=confirm-create]').trigger('click')
+        await flushPromises()
+
+        // Should be on topic step with manual redirect button
+        const manualBtn = wrapper.find('[data-test=topic-manual-redirect]')
+        expect(manualBtn.exists()).toBe(true)
+
+        await manualBtn.trigger('click')
+        expect(routerPushMock).toHaveBeenCalledWith('/chat')
     })
 })
