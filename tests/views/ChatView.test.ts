@@ -4,6 +4,10 @@ import { flushPromises, mount } from '@vue/test-utils'
 import ChatView from '@/views/ChatView.vue'
 import type { MessageResponse } from '@/types/message'
 
+vi.mock('vue-i18n', () => ({
+    useI18n: () => ({ t: (key: string) => key }),
+}))
+
 function makeMessage(overrides: Partial<MessageResponse>): MessageResponse {
     return {
         cursorId: 11,

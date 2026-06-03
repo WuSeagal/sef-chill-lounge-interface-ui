@@ -4,6 +4,10 @@ import { mount, flushPromises } from '@vue/test-utils'
 import SettingsTab from '@/components/SettingsTab.vue'
 import { TagType, type UserProfile } from '@/types/user'
 
+vi.mock('vue-i18n', () => ({
+    useI18n: () => ({ t: (key: string) => key }),
+}))
+
 const initialProfile = (): UserProfile => ({
     userId: 'u-1',
     username: '小毛',
@@ -231,19 +235,66 @@ describe('SettingsTab — staged save', () => {
 
     it('加社群連結 staged 進預覽,儲存才送 API', async () => {
         const wrapper = mount(SettingsTab)
-        const inputs = wrapper.findAll('[data-field="social-links"] .settings-tab__input')
-        await inputs[0].setValue('instagram')
-        await inputs[1].setValue('https://instagram.com/test')
-        await wrapper.find('[data-field="social-links"] .settings-tab__btn').trigger('click')
+        await wrapper.find('[data-test=social-platform-select]').setValue('INSTAGRAM')
+        await wrapper.find('[data-test=social-url-input]').setValue('https://instagram.com/test')
+        await wrapper.find('[data-test=social-add-btn]').trigger('click')
         await flushPromises()
         expect(addSocialLinkMock).not.toHaveBeenCalled()
-        expect(wrapper.text()).toContain('instagram')
+        expect(wrapper.text()).toContain('Instagram')
 
         await wrapper.find('[data-test=save-all]').trigger('click')
         await flushPromises()
         expect(addSocialLinkMock).toHaveBeenCalledWith({
-            platform: 'instagram',
+            platform: 'INSTAGRAM',
             links: 'https://instagram.com/test',
+        })
+    })
+
+    it('社群連結 — 平台未選時點加入顯示錯誤且不加入', async () => {
+        const wrapper = mount(SettingsTab)
+        await wrapper.find('[data-test=social-url-input]').setValue('https://github.com/test')
+        await wrapper.find('[data-test=social-add-btn]').trigger('click')
+        await flushPromises()
+        expect(wrapper.find('[data-test=social-add-error]').exists()).toBe(true)
+        expect(addSocialLinkMock).not.toHaveBeenCalled()
+        // save button still disabled (no dirty)
+        expect((wrapper.find('[data-test=save-all]').element as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('社群連結 — URL 格式錯誤(localhost)顯示錯誤且阻擋加入', async () => {
+        const wrapper = mount(SettingsTab)
+        await wrapper.find('[data-test=social-platform-select]').setValue('GITHUB')
+        await wrapper.find('[data-test=social-url-input]').setValue('http://localhost:3000')
+        await wrapper.find('[data-test=social-add-btn]').trigger('click')
+        await flushPromises()
+        expect(wrapper.find('[data-test=social-add-error]').exists()).toBe(true)
+        expect((wrapper.find('[data-test=save-all]').element as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('社群連結 — 平台不符(URL 對不上選的平台)顯示錯誤且阻擋加入', async () => {
+        const wrapper = mount(SettingsTab)
+        await wrapper.find('[data-test=social-platform-select]').setValue('GITHUB')
+        await wrapper.find('[data-test=social-url-input]').setValue('https://twitter.com/test')
+        await wrapper.find('[data-test=social-add-btn]').trigger('click')
+        await flushPromises()
+        expect(wrapper.find('[data-test=social-add-error]').exists()).toBe(true)
+        expect((wrapper.find('[data-test=save-all]').element as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('社群連結 — 合法平台+URL 可加入,draft 攜帶 enum value', async () => {
+        const wrapper = mount(SettingsTab)
+        await wrapper.find('[data-test=social-platform-select]').setValue('GITHUB')
+        await wrapper.find('[data-test=social-url-input]').setValue('https://github.com/myname')
+        await wrapper.find('[data-test=social-add-btn]').trigger('click')
+        await flushPromises()
+        expect(wrapper.find('[data-test=social-add-error]').exists()).toBe(false)
+        expect((wrapper.find('[data-test=save-all]').element as HTMLButtonElement).disabled).toBe(false)
+
+        await wrapper.find('[data-test=save-all]').trigger('click')
+        await flushPromises()
+        expect(addSocialLinkMock).toHaveBeenCalledWith({
+            platform: 'GITHUB',
+            links: 'https://github.com/myname',
         })
     })
 
@@ -280,10 +331,9 @@ describe('SettingsTab — staged save', () => {
         await flushPromises()
         await wrapper.find('.settings-tab__nickname').setValue('新名字')
         // 加一個新 social link 把 saveAll 流程延長
-        const sInputs = wrapper.findAll('[data-field="social-links"] .settings-tab__input')
-        await sInputs[0].setValue('ig')
-        await sInputs[1].setValue('https://ig.com/test')
-        await wrapper.find('[data-field="social-links"] .settings-tab__btn').trigger('click')
+        await wrapper.find('[data-test=social-platform-select]').setValue('GITHUB')
+        await wrapper.find('[data-test=social-url-input]').setValue('https://github.com/test')
+        await wrapper.find('[data-test=social-add-btn]').trigger('click')
         await flushPromises()
 
         // 觸發 TAG diff:模擬 user 在 modal 內把 tg-a remove(透過直接調用 toggle)

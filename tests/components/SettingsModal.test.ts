@@ -3,6 +3,10 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { nextTick } from 'vue'
 import SettingsModal from '@/components/SettingsModal.vue'
 
+vi.mock('vue-i18n', () => ({
+    useI18n: () => ({ t: (key: string) => key }),
+}))
+
 describe('SettingsModal', () => {
     it('renders nothing when open=false', () => {
         const wrapper = mount(SettingsModal, { props: { open: false } })

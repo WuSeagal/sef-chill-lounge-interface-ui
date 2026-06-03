@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { push } from 'notivue'
 import './SettingsTab.css'
 import TagEditorPreview from './TagEditorPreview.vue'
@@ -14,9 +15,12 @@ import { fetchSelectableTags } from '@/api/userApi'
 import { uploadAvatar } from '@/api/avatarUploadApi'
 import { resolveAvatarSrc } from '@/utils/avatarSource'
 import { TagType, TAG_TYPE_ORDER, type GroupedTags, type Tag, type AddSocialLinkRequest } from '@/types/user'
+import { PLATFORM_LIST, resolvePlatformMeta, type SocialPlatform } from '@/constants/platforms'
+import { validateSocialUrl, type UrlValidationReason } from '@/utils/socialUrlValidation'
 
 const TAG_MAX = 20
 
+const { t } = useI18n()
 const user = useUser()
 
 const draftFurName = ref<string | null>(null)
@@ -34,8 +38,9 @@ const selectable = ref<GroupedTags>({
     [TagType.DATABASE]: [], [TagType.DEVOPS]: [], [TagType.CUSTOM]: [],
 })
 
-const newSocialPlatform = ref('')
+const newSocialPlatform = ref<SocialPlatform | ''>('')
 const newSocialUrl = ref('')
+const socialAddError = ref<string | null>(null)
 const saving = ref(false)
 const selectableLoading = ref(false)
 const selectableError = ref<string | null>(null)
@@ -145,10 +150,28 @@ function stageAvatarBorder(value: boolean): void {
     const current = user.profile.value?.avatarBorder ?? false
     draftAvatarBorder.value = value === current ? null : value
 }
+function getSocialErrorMsg(reason: UrlValidationReason): string {
+    switch (reason) {
+        case 'invalid_url': return t('intro.social.invalidUrl')
+        case 'unsafe_url': return t('intro.social.unsafe')
+        case 'platform_mismatch': return t('intro.social.mismatch')
+    }
+}
+
 function stageAddSocial(): void {
-    const platform = newSocialPlatform.value.trim()
+    const platform = newSocialPlatform.value
     const links = newSocialUrl.value.trim()
-    if (!platform || !links) return
+    if (!platform) {
+        socialAddError.value = t('intro.social.selectPlatform')
+        return
+    }
+    if (!links) return
+    const result = validateSocialUrl(platform, links)
+    if (!result.valid) {
+        socialAddError.value = getSocialErrorMsg(result.reason)
+        return
+    }
+    socialAddError.value = null
     draftSocialAdd.value = [...draftSocialAdd.value, { platform, links }]
     newSocialPlatform.value = ''
     newSocialUrl.value = ''
@@ -306,15 +329,31 @@ defineExpose({ isDirty, saveAll, avatarDraft })
             <label class="settings-tab__label">社群連結</label>
             <div class="settings-tab__social-list">
                 <div v-for="link in previewSocials" :key="link.id" class="settings-tab__social-item">
-                    <span class="settings-tab__social-platform">{{ link.platform }}</span>
+                    <span class="settings-tab__social-platform">{{ resolvePlatformMeta(link.platform).label }}</span>
                     <a :href="link.links" target="_blank" rel="noopener noreferrer" class="settings-tab__social-url">{{ link.links }}</a>
                     <button type="button" class="settings-tab__social-remove" @click="stageRemoveSocial(link.id)">&times;</button>
                 </div>
             </div>
             <div class="settings-tab__add-row">
-                <input v-model="newSocialPlatform" class="settings-tab__input settings-tab__input--short" placeholder="平台" />
-                <input v-model="newSocialUrl" class="settings-tab__input" placeholder="URL" @keydown.enter="stageAddSocial" />
-                <button type="button" class="settings-tab__btn" @click="stageAddSocial">+</button>
+                <select
+                    v-model="newSocialPlatform"
+                    class="settings-tab__input settings-tab__input--short"
+                    data-test="social-platform-select"
+                >
+                    <option value="">{{ t('intro.social.selectPlatform') }}</option>
+                    <option v-for="p in PLATFORM_LIST" :key="p.value" :value="p.value">{{ p.label }}</option>
+                </select>
+                <input
+                    v-model="newSocialUrl"
+                    class="settings-tab__input"
+                    placeholder="URL"
+                    data-test="social-url-input"
+                    @keydown.enter="stageAddSocial"
+                />
+                <button type="button" class="settings-tab__btn" data-test="social-add-btn" @click="stageAddSocial">+</button>
+            </div>
+            <div v-if="socialAddError" class="settings-tab__social-error" data-test="social-add-error">
+                {{ socialAddError }}
             </div>
         </div>
 
