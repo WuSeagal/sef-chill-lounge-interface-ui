@@ -1,17 +1,17 @@
-import facebook from '@/assets/social/facebook.svg'
-import steam from '@/assets/social/steam.svg'
-import plurk from '@/assets/social/plurk.svg'
-import cakeresume from '@/assets/social/cakeresume.svg'
-import linkedin from '@/assets/social/linkedin.svg'
-import twitch from '@/assets/social/twitch.svg'
-import threads from '@/assets/social/threads.svg'
-import instagram from '@/assets/social/instagram.svg'
-import discord from '@/assets/social/discord.svg'
-import bluesky from '@/assets/social/bluesky.svg'
-import x from '@/assets/social/x.svg'
-import github from '@/assets/social/github.svg'
-import personal from '@/assets/social/personal.svg'
-import other from '@/assets/social/other.svg'
+import facebook from '@/assets/social/facebook.svg?raw'
+import steam from '@/assets/social/steam.svg?raw'
+import plurk from '@/assets/social/plurk.svg?raw'
+import cakeresume from '@/assets/social/cakeresume.svg?raw'
+import linkedin from '@/assets/social/linkedin.svg?raw'
+import twitch from '@/assets/social/twitch.svg?raw'
+import threads from '@/assets/social/threads.svg?raw'
+import instagram from '@/assets/social/instagram.svg?raw'
+import discord from '@/assets/social/discord.svg?raw'
+import bluesky from '@/assets/social/bluesky.svg?raw'
+import x from '@/assets/social/x.svg?raw'
+import github from '@/assets/social/github.svg?raw'
+import personal from '@/assets/social/personal.svg?raw'
+import other from '@/assets/social/other.svg?raw'
 
 export const SOCIAL_PLATFORMS = [
   'FACEBOOK', 'STEAM', 'PLURK', 'CAKERESUME', 'LINKEDIN', 'TWITCH', 'THREADS',
@@ -23,6 +23,7 @@ export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number]
 export interface PlatformMeta {
   value: SocialPlatform
   label: string
+  /** 內嵌 SVG 原始碼字串（供 v-html，沿用 BottomBar 慣例，吃 currentColor） */
   icon: string
   brandColor: string
   /** host 級允許 pattern；undefined 代表只跑通用安全層（PERSONAL/OTHER） */
@@ -31,7 +32,7 @@ export interface PlatformMeta {
 
 export const PLATFORMS: Record<SocialPlatform, PlatformMeta> = {
   FACEBOOK:   { value: 'FACEBOOK',   label: 'Facebook',   icon: facebook,   brandColor: '#1877f2', urlPattern: /^(www\.|m\.)?facebook\.com$|^fb\.com$/i },
-  STEAM:      { value: 'STEAM',      label: 'Steam',      icon: steam,      brandColor: '#171a21', urlPattern: /^steamcommunity\.com$/i },
+  STEAM:      { value: 'STEAM',      label: 'Steam',      icon: steam,      brandColor: '#171a21', urlPattern: /^(www\.)?steamcommunity\.com$/i },
   PLURK:      { value: 'PLURK',      label: 'Plurk',      icon: plurk,      brandColor: '#ff574d', urlPattern: /^(www\.)?plurk\.com$/i },
   CAKERESUME: { value: 'CAKERESUME', label: 'CakeResume', icon: cakeresume, brandColor: '#34c759', urlPattern: /^(www\.)?(cake\.me|cakeresume\.com)$/i },
   LINKEDIN:   { value: 'LINKEDIN',   label: 'LinkedIn',   icon: linkedin,   brandColor: '#0a66c2', urlPattern: /^(www\.)?linkedin\.com$/i },
