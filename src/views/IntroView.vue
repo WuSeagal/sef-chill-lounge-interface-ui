@@ -261,10 +261,6 @@ function openAvatarPicker(): void {
     avatarInputRef.value?.click()
 }
 
-function reopenAvatarCrop(): void {
-    avatarDraft.reopenCrop()
-}
-
 function onAvatarFileChange(event: Event): void {
     const input = event.target as HTMLInputElement
     const file = input.files?.[0]
@@ -438,7 +434,7 @@ onBeforeUnmount(() => {
                 <section v-else-if="currentStep.key === 'avatar'" class="intro-view__step-card">
                     <div class="intro-view__av-grid">
                         <!-- Left: circular avatar with + overlay -->
-                        <div class="intro-view__av-photo-wrap" title="點擊上傳" @click="hasStagedAvatar ? reopenAvatarCrop() : openAvatarPicker()">
+                        <div class="intro-view__av-photo-wrap" title="點擊上傳/更換" @click="openAvatarPicker">
                             <img
                                 class="intro-view__av-photo intro-view__avatar-preview"
                                 :src="hasStagedAvatar ? avatarPreviewSrc : defaultAvatarImg"
@@ -480,26 +476,10 @@ onBeforeUnmount(() => {
                                     <span class="intro-view__color-value">{{ avatarColor }}</span>
                                 </div>
                             </div>
-                            <div v-if="hasStagedAvatar" class="intro-view__av-row">
-                                <button
-                                    type="button"
-                                    class="intro-view__choice-card intro-view__choice-card--upload intro-view__choice-card--secondary"
-                                    @click="openAvatarPicker"
-                                >
-                                    <strong>更換圖片</strong>
-                                    <span>改用另一張圖片重新裁切</span>
-                                </button>
-                                <button
-                                    type="button"
-                                    class="intro-view__choice-card intro-view__choice-card--upload intro-view__choice-card--secondary"
-                                    @click="reopenAvatarCrop"
-                                >
-                                    <strong>重新裁切</strong>
-                                    <span>延續目前結果再微調位置與縮放</span>
-                                </button>
-                            </div>
-                            <div v-else class="intro-view__av-row">
-                                <p class="intro-view__av-hint">支援 PNG / JPG / WEBP<br>拖曳與縮放，調整你的頭像顯示範圍。你也可以只設定預設頭像與頭像框。</p>
+                            <div class="intro-view__av-row">
+                                <p class="intro-view__av-hint">
+                                    {{ hasStagedAvatar ? '點擊頭像可重新上傳。' : '點擊頭像上傳並裁切，或只設定頭像框。' }}
+                                </p>
                             </div>
                         </div>
                     </div>

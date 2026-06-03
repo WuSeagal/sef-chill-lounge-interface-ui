@@ -59,6 +59,12 @@
     text-align: center;
 }
 
+/* onboarding 卡片在面板內垂直置中（與 login-card 一致） */
+.intro-view__onboarding-card {
+    justify-content: center;
+    min-height: calc(100dvh - clamp(96px, 12vw, 160px));
+}
+
 /* Focus 模式:登入前 /、同步中——面板收斂到僅比內容大一點,並置中於畫面正中 */
 .intro-view--focus {
     display: flex;

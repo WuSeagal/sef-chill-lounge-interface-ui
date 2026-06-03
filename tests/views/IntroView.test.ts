@@ -470,12 +470,12 @@ describe('IntroView', () => {
         expect(wrapper.text()).not.toContain('mock-bear')
         expect(wrapper.text()).toContain('支援 PNG / JPG / WEBP')
         expect(wrapper.text()).not.toContain('GIF')
-        expect(wrapper.text()).toContain('拖曳與縮放，調整你的頭像顯示範圍')
+        expect(wrapper.text()).toContain('點擊頭像上傳並裁切')
         expect(wrapper.find('input[type="file"]').attributes('accept')).toBe('image/png,image/jpeg,image/webp')
         expect(wrapper.find('.intro-view__avatar-preview').exists()).toBe(true)
     })
 
-    it('有 staged avatar 時顯示更換圖片與重新裁切', async () => {
+    it('有 staged avatar 時不顯示更換/重新裁切按鈕，點擊頭像可重新上傳', async () => {
         authState.isLogin = true
         authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
         needsOnboardingRef.value = true
@@ -498,8 +498,14 @@ describe('IntroView', () => {
         cropModal.vm.$emit('confirm', new File(['avatar-cropped'], 'avatar.png', { type: 'image/png' }))
         await flushPromises()
 
-        expect(wrapper.text()).toContain('更換圖片')
-        expect(wrapper.text()).toContain('重新裁切')
+        expect(wrapper.text()).not.toContain('更換圖片')
+        expect(wrapper.text()).not.toContain('重新裁切')
+        expect(wrapper.text()).toContain('點擊頭像可重新上傳')
+
+        // 點擊頭像會再次開啟檔案選擇（重新上傳）
+        const clickSpy = vi.spyOn(avatarInput.element as HTMLInputElement, 'click')
+        await wrapper.find('.intro-view__av-photo-wrap').trigger('click')
+        expect(clickSpy).toHaveBeenCalled()
     })
 
     it('confirm 完成時若有 staged avatar,會先 uploadAvatar 再 createProfile 並帶 avatarPath', async () => {
