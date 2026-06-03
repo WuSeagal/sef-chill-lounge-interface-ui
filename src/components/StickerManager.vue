@@ -38,6 +38,11 @@ const isDirty = computed(
     () => existing.some((e) => e.stagedForDeletion) || staged.length > 0,
 )
 
+const previews = computed<string[]>(() => [
+    ...existing.filter((e) => !e.stagedForDeletion && !!e.url).map((e) => assetUrl(e.url!)),
+    ...staged.map((s) => s.previewUrl),
+])
+
 function onFileChange(event: Event): void {
     error.value = null
     const input = event.target as HTMLInputElement
@@ -107,7 +112,7 @@ async function saveAll(): Promise<void> {
     }
 }
 
-defineExpose({ isDirty, saveAll, clearStaging })
+defineExpose({ isDirty, saveAll, clearStaging, previews })
 </script>
 
 <template>

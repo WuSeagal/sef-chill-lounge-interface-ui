@@ -23,7 +23,7 @@ function sticker(id: number, url: string): Sticker {
     return { id, sticker: url }
 }
 
-type ManagerVm = { isDirty: boolean; saveAll: () => Promise<void>; clearStaging: () => void }
+type ManagerVm = { isDirty: boolean; saveAll: () => Promise<void>; clearStaging: () => void; previews: string[] }
 
 describe('StickerManager', () => {
     beforeEach(() => {
@@ -135,5 +135,39 @@ describe('StickerManager', () => {
         expect(wrapper.find('[data-test="sticker-error"]').exists()).toBe(true)
         expect(uploadStickerMock).not.toHaveBeenCalled()
         expect((wrapper.vm as unknown as ManagerVm).isDirty).toBe(false)
+    })
+
+    // 7. previews is exposed and reflects existing (non-deleted) + staged items
+    it('previews reflects existing non-deleted and staged items', async () => {
+        Object.defineProperty(URL, 'createObjectURL', {
+            configurable: true,
+            writable: true,
+            value: vi.fn(() => 'blob:staged-preview'),
+        })
+
+        const wrapper = mount(StickerManager, {
+            props: {
+                initial: [
+                    sticker(1, '/sticker/u/a.gif'),
+                    sticker(2, '/sticker/u/b.gif'),
+                ],
+            },
+        })
+
+        const vm = wrapper.vm as unknown as ManagerVm
+        // Initially: two existing items both non-deleted
+        expect(vm.previews).toEqual(['/sticker/u/a.gif', '/sticker/u/b.gif'])
+
+        // Mark first existing staged for deletion — should drop from previews
+        const removeBtn = wrapper.find('[data-test="sticker-remove"]')
+        await removeBtn.trigger('click')
+        expect(vm.previews).toEqual(['/sticker/u/b.gif'])
+
+        // Stage a new file — should appear in previews
+        const input = wrapper.find('[data-test="sticker-add"] input[type="file"]')
+        Object.defineProperty(input.element, 'files', { value: [makeFile()], configurable: true })
+        await input.trigger('change')
+        expect(vm.previews).toContain('blob:staged-preview')
+        expect(vm.previews).toHaveLength(2)
     })
 })
