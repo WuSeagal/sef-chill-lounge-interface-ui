@@ -1,3 +1,5 @@
+import type { SocialPlatform } from '@/constants/platforms'
+
 export interface Topic {
     topicId: string
     content: string
@@ -60,7 +62,7 @@ export type GroupedTags = Record<TagType, Tag[]>
 
 export interface Social {
     id: number
-    platform: string
+    platform: SocialPlatform
     links: string
 }
 
@@ -110,7 +112,7 @@ export interface AddTagRequest {
 }
 
 export interface AddSocialLinkRequest {
-    platform: string
+    platform: SocialPlatform
     links: string
 }
 

@@ -9,8 +9,8 @@ export const mockMembers: MockUser[] = reactive([
         avatarBgColor: '#8c8672',
         tags: ['獸聚常客', '台北', 'wolf'],
         socialLinks: [
-            { platform: 'twitter', url: 'https://twitter.com/example' },
-            { platform: 'plurk', url: 'https://www.plurk.com/example' },
+            { platform: 'X', url: 'https://twitter.com/example' },
+            { platform: 'PLURK', url: 'https://www.plurk.com/example' },
         ],
         stickers: [
             '/mock-images/sticker-1.png',
@@ -33,7 +33,7 @@ export const mockMembers: MockUser[] = reactive([
         avatarBgColor: '#b56b3c',
         tags: ['fox', '高雄'],
         socialLinks: [
-            { platform: 'twitter', url: 'https://twitter.com/foxy' },
+            { platform: 'X', url: 'https://twitter.com/foxy' },
         ],
         stickers: [],
         topicCard: {
@@ -50,8 +50,8 @@ export const mockMembers: MockUser[] = reactive([
         avatarBgColor: '#dcd2bd',
         tags: ['arctic-fox', '畫師'],
         socialLinks: [
-            { platform: 'plurk', url: 'https://plurk.com/baixiao' },
-            { platform: 'fa', url: 'https://furaffinity.net/user/baixiao' },
+            { platform: 'PLURK', url: 'https://plurk.com/baixiao' },
+            { platform: 'OTHER', url: 'https://furaffinity.net/user/baixiao' },
         ],
         stickers: [],
         topicCard: {
@@ -68,7 +68,7 @@ export const mockMembers: MockUser[] = reactive([
         avatarBgColor: '#5b6e8f',
         tags: ['husky', '台中'],
         socialLinks: [
-            { platform: 'twitter', url: 'https://twitter.com/husky01' },
+            { platform: 'X', url: 'https://twitter.com/husky01' },
         ],
         stickers: [],
         topicCard: {
@@ -85,7 +85,7 @@ export const mockMembers: MockUser[] = reactive([
         avatarBgColor: '#c87d2a',
         tags: ['tiger', '台南'],
         socialLinks: [
-            { platform: 'twitter', url: 'https://twitter.com/tigerxx' },
+            { platform: 'X', url: 'https://twitter.com/tigerxx' },
         ],
         stickers: [],
         topicCard: {
@@ -102,7 +102,7 @@ export const mockMembers: MockUser[] = reactive([
         avatarBgColor: '#e09a3c',
         tags: ['cat', '台北', '攝影'],
         socialLinks: [
-            { platform: 'instagram', url: 'https://instagram.com/orange' },
+            { platform: 'INSTAGRAM', url: 'https://instagram.com/orange' },
         ],
         stickers: [],
         topicCard: {
@@ -119,7 +119,7 @@ export const mockMembers: MockUser[] = reactive([
         avatarBgColor: '#7c6a4e',
         tags: ['wolf', '新竹'],
         socialLinks: [
-            { platform: 'twitter', url: 'https://twitter.com/awolf' },
+            { platform: 'X', url: 'https://twitter.com/awolf' },
         ],
         stickers: [],
         topicCard: {

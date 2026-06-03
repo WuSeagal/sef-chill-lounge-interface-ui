@@ -1,5 +1,7 @@
+import type { SocialPlatform } from '@/constants/platforms'
+
 export type SocialLink = {
-    platform: string
+    platform: SocialPlatform
     url: string
 }
 
@@ -28,8 +30,8 @@ export const mockUser: MockUser = {
     avatarBgColor: '#8c8672',
     tags: ['獸聚常客', '台北', 'wolf'],
     socialLinks: [
-        { platform: 'twitter', url: 'https://twitter.com/example' },
-        { platform: 'plurk', url: 'https://www.plurk.com/example' },
+        { platform: 'X', url: 'https://twitter.com/example' },
+        { platform: 'PLURK', url: 'https://www.plurk.com/example' },
     ],
     stickers: [
         '/mock-images/sticker-1.png',
