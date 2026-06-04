@@ -8,6 +8,15 @@ vi.mock('vue-i18n', () => ({
     useI18n: () => ({ t: (key: string) => key }),
 }))
 
+const pushWarningSpy = vi.fn()
+vi.mock('notivue', () => ({
+    push: {
+        warning: (...args: unknown[]) => pushWarningSpy(...args),
+        success: vi.fn(),
+        error: vi.fn(),
+    },
+}))
+
 function makeMessage(overrides: Partial<MessageResponse>): MessageResponse {
     return {
         cursorId: 11,
@@ -115,6 +124,32 @@ describe('ChatView', () => {
         sendChatMessageSpy.mockReset()
         connectSpy.mockReset()
         disconnectSpy.mockReset()
+        pushWarningSpy.mockReset()
+    })
+
+    it('初次載入訊息失敗時顯示 toast，不靜默也不導頁（Q2 白名單後的呼叫端保護）', async () => {
+        initSpy.mockReset().mockRejectedValue(new Error('500'))
+        mount(ChatView)
+        await flushPromises()
+        expect(pushWarningSpy).toHaveBeenCalled()
+    })
+
+    it('往上捲載入更多失敗時顯示 toast（loadMore 呼叫端保護）', async () => {
+        hasMoreRef.value = true
+        loadMoreSpy.mockReset().mockRejectedValue(new Error('500'))
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        const list = wrapper.find('.chat-view__list').element as HTMLElement
+        Object.defineProperty(list, 'scrollHeight', { value: 1200, configurable: true })
+        Object.defineProperty(list, 'clientHeight', { value: 600, configurable: true })
+        Object.defineProperty(list, 'scrollTop', { value: 0, configurable: true, writable: true })
+
+        await wrapper.find('.chat-view__list').trigger('scroll')
+        await flushPromises()
+
+        expect(pushWarningSpy).toHaveBeenCalled()
+        wrapper.unmount()
     })
 
     it('calls init on mount and renders messages', async () => {

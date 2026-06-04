@@ -23,7 +23,7 @@ const zhTW = {
             },
             avatar: {
                 title: '證件照拍攝處',
-                description: '請上傳您的形象（支援 PNG / JPG / WEBP，最大 10 MB）',
+                description: '請上傳您的形象（支援 PNG / JPG / WEBP，最大 10 MB）；點擊頭像可上傳或更換',
             },
             tags: {
                 title: '標籤領取處',

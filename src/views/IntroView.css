@@ -379,17 +379,8 @@
     gap: 8px;
 }
 
-.intro-view__swatch-circle {
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    border: 2px solid #f9f5e5;
-    box-shadow: 0 0 0 1px #d7cdaf;
-    cursor: pointer;
-    padding: 2px;
-}
-
 /* Keep old selector for tests that use it */
+.intro-view__swatch-circle,
 .intro-view__color-input {
     width: 30px;
     height: 30px;
@@ -397,13 +388,49 @@
     border: 2px solid #f9f5e5;
     box-shadow: 0 0 0 1px #d7cdaf;
     cursor: pointer;
-    padding: 2px;
+    padding: 0;
+    overflow: hidden;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background: none;
+}
+
+/* 讓整個圓填滿所選顏色（移除原生 color input 的內邊框/留白） */
+.intro-view__color-input::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.intro-view__color-input::-webkit-color-swatch {
+    border: none;
+    border-radius: 50%;
+}
+
+.intro-view__color-input::-moz-color-swatch {
+    border: none;
+    border-radius: 50%;
 }
 
 .intro-view__color-value {
     font-size: 0.82rem;
     color: #5a5340;
     font-family: monospace;
+}
+
+/* 可編輯 hex 欄位:沿用 color-value 的字體/色，外觀做成小輸入框 */
+.intro-view__hex-input {
+    width: 8ch;
+    padding: 3px 6px;
+    border: 1px solid #d7cdaf;
+    border-radius: 6px;
+    background: #fffdf6;
+    text-transform: lowercase;
+    transition: border-color 0.15s ease;
+}
+
+.intro-view__hex-input:focus {
+    outline: none;
+    border-color: #8c8672;
 }
 
 /* avatar preview (keep class for existing test selectors) */

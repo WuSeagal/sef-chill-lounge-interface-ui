@@ -7,6 +7,7 @@ import { fetchSelectableTags } from '@/api/userApi'
 import { uploadAvatar } from '@/api/avatarUploadApi'
 import AvatarCropModal from '@/components/AvatarCropModal.vue'
 import StickerManager from '@/components/StickerManager.vue'
+import LizardLoading from '@/components/LizardLoading.vue'
 import { useUser } from '@/composables/useUser'
 import { useAvatarUploadDraft } from '@/composables/useAvatarUploadDraft'
 import { useTagEditorState } from '@/composables/useTagEditorState'
@@ -69,6 +70,8 @@ const drawingTopic = ref(false)
 const drawnTopicContent = ref<string | null>(null)
 const drawError = ref<string | null>(null)
 const drawCountdown = ref(5)
+// 顯示用秒數:clamp 下限 1，避免 interval 在 t=5s 跑到 0 時閃「0 秒」才跳轉
+const redirectCountdown = computed(() => Math.max(1, drawCountdown.value))
 
 // 給 TagEditorPreview 用:把 staged draft 攤回 Tag[](real tagId + new custom 用合成 id)
 const previewTags = computed<Tag[]>(() => {
@@ -90,6 +93,8 @@ let countdownTimer: ReturnType<typeof setInterval> | null = null
 
 const defaultFurName = computed(() => auth.user?.googleName ?? '')
 const showOnboarding = computed(() => auth.isLogin && (user.needsOnboarding.value || wizardActive.value))
+// 「同步中」fallback：已登入但尚未進 onboarding / 尚未被導去 /chat 的空檔（獨立整頁，無 intro-view 裝飾）
+const showSyncFallback = computed(() => auth.isLogin && !showOnboarding.value)
 const currentStep = computed(() => steps[currentStepIndex.value])
 const currentStepTitle = computed(() => t(`intro.steps.${currentStep.value.key}.title`))
 const currentStepDescription = computed(() => t(`intro.steps.${currentStep.value.key}.description`))
@@ -178,6 +183,19 @@ function markCurrentStepSkipped(): void {
 
 function clearCurrentStepSkipped(): void {
     skippedStepKeys.value = skippedStepKeys.value.filter(key => key !== currentStep.value.key)
+}
+
+// 邊框顏色 hex 文字輸入:原生 <input type=color> 的 RGB/Hex 分頁是 OS chrome 無法控制，
+// 故額外提供可編輯 hex 欄位讓 user 直接打/貼。hexInput 跟著 avatarColor（picker 選色或 reset）同步，
+// 只有在輸入符合 #RRGGBB 時才寫回 avatarColor，避免打到一半（如 #ab）就清空 swatch。
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/
+const hexInput = ref<string>(avatarColor.value)
+watch(avatarColor, value => { hexInput.value = value })
+function onHexInput(raw: string): void {
+    hexInput.value = raw
+    if (!HEX_COLOR_RE.test(raw)) return
+    avatarColor.value = raw
+    clearCurrentStepSkipped()
 }
 
 function goNext(): void {
@@ -312,13 +330,14 @@ async function confirmProfileSetup(): Promise<void> {
 
         await user.fetchProfile()
 
-        try {
-            await user.redrawTopicCard()
-        } catch {
+        // redrawTopicCard 內部會吞錯並設 user.error（不 rethrow），故改讀結果判斷成敗：
+        // 抽卡失敗（topic 為 null）時設 drawError，讓 topic step 顯示錯誤 + 手動進入按鈕，
+        // 而非卡在「抽獎中…」。/user/topic-card 已加入 interceptor 白名單故不會被導去 /error。
+        await user.redrawTopicCard()
+        const topicContent = user.profile.value?.topic?.content ?? null
+        if (!topicContent) {
             drawError.value = user.error.value ?? '抽話題卡失敗'
         }
-
-        const topicContent = user.profile.value?.topic?.content ?? null
         drawnTopicContent.value = topicContent
 
         avatarDraft.clearDraft()
@@ -379,7 +398,10 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="intro-view" :class="{ 'intro-view--focus': !showOnboarding }">
+    <!-- 「同步中」：獨立整頁（同 GoogleCallback），不套 intro-view 的 stage / 彩蛋 / focus 裝飾 -->
+    <LizardLoading v-if="showSyncFallback" message="同步中" :refresh-after-ms="5000" />
+
+    <div v-else class="intro-view" :class="{ 'intro-view--focus': !showOnboarding }">
         <div class="intro-view__stage" :class="{ 'intro-view__stage--focus': !showOnboarding }">
             <img
                 v-if="!showOnboarding"
@@ -473,13 +495,19 @@ onBeforeUnmount(() => {
                                         :value="avatarColor"
                                         @input="avatarColor = ($event.target as HTMLInputElement).value; clearCurrentStepSkipped()"
                                     />
-                                    <span class="intro-view__color-value">{{ avatarColor }}</span>
+                                    <input
+                                        class="intro-view__color-value intro-view__hex-input"
+                                        type="text"
+                                        data-test="avatar-border-hex"
+                                        :aria-label="t('intro.options.avatarBorderColor')"
+                                        :value="hexInput"
+                                        maxlength="7"
+                                        spellcheck="false"
+                                        autocapitalize="off"
+                                        placeholder="#RRGGBB"
+                                        @input="onHexInput(($event.target as HTMLInputElement).value)"
+                                    />
                                 </div>
-                            </div>
-                            <div class="intro-view__av-row">
-                                <p class="intro-view__av-hint">
-                                    {{ hasStagedAvatar ? '點擊頭像可重新上傳。' : '點擊頭像上傳並裁切，或只設定頭像框。' }}
-                                </p>
                             </div>
                         </div>
                     </div>
@@ -659,6 +687,9 @@ onBeforeUnmount(() => {
                         </p>
                         <p class="tp-tail">{{ t('intro.topic.tail') }}</p>
                         <div class="tp-btn-wrap">
+                            <p class="tp-countdown" data-test="topic-countdown">
+                                {{ t('intro.topic.redirect', { seconds: redirectCountdown }) }}
+                            </p>
                             <button
                                 type="button"
                                 class="intro-view__wz-btn intro-view__wz-btn--primary"
@@ -772,10 +803,6 @@ onBeforeUnmount(() => {
                         <!-- Topic step: no footer buttons -->
                     </div>
                 </footer>
-            </div>
-
-            <div v-else class="intro-view__login-card">
-                <div class="intro-view__state-text">同步中...</div>
             </div>
             </div>
         </div>

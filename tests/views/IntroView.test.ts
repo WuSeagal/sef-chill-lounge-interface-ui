@@ -45,6 +45,7 @@ const routerPushMock = vi.fn()
 
 const profileRef = ref<any>(null)
 const needsOnboardingRef = ref(false)
+const userErrorRef = ref<string | null>(null)
 const authState = {
     isLogin: false,
     user: null as any,
@@ -59,7 +60,7 @@ vi.mock('@/composables/useUser', () => ({
         addSocialLink: addSocialLinkMock,
         fetchProfile: fetchProfileMock,
         redrawTopicCard: redrawTopicCardMock,
-        error: ref(null),
+        error: userErrorRef,
     }),
 }))
 
@@ -149,6 +150,14 @@ describe('IntroView', () => {
         authState.user = null
         profileRef.value = null
         needsOnboardingRef.value = false
+        userErrorRef.value = null
+        redrawTopicCardMock.mockImplementation(async () => {
+            profileRef.value = {
+                ...(profileRef.value ?? {}),
+                topicId: 't-draw',
+                topic: { topicId: 't-draw', content: '今晚想一起聊什麼？' },
+            }
+        })
 
         ;(api.fetchSelectableTags as any).mockResolvedValue({
             ROLE: [],
@@ -470,7 +479,7 @@ describe('IntroView', () => {
         expect(wrapper.text()).not.toContain('mock-bear')
         expect(wrapper.text()).toContain('支援 PNG / JPG / WEBP')
         expect(wrapper.text()).not.toContain('GIF')
-        expect(wrapper.text()).toContain('點擊頭像上傳並裁切')
+        expect(wrapper.text()).toContain('點擊頭像可上傳或更換')
         expect(wrapper.find('input[type="file"]').attributes('accept')).toBe('image/png,image/jpeg,image/webp')
         expect(wrapper.find('.intro-view__avatar-preview').exists()).toBe(true)
     })
@@ -500,7 +509,6 @@ describe('IntroView', () => {
 
         expect(wrapper.text()).not.toContain('更換圖片')
         expect(wrapper.text()).not.toContain('重新裁切')
-        expect(wrapper.text()).toContain('點擊頭像可重新上傳')
 
         // 點擊頭像會再次開啟檔案選擇（重新上傳）
         const clickSpy = vi.spyOn(avatarInput.element as HTMLInputElement, 'click')
@@ -915,6 +923,32 @@ describe('IntroView', () => {
         expect(routerPushMock).toHaveBeenCalledWith('/chat')
 
         vi.useRealTimers()
+    })
+
+    it('抽話題卡失敗時顯示 drawError + 手動進入按鈕，不卡在「抽獎中…」（/ 頁不導 error 頁）', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        // 模擬 redraw 失敗：吞錯設 user.error、不設 topic（比照 useUser.redrawTopicCard 行為）
+        redrawTopicCardMock.mockImplementation(async () => {
+            userErrorRef.value = '重抽話題卡失敗'
+        })
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        await advanceToReview(wrapper)
+
+        await wrapper.find('[data-test=confirm-create]').trigger('click')
+        await flushPromises()
+
+        expect(redrawTopicCardMock).toHaveBeenCalledTimes(1)
+        // 不應卡在「抽獎中…」，而是顯示錯誤 + 手動進入按鈕
+        expect(wrapper.text()).not.toContain('抽獎中')
+        expect(wrapper.find('[data-test=topic-draw-error]').exists()).toBe(true)
+        expect(wrapper.text()).toContain('重抽話題卡失敗')
+        expect(wrapper.find('[data-test=topic-manual-redirect]').exists()).toBe(true)
     })
 
     it('topic step: 手動按鈕立即 push /chat', async () => {

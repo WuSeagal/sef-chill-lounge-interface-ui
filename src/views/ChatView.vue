@@ -69,6 +69,19 @@ function updateAtBottom() {
     isAtBottom.value = distance <= SCROLL_BOTTOM_THRESHOLD
 }
 
+// 訊息載入（/messages）已不再由 interceptor 導去 /error（Q2 白名單），呼叫端須自行
+// 以 toast 呈現失敗，否則會變成靜默失敗。成功回 true、失敗回 false 讓呼叫端決定後續。
+async function runMessageLoad(load: () => Promise<void>): Promise<boolean> {
+    try {
+        await load()
+        return true
+    } catch (e) {
+        console.error('載入訊息失敗', e)
+        push.warning('載入訊息失敗，請稍後再試')
+        return false
+    }
+}
+
 async function onListScroll() {
     updateAtBottom()
 
@@ -79,7 +92,7 @@ async function onListScroll() {
 
     const previousScrollHeight = el.scrollHeight
     const previousScrollTop = el.scrollTop
-    await loadMore()
+    if (!await runMessageLoad(loadMore)) return
     await nextTick()
     el.scrollTop = el.scrollHeight - previousScrollHeight + previousScrollTop
 }
@@ -180,7 +193,7 @@ function onSettingsClose() {
 
 async function onReconnect() {
     kicked.value = false
-    await reconnect()
+    if (!await runMessageLoad(reconnect)) return
     await nextTick()
     scrollToBottom(true)
 }
@@ -194,7 +207,7 @@ watch(() => messages.value.length, async () => {
 })
 
 onMounted(async () => {
-    await init()
+    await runMessageLoad(init)
     await nextTick()
     scrollToBottom(false)
     updateAtBottom()

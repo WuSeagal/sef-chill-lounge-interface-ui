@@ -20,16 +20,37 @@ describe('axios response interceptor', () => {
         currentRoute.value.path = '/'
     })
 
-    it('500 response 觸發 router.push to /error with code=500 and from', async () => {
+    it('非白名單端點 500 response 觸發 router.push to /error with code=500 and from', async () => {
         const error = {
             response: { status: 500, data: {} },
-            config: { url: '/api/user/profile' },
+            config: { url: '/some/unknown-endpoint' },
         }
         await expect(rejectedHandler(error)).rejects.toBeDefined()
         expect(pushMock).toHaveBeenCalledWith({
             path: '/error',
-            query: { code: 500, from: '/api/user/profile' },
+            query: { code: 500, from: '/some/unknown-endpoint' },
         })
+    })
+
+    // Q2:/chat、/dashboard 頁內互動會打的讀取端點皆有自己的 toast/inline 錯誤處理，
+    // 不應整頁導去 /error（gate on URL，連 5xx 也不導，避免毀掉 chat/dashboard session）。
+    it.each([
+        ['/messages', '載入訊息（init / loadMore）'],
+        ['/members', '成員列表'],
+        ['/tags', '可選標籤'],
+        ['/user/tags', '使用者標籤'],
+        ['/user/profile', '當前使用者 profile'],
+        ['/user/profile/abc123', '點 user 開 popup'],
+        ['/user/social-links', '社群連結'],
+        ['/user/topic-card/redraw', '「/」抽話題卡 / TopicCardTab'],
+        ['/topics/random', '隨機話題'],
+    ])('白名單端點 %s 500 不觸發 router.push（%s 由呼叫端 toast/inline 處理）', async (url) => {
+        const error = {
+            response: { status: 500, data: {} },
+            config: { url },
+        }
+        await expect(rejectedHandler(error)).rejects.toBeDefined()
+        expect(pushMock).not.toHaveBeenCalled()
     })
 
     it('404 response 不觸發 router.push（交由呼叫端處理，如 profile-not-found = 尚未 onboarding）', async () => {
@@ -45,6 +66,24 @@ describe('axios response interceptor', () => {
         const error = {
             response: { status: 401, data: {} },
             config: { url: '/api/anything' },
+        }
+        await expect(rejectedHandler(error)).rejects.toBeDefined()
+        expect(pushMock).not.toHaveBeenCalled()
+    })
+
+    it('413 on /upload/chat-image 不觸發 router.push（交由呼叫端 toast 處理）', async () => {
+        const error = {
+            response: { status: 413, data: { message: '圖片過大' } },
+            config: { url: '/upload/chat-image' },
+        }
+        await expect(rejectedHandler(error)).rejects.toBeDefined()
+        expect(pushMock).not.toHaveBeenCalled()
+    })
+
+    it('upload 端點即使 500 也不轉跳（gate on URL 非 status，避免毀掉 chat session）', async () => {
+        const error = {
+            response: { status: 500, data: {} },
+            config: { url: '/upload/sticker' },
         }
         await expect(rejectedHandler(error)).rejects.toBeDefined()
         expect(pushMock).not.toHaveBeenCalled()
