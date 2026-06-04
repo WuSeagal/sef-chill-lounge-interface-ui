@@ -48,55 +48,73 @@
     font-size: 0.95rem;
 }
 
-.settings-tab__avatar-row {
+/* 頭像設定：比照 onboarding 證件照頁——左頭像 + 右邊框設定（開關 / 顏色） */
+.settings-tab__av-grid {
     display: flex;
     align-items: center;
-    gap: var(--space-md);
+    gap: var(--space-lg);
     flex-wrap: wrap;
 }
 
-/* 點頭像即可上傳/更換（與 onboarding 證件照頁一致，不再有獨立按鈕） */
+/* 點頭像即可上傳/更換；「＋」預設隱藏，hover 才浮出提示可上傳 */
 .settings-tab__avatar-photo-wrap {
+    position: relative;
     cursor: pointer;
     border-radius: 50%;
     line-height: 0;
-    transition: opacity 0.15s ease;
-}
-
-.settings-tab__avatar-photo-wrap:hover {
-    opacity: 0.85;
 }
 
 .settings-tab__avatar-img {
-    width: 64px;
-    height: 64px;
+    width: 96px;
+    height: 96px;
     border-radius: 50%;
     object-fit: cover;
     object-position: center;
+    display: block;
+}
+
+.settings-tab__av-plus {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.42);
+    color: #fff;
+    font-size: 1.8rem;
+    font-weight: 700;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+}
+
+.settings-tab__avatar-photo-wrap:hover .settings-tab__av-plus,
+.settings-tab__avatar-photo-wrap:focus-visible .settings-tab__av-plus {
+    opacity: 1;
 }
 
 .settings-tab__file-input {
     display: none;
 }
 
-.settings-tab__border-row {
+.settings-tab__av-right {
     display: flex;
-    align-items: center;
-    gap: var(--space-lg);
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: var(--space-sm);
     /* 保留含選色時的高度，避免開關切換造成版面上下跳動 */
-    min-height: 32px;
+    min-height: 64px;
+    justify-content: center;
 }
 
-.settings-tab__border-enable,
-.settings-tab__border-color {
+.settings-tab__av-row {
     display: flex;
     align-items: center;
     gap: var(--space-sm);
 }
 
 .settings-tab__sublabel {
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     color: var(--input-text);
 }
 

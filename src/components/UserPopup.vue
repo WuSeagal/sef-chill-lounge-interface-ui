@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import './UserPopup.css'
+import PassportOverlay from './PassportOverlay.vue'
 import { fetchProfileDetail } from '@/api/userApi'
 import { buildAvatarRingStyle } from '@/utils/avatarRing'
 import { resolveAvatarSrc } from '@/utils/avatarSource'
-import { TagType, TAG_TYPE_ORDER, TAG_TYPE_PREFIX, type Tag, type UserProfile } from '@/types/user'
-import { resolvePlatformMeta } from '@/constants/platforms'
+import { assetUrl } from '@/utils/assetUrl'
+import type { UserProfile } from '@/types/user'
 
+/**
+ * /chat 點任一使用者頭像（含自己）開啟的唯讀個人 profile。
+ * 抓取該使用者 profile 後，以共用的 PassportOverlay（放大護照）呈現——與 onboarding review 一致。
+ * 唯讀：不提供就地編輯（編輯走設定面板）。
+ */
 const props = defineProps<{
     open: boolean
     userId: string | null
@@ -16,30 +22,24 @@ const emit = defineEmits<{
     (e: 'close'): void
 }>()
 
-const rootEl = ref<HTMLElement | null>(null)
 const profile = ref<UserProfile | null>(null)
 const loading = ref<boolean>(false)
 const loadError = ref<string | null>(null)
 
-const visible = computed(() => props.open && (profile.value !== null || loading.value || loadError.value !== null))
+const showPassport = computed(() => props.open && profile.value !== null)
+const showStatus = computed(() => props.open && (loading.value || loadError.value !== null))
 
-const groupedTags = computed<Record<TagType, Tag[]>>(() => {
-    const acc: Record<TagType, Tag[]> = {
-        [TagType.ROLE]: [], [TagType.LANGUAGE]: [], [TagType.FRAMEWORK]: [],
-        [TagType.DATABASE]: [], [TagType.DEVOPS]: [], [TagType.CUSTOM]: [],
-    }
-    for (const t of (profile.value?.tags ?? [])) {
-        if (acc[t.type]) acc[t.type].push(t)
-    }
-    return acc
-})
-const visibleTagTypes = computed(() => TAG_TYPE_ORDER.filter(type => groupedTags.value[type].length > 0))
-const hasAnyTags = computed(() => (profile.value?.tags?.length ?? 0) > 0)
-
-const avatarHeaderStyle = computed(() => ({
-    backgroundImage: `url(${resolveAvatarSrc(profile.value?.avatar)})`,
-    ...buildAvatarRingStyle(profile.value?.avatarColor ?? null, profile.value?.avatarBorder ?? false, 'lg'),
-}))
+const furName = computed(() => profile.value?.furName || profile.value?.username || '')
+const avatarSrc = computed(() => resolveAvatarSrc(profile.value?.avatar))
+const avatarStyle = computed(() =>
+    buildAvatarRingStyle(profile.value?.avatarColor ?? null, profile.value?.avatarBorder ?? false, 'lg'))
+const passportTags = computed(() => profile.value?.tags ?? [])
+const passportSocials = computed(() =>
+    (profile.value?.socials ?? []).map(s => ({ platform: s.platform, links: s.links })))
+const passportStickers = computed(() =>
+    (profile.value?.stickers ?? [])
+        .map(s => assetUrl(s.sticker))
+        .filter((url): url is string => !!url))
 
 async function loadProfile(userId: string): Promise<void> {
     loading.value = true
@@ -67,97 +67,42 @@ watch(
     { immediate: true },
 )
 
+// loading / error 狀態的 Escape 關閉（passport 顯示時由 PassportOverlay 自己處理 Escape）
 function onKeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape' && visible.value) {
+    if (event.key === 'Escape' && showStatus.value) {
         emit('close')
     }
 }
-
-function onOutsideClick(event: MouseEvent) {
-    if (!visible.value) return
-    const target = event.target as Node | null
-    if (target && rootEl.value && rootEl.value.contains(target)) {
-        return
-    }
-    emit('close')
-}
-
-function onSelfClick(event: MouseEvent) {
-    event.stopPropagation()
-}
-
 watch(
-    () => props.open,
-    (open) => {
-        if (open) {
-            window.addEventListener('keydown', onKeydown)
-            window.addEventListener('click', onOutsideClick)
-        } else {
-            window.removeEventListener('keydown', onKeydown)
-            window.removeEventListener('click', onOutsideClick)
-        }
+    () => showStatus.value,
+    (active) => {
+        if (active) window.addEventListener('keydown', onKeydown)
+        else window.removeEventListener('keydown', onKeydown)
     },
     { immediate: true },
 )
-
 onBeforeUnmount(() => {
     window.removeEventListener('keydown', onKeydown)
-    window.removeEventListener('click', onOutsideClick)
 })
 </script>
 
 <template>
-    <div v-if="visible" ref="rootEl" class="user-popup" @click="onSelfClick">
-        <template v-if="loading">
-            <p>載入中...</p>
-        </template>
-        <template v-else-if="loadError">
-            <p>{{ loadError }}</p>
-        </template>
-        <template v-else-if="profile">
-            <div class="user-popup__header">
-                <div class="user-popup__avatar" :style="avatarHeaderStyle" aria-hidden="true"></div>
-                <h3 class="user-popup__nickname">{{ profile.furName || profile.username }}</h3>
+    <PassportOverlay
+        v-if="showPassport"
+        :open="true"
+        :fur-name="furName"
+        :avatar-src="avatarSrc"
+        :avatar-style="avatarStyle"
+        :tags="passportTags"
+        :socials="passportSocials"
+        :stickers="passportStickers"
+        @close="emit('close')"
+    />
+    <Teleport to="body">
+        <div v-if="showStatus" class="user-popup-status" @click.self="emit('close')">
+            <div class="user-popup-status__box">
+                <p>{{ loading ? '載入中...' : loadError }}</p>
             </div>
-            <div v-if="hasAnyTags" class="user-popup__tag-block">
-                <span class="user-popup__tag-title">TAG</span>
-                <div
-                    v-for="type in visibleTagTypes"
-                    :key="type"
-                    class="user-popup__tag-row"
-                    :class="{ 'user-popup__tag-row--custom': type === TagType.CUSTOM }"
-                >
-                    <span
-                        v-if="type !== TagType.CUSTOM"
-                        class="user-popup__tag-row-label"
-                    >{{ TAG_TYPE_PREFIX[type] }}</span>
-                    <div class="user-popup__tag-row-chips">
-                        <span
-                            v-for="tag in groupedTags[type]"
-                            :key="tag.tagId"
-                            class="user-popup__tag-chip"
-                        >{{ tag.content }}</span>
-                    </div>
-                </div>
-            </div>
-            <ul v-if="profile.socials && profile.socials.length > 0" class="user-popup__socials">
-                <li v-for="link in profile.socials" :key="link.id">
-                    <a
-                        class="user-popup__social-link"
-                        :href="link.links"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        <span
-                            class="user-popup__social-icon"
-                            :style="{ backgroundColor: resolvePlatformMeta(link.platform).brandColor }"
-                            v-html="resolvePlatformMeta(link.platform).icon"
-                            aria-hidden="true"
-                        ></span>
-                        <span class="user-popup__social-label">{{ resolvePlatformMeta(link.platform).label }}</span>
-                    </a>
-                </li>
-            </ul>
-        </template>
-    </div>
+        </div>
+    </Teleport>
 </template>

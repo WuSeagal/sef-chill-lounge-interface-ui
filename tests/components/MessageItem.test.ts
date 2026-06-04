@@ -137,6 +137,41 @@ describe('MessageItem', () => {
         expect(wrapper.emitted('avatar-click')?.[0]).toEqual(['u-101'])
     })
 
+    it('emits image-click with the sticker url when a STICKER message is clicked', async () => {
+        const wrapper = mount(MessageItem, {
+            props: {
+                message: makeMessage({
+                    messageType: 'STICKER',
+                    content: null,
+                    imageUrls: [],
+                    stickerImageUrl: '/mock-images/sticker-1.png',
+                }),
+            },
+        })
+
+        await wrapper.find('.message-item__sticker').trigger('click')
+        expect(wrapper.emitted('image-click')?.[0]).toEqual(['/mock-images/sticker-1.png'])
+    })
+
+    it('STICKER is keyboard-operable (role/tabindex + Enter emits image-click)', async () => {
+        const wrapper = mount(MessageItem, {
+            props: {
+                message: makeMessage({
+                    messageType: 'STICKER',
+                    content: null,
+                    imageUrls: [],
+                    stickerImageUrl: '/mock-images/sticker-1.png',
+                }),
+            },
+        })
+
+        const sticker = wrapper.find('.message-item__sticker')
+        expect(sticker.attributes('role')).toBe('button')
+        expect(sticker.attributes('tabindex')).toBe('0')
+        await sticker.trigger('keydown.enter')
+        expect(wrapper.emitted('image-click')?.[0]).toEqual(['/mock-images/sticker-1.png'])
+    })
+
     it('emits image-click with the clicked imageUrl', async () => {
         const wrapper = mount(MessageItem, {
             props: {

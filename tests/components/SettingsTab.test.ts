@@ -176,6 +176,17 @@ describe('SettingsTab — staged save', () => {
         expect(wrapper.find('.settings-tab__avatar-editor').exists()).toBe(false)
     })
 
+    it('頭像區為 onboarding 式 av-grid（左頭像＋右邊框設定），且有 hover 才顯示的 + 上傳提示', () => {
+        const wrapper = mount(SettingsTab)
+        // 左頭像 + 右邊框設定同在一個 grid 容器內
+        const grid = wrapper.find('.settings-tab__av-grid')
+        expect(grid.exists()).toBe(true)
+        expect(grid.find('.settings-tab__avatar-img').exists()).toBe(true)
+        expect(grid.find('[data-test=avatar-border-toggle]').exists()).toBe(true)
+        // hover 才顯示的 + 提示元素存在於 DOM（顯隱由 CSS :hover 控制）
+        expect(wrapper.find('[data-test=settings-avatar-photo] .settings-tab__av-plus').exists()).toBe(true)
+    })
+
     it('avatar file input 只接受靜態圖片格式', () => {
         const wrapper = mount(SettingsTab)
         expect(wrapper.find('.settings-tab__file-input').attributes('accept')).toBe('image/png,image/jpeg,image/webp')

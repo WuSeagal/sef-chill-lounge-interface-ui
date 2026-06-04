@@ -4,56 +4,27 @@
     z-index: 1000;
     background: var(--modal-overlay);
     display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-md);
 }
 
 .settings-modal__panel {
+    position: relative;
     background: var(--page-bg);
-    height: calc(100dvh - 40px);
-    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    width: min(880px, 100%);
+    height: min(620px, 90dvh);
+    border-radius: var(--radius-md);
     display: flex;
-    flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.18);
-}
-
-.settings-modal__header {
-    display: flex;
-    align-items: center;
-    padding: var(--space-sm) var(--space-md);
-    border-bottom: 1px solid var(--bubble-border);
-    flex: 0 0 auto;
-}
-
-.settings-modal__tabs {
-    display: flex;
-    gap: var(--space-xs);
-    flex: 1;
-}
-
-.settings-modal__tab {
-    padding: var(--space-sm) var(--space-md);
-    border: none;
-    background: transparent;
-    color: var(--input-text);
-    cursor: pointer;
-    font-size: 0.95rem;
-    border-bottom: 2px solid transparent;
-    font-family: inherit;
-}
-
-.settings-modal__tab:hover {
-    color: var(--bottom-bar-bg);
-}
-
-.settings-modal__tab--active {
-    color: var(--bottom-bar-bg);
-    border-bottom-color: var(--bottom-bar-bg);
-    font-weight: 600;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.28);
 }
 
 .settings-modal__close {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    z-index: 2;
     width: 36px;
     height: 36px;
     border: none;
@@ -66,17 +37,63 @@
     justify-content: center;
     border-radius: var(--radius-sm);
     font-family: inherit;
-    flex-shrink: 0;
 }
 
 .settings-modal__close:hover {
     background: var(--bubble-border);
 }
 
+.settings-modal__layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+}
+
+/* 左側直向頁籤列 */
+.settings-modal__rail {
+    flex: 0 0 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--space-md) var(--space-sm);
+    border-right: 1px solid var(--bubble-border);
+    background: color-mix(in srgb, var(--page-bg) 88%, #000 4%);
+    overflow-y: auto;
+}
+
+.settings-modal__tab {
+    text-align: left;
+    padding: var(--space-sm) var(--space-md);
+    border: none;
+    border-left: 3px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--input-text);
+    cursor: pointer;
+    font-size: 0.98rem;
+    font-family: inherit;
+    transition: background 0.12s ease, color 0.12s ease;
+}
+
+.settings-modal__tab:hover {
+    color: var(--bottom-bar-bg);
+    background: color-mix(in srgb, var(--bottom-bar-bg) 8%, transparent);
+}
+
+.settings-modal__tab--active {
+    color: var(--bottom-bar-bg);
+    border-left-color: var(--bottom-bar-bg);
+    background: color-mix(in srgb, var(--bottom-bar-bg) 12%, transparent);
+    font-weight: 600;
+}
+
+/* 右側內容區 */
 .settings-modal__body {
     flex: 1;
+    min-width: 0;
     overflow-y: auto;
-    padding: var(--space-md);
+    padding: var(--space-lg) var(--space-lg) var(--space-md);
 }
 
 .settings-modal__body::-webkit-scrollbar {
@@ -90,6 +107,46 @@
 .settings-modal__body::-webkit-scrollbar-thumb {
     background: var(--bubble-border);
     border-radius: 3px;
+}
+
+/* RWD：窄螢幕改為頂部橫向頁籤列、內容滿版（單欄上下堆疊） */
+@media (max-width: 640px) {
+    .settings-modal {
+        padding: 0;
+    }
+
+    .settings-modal__panel {
+        width: 100%;
+        height: 100dvh;
+        border-radius: 0;
+    }
+
+    .settings-modal__layout {
+        flex-direction: column;
+    }
+
+    .settings-modal__rail {
+        flex: 0 0 auto;
+        flex-direction: row;
+        gap: var(--space-xs);
+        overflow-x: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--bubble-border);
+        padding: var(--space-sm);
+        padding-right: 52px; /* 讓出右上角關閉鈕空間 */
+    }
+
+    .settings-modal__tab {
+        flex: 0 0 auto;
+        white-space: nowrap;
+        border-left: none;
+        border-bottom: 2px solid transparent;
+    }
+
+    .settings-modal__tab--active {
+        border-left-color: transparent;
+        border-bottom-color: var(--bottom-bar-bg);
+    }
 }
 
 /* Vue <Transition name="settings-modal"> animation */
@@ -116,5 +173,22 @@
 
 .settings-modal-enter-from .settings-modal__panel,
 .settings-modal-leave-to .settings-modal__panel {
-    transform: translateY(100%);
+    transform: translateY(16px) scale(0.98);
+}
+
+/* 尊重 prefers-reduced-motion：移除位移/縮放，僅保留淡入淡出 */
+@media (prefers-reduced-motion: reduce) {
+    .settings-modal-enter-active .settings-modal__panel,
+    .settings-modal-leave-active .settings-modal__panel {
+        transition: none;
+    }
+
+    .settings-modal-enter-from .settings-modal__panel,
+    .settings-modal-leave-to .settings-modal__panel {
+        transform: none;
+    }
+
+    .settings-modal__tab {
+        transition: none;
+    }
 }

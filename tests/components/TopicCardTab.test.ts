@@ -43,4 +43,9 @@ describe('TopicCardTab', () => {
         const wrapper = mount(TopicCardTab)
         expect(wrapper.find('.topic-card-tab__content').text()).toBe('(未抽取)')
     })
+
+    it('內容置於水平垂直置中強調的 stage 容器', () => {
+        const wrapper = mount(TopicCardTab)
+        expect(wrapper.find('.topic-card-tab__stage').exists()).toBe(true)
+    })
 })

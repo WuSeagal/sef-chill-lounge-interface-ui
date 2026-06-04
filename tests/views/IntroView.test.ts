@@ -900,7 +900,7 @@ describe('IntroView', () => {
         wrapper.unmount()
     })
 
-    it('passport review: 社群超過 3 筆顯示 more...', async () => {
+    it('passport review: 社群超過 3 筆全部顯示為可點連結（不再截斷 more...）', async () => {
         authState.isLogin = true
         authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
         needsOnboardingRef.value = true
@@ -932,12 +932,12 @@ describe('IntroView', () => {
         await wrapper.find('[data-test=next-step]').trigger('click')
         await flushPromises()
 
-        // On review: 3 items shown + more...
+        // On review: 全部 4 筆都顯示為可點連結，無 more... 截斷
         const passport = wrapper.find('[data-test=review-passport]')
-        const socialItems = passport.findAll('[data-test=review-socials] li:not(.ps-more)')
-        expect(socialItems).toHaveLength(3)
-        expect(passport.find('[data-test=review-socials-more]').exists()).toBe(true)
-        expect(passport.find('[data-test=review-socials-more]').text()).toContain('more...')
+        const socialLinks = passport.findAll('[data-test=review-socials] a.ps-social-link')
+        expect(socialLinks).toHaveLength(4)
+        expect(passport.find('[data-test=review-socials-more]').exists()).toBe(false)
+        expect(socialLinks[0].attributes('target')).toBe('_blank')
     })
 
     it('passport review: social icon 帶 platform brandColor', async () => {

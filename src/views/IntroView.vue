@@ -22,6 +22,7 @@ import { resolveAvatarSrc } from '@/utils/avatarSource'
 import { type SocialPlatform } from '@/constants/platforms'
 import PlatformSelect from '@/components/PlatformSelect.vue'
 import PassportCard from '@/components/PassportCard.vue'
+import PassportOverlay from '@/components/PassportOverlay.vue'
 import { validateSocialUrl } from '@/utils/socialUrlValidation'
 import lizardchiEgg from '@/assets/lizardchi.png'
 import defaultAvatarImg from '@/assets/avatars/default-avatar.png'
@@ -76,25 +77,19 @@ const drawCountdown = ref(5)
 // 顯示用秒數:clamp 下限 1，避免 interval 在 t=5s 跑到 0 時閃「0 秒」才跳轉
 const redirectCountdown = computed(() => Math.max(1, drawCountdown.value))
 
-// 護照放大遮罩（lightbox）：縮放/TAG「…」量測由 PassportCard 自管，這裡只管開關
+// 護照放大遮罩（lightbox）：遮罩 chrome / body lock / Escape / sticker→lightbox 由
+// PassportOverlay 自管，這裡只管開關 + 關閉後把焦點還給 trigger
 const zoomOpen = ref(false)
-const zoomCloseRef = ref<HTMLButtonElement | null>(null)
 const passportTriggerRef = ref<ComponentPublicInstance | null>(null)
 function openZoom(): void {
     if (zoomOpen.value) return
     zoomOpen.value = true
-    document.body.style.overflow = 'hidden'
-    void nextTick(() => zoomCloseRef.value?.focus())
 }
 function closeZoom(): void {
     if (!zoomOpen.value) return
     zoomOpen.value = false
-    document.body.style.overflow = ''
     // a11y：關閉後把焦點還給觸發放大的護照（trigger）
     void nextTick(() => (passportTriggerRef.value?.$el as HTMLElement | undefined)?.focus())
-}
-function onZoomKeydown(e: KeyboardEvent): void {
-    if (e.key === 'Escape' && zoomOpen.value) closeZoom()
 }
 
 // 已選平台的社群連結（供護照 PassportCard 顯示）
@@ -424,13 +419,10 @@ watch(defaultFurName, (nextFurName) => {
     furName.value = nextFurName
 })
 
-window.addEventListener('keydown', onZoomKeydown)
-
 onBeforeUnmount(() => {
     wizardActive.value = false
     avatarDraft.clearDraft()
     clearTimers()
-    window.removeEventListener('keydown', onZoomKeydown)
     document.body.style.overflow = ''
 })
 </script>
@@ -636,28 +628,17 @@ onBeforeUnmount(() => {
                         @keydown.enter.space.prevent="openZoom"
                     />
 
-                    <!-- 放大遮罩（lightbox）：teleport 到 body，全尺寸護照可捲動檢視 + 選取/複製文字 -->
-                    <Teleport to="body">
-                        <div v-if="zoomOpen" class="passport-overlay" data-test="passport-zoom" @click.self="closeZoom">
-                            <button
-                                ref="zoomCloseRef"
-                                type="button"
-                                class="passport-overlay__close"
-                                aria-label="關閉放大檢視"
-                                @click="closeZoom"
-                            >✕</button>
-                            <PassportCard
-                                class="passport-overlay__inner"
-                                :full="true"
-                                :fur-name="furName"
-                                :avatar-src="avatarPreviewSrc"
-                                :avatar-style="avatarPreviewStyle"
-                                :tags="previewTags"
-                                :socials="reviewSocials"
-                                :stickers="stickerManagerRef?.previews ?? []"
-                            />
-                        </div>
-                    </Teleport>
+                    <!-- 放大遮罩（lightbox）：共用 PassportOverlay（teleport 至 body + sticker→lightbox） -->
+                    <PassportOverlay
+                        :open="zoomOpen"
+                        :fur-name="furName"
+                        :avatar-src="avatarPreviewSrc"
+                        :avatar-style="avatarPreviewStyle"
+                        :tags="previewTags"
+                        :socials="reviewSocials"
+                        :stickers="stickerManagerRef?.previews ?? []"
+                        @close="closeZoom"
+                    />
 
                     <p v-if="submitError" class="intro-view__error-inline">{{ submitError }}</p>
                 </section>

@@ -37,4 +37,9 @@ describe('StickerTab', () => {
         expect(typeof vm.saveAll).toBe('function')
         expect('isDirty' in vm).toBe(true)
     })
+
+    it('內容置於水平垂直置中強調的 stage 容器', () => {
+        const wrapper = mount(StickerTab)
+        expect(wrapper.find('.sticker-tab__stage').exists()).toBe(true)
+    })
 })

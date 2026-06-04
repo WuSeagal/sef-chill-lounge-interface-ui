@@ -259,7 +259,8 @@ defineExpose({ isDirty, saveAll, avatarDraft })
 
         <div class="settings-tab__field">
             <label class="settings-tab__label">頭像</label>
-            <div class="settings-tab__avatar-row">
+            <div class="settings-tab__av-grid">
+                <!-- 左：頭像，hover 才浮出「＋」提示可上傳 -->
                 <div
                     class="settings-tab__avatar-photo-wrap"
                     title="點擊上傳/更換"
@@ -272,6 +273,7 @@ defineExpose({ isDirty, saveAll, avatarDraft })
                         alt="avatar"
                         :style="avatarPreviewStyle"
                     />
+                    <span class="settings-tab__av-plus" aria-hidden="true"><b>＋</b></span>
                 </div>
                 <input
                     ref="avatarInputRef"
@@ -280,30 +282,28 @@ defineExpose({ isDirty, saveAll, avatarDraft })
                     accept="image/png,image/jpeg,image/webp"
                     @change="onAvatarFileChange"
                 />
-            </div>
-        </div>
 
-        <div class="settings-tab__field">
-            <label class="settings-tab__label">顯示頭像外框</label>
-            <div class="settings-tab__border-row">
-                <div class="settings-tab__border-enable">
-                    <span class="settings-tab__sublabel">啟用</span>
-                    <ToggleSwitch
-                        data-test="avatar-border-toggle"
-                        aria-label="啟用頭像外框"
-                        :model-value="displayAvatarBorder"
-                        @update:model-value="stageAvatarBorder"
-                    />
-                </div>
-                <div v-if="displayAvatarBorder" class="settings-tab__border-color">
-                    <span class="settings-tab__sublabel">邊框顏色</span>
-                    <input
-                        class="settings-tab__color-input"
-                        type="color"
-                        :value="displayAvatarColor"
-                        @input="stageAvatarColor(($event.target as HTMLInputElement).value)"
-                    />
-                    <span class="settings-tab__color-value">{{ displayAvatarColor }}</span>
+                <!-- 右：頭像外框開關 + 邊框顏色（比照 onboarding） -->
+                <div class="settings-tab__av-right">
+                    <div class="settings-tab__av-row">
+                        <span class="settings-tab__sublabel">顯示頭像外框</span>
+                        <ToggleSwitch
+                            data-test="avatar-border-toggle"
+                            aria-label="啟用頭像外框"
+                            :model-value="displayAvatarBorder"
+                            @update:model-value="stageAvatarBorder"
+                        />
+                    </div>
+                    <div v-if="displayAvatarBorder" class="settings-tab__av-row">
+                        <span class="settings-tab__sublabel">邊框顏色</span>
+                        <input
+                            class="settings-tab__color-input"
+                            type="color"
+                            :value="displayAvatarColor"
+                            @input="stageAvatarColor(($event.target as HTMLInputElement).value)"
+                        />
+                        <span class="settings-tab__color-value">{{ displayAvatarColor }}</span>
+                    </div>
                 </div>
             </div>
         </div>

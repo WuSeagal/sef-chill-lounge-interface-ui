@@ -74,6 +74,10 @@ const avatarStyle = computed(() => ({
                 class="message-item__sticker"
                 :src="assetUrl(message.stickerImageUrl)"
                 alt=""
+                role="button"
+                tabindex="0"
+                @click="emit('image-click', message.stickerImageUrl)"
+                @keydown.enter.space.prevent="emit('image-click', message.stickerImageUrl)"
             />
         </div>
     </div>

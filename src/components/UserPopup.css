@@ -1,130 +1,28 @@
-.user-popup {
+/* /chat profile 現以共用 PassportOverlay 呈現（樣式見 PassportOverlay.css / PassportCard.css）。
+   此處僅保留 loading / error 狀態的輕量遮罩樣式。 */
+.user-popup-status {
     position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    z-index: 900;
-    background: var(--bubble-bg);
-    border: 1px solid var(--bubble-border);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-popup);
-    padding: var(--space-md);
-    min-width: 240px;
-    max-width: 320px;
-    font-family: var(--font-family-base);
-    color: var(--input-text);
-}
-
-.user-popup__header {
+    inset: 0;
+    z-index: 1000;
     display: flex;
-    align-items: center;
-    gap: var(--space-sm);
-    margin-bottom: var(--space-sm);
-}
-
-.user-popup__avatar {
-    flex: 0 0 auto;
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    background-color: var(--avatar-default-bg);
-    background-size: cover;
-    background-position: center;
-}
-
-.user-popup__nickname {
-    font-size: 1.1rem;
-    font-weight: 600;
-    margin: 0;
-}
-
-.user-popup__tag-block {
-    margin: var(--space-sm) 0 var(--space-md);
-}
-.user-popup__tag-title {
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--input-text);
-    letter-spacing: 1px;
-    display: block;
-    margin-bottom: var(--space-sm);
-}
-.user-popup__tag-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 7px 0;
-    min-height: 22px;
-}
-.user-popup__tag-row + .user-popup__tag-row {
-    border-top: 1px solid var(--bubble-border);
-}
-.user-popup__tag-row-label {
-    font-size: 0.82rem;
-    color: var(--input-text);
-    font-weight: 600;
-    flex-shrink: 0;
-    width: 56px;
-    padding-top: 3px;
-}
-.user-popup__tag-row-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    flex: 1;
-    min-width: 0;
-}
-.user-popup__tag-chip {
-    font-size: 0.78rem;
-    padding: 3px 10px;
-    border-radius: 999px;
-    background: var(--bottom-bar-bg);
-    color: var(--bottom-bar-icon);
-    white-space: nowrap;
-}
-
-.user-popup__socials {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.user-popup__social-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--input-text);
-    text-decoration: none;
-    font-size: 0.9rem;
-}
-
-.user-popup__social-link:hover {
-    text-decoration: underline;
-}
-
-.user-popup__social-icon {
-    display: inline-flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
-    width: 20px;
-    height: 20px;
-    border-radius: 4px;
-    padding: 2px;
-    color: #fff;
+    padding: 24px 16px;
+    background: rgba(40, 34, 22, 0.62);
 }
 
-.user-popup__social-icon svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-    fill: currentColor;
+.user-popup-status__box {
+    background: #f9f5e5;
+    border: 2px solid #6b5d3e;
+    border-radius: 14px;
+    padding: 22px 28px;
+    color: #4a4433;
+    font-weight: 600;
+    box-shadow: 0 16px 36px rgba(74, 68, 51, 0.22);
+    max-width: 320px;
+    text-align: center;
 }
 
-.user-popup__social-label {
-    flex: 1;
-    min-width: 0;
+.user-popup-status__box p {
+    margin: 0;
 }

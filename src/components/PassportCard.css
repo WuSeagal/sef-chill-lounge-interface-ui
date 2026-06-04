@@ -1,0 +1,433 @@
+/* PassportCard 自帶樣式（不依賴 IntroView.css 全域載入），讓護照在任何路由皆可獨立渲染。
+   護照以固定設計寬度 800 排版，由 JS transform: scale() 整體等比縮放。 */
+
+/* 等比例縮放容器：護照以固定設計寬度排版，再依此容器寬度整體 scale */
+.passport-fit {
+    width: 100%;
+    overflow: hidden;
+}
+
+.passport {
+    position: relative;
+    /* 固定設計寬度；窄於此時由 JS 以 transform: scale() 整體等比例縮小 */
+    width: 800px;
+    transform-origin: top left;
+    background: #f9f5e5;
+    border: 2px solid #6b5d3e;
+    border-radius: 16px;
+    box-shadow: 0 16px 36px rgba(74, 68, 51, 0.22);
+    padding: 18px;
+    overflow: hidden;
+}
+
+.passport::before {
+    content: '';
+    position: absolute;
+    inset: 9px;
+    border: 1.5px dashed #c3b78f;
+    border-radius: 11px;
+    pointer-events: none;
+}
+
+.ps-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1.5px solid #d7cdaf;
+    padding: 4px 8px 12px;
+    margin-bottom: 14px;
+}
+
+.ps-brand {
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: #4a4433;
+    font-size: 1.1rem;
+}
+
+.ps-kind {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #8c8672;
+    font-size: 0.72rem;
+    letter-spacing: 0.22em;
+    font-weight: 700;
+}
+
+.ps-bars {
+    display: flex;
+    gap: 2px;
+}
+
+.ps-bars i {
+    width: 2px;
+    height: 18px;
+    background: #6b5d3e;
+    display: block;
+}
+
+.ps-bars i:nth-child(2n) {
+    height: 12px;
+    opacity: 0.6;
+}
+
+.ps-bars i:nth-child(3n) {
+    height: 22px;
+}
+
+.ps-body {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 32px;
+    padding: 2px 10px 6px;
+    /* 護照高度釘在「正常都有（avatar+tags+socials+stickers）」高度，
+       讓有/無貼圖、有/無 TAG 都等高（min-height 不夾，內容更高時仍可長） */
+    min-height: 240px;
+}
+
+.ps-left {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.ps-photo-wrap {
+    position: relative;
+    align-self: flex-start;
+}
+
+.ps-photo {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    object-fit: cover;
+    object-position: center;
+    background: #8c8672;
+    display: block;
+}
+
+.ps-photo-tick {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #6b5d3e;
+}
+
+.tick-tl {
+    top: -6px;
+    left: -6px;
+    border-right: 0;
+    border-bottom: 0;
+}
+
+.tick-br {
+    bottom: -6px;
+    right: -6px;
+    border-left: 0;
+    border-top: 0;
+}
+
+.ps-tags {
+    margin-top: 18px;
+    min-width: 0;
+}
+
+.ps-tags-label,
+.ps-stk-label {
+    font-size: 0.66rem;
+    letter-spacing: 0.18em;
+    color: #a59b7d;
+    font-weight: 700;
+    margin: 0 0 7px;
+    text-transform: uppercase;
+}
+
+/* scroll affordance 共用容器：包住可捲動區，上/下還有內容時以「漸層淡出 + 箭頭」提示。
+   漸層由 ::before/::after 疊在容器邊緣；箭頭為內部絕對定位元素。 */
+.ps-scroll-wrap {
+    position: relative;
+    min-width: 0;
+}
+
+.ps-scroll-wrap::before,
+.ps-scroll-wrap::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 26px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 3;
+}
+
+.ps-scroll-wrap::before {
+    top: 0;
+    background: linear-gradient(to bottom, #f9f5e5 10%, rgba(249, 245, 229, 0));
+}
+
+.ps-scroll-wrap::after {
+    bottom: 0;
+    background: linear-gradient(to top, #f9f5e5 10%, rgba(249, 245, 229, 0));
+}
+
+.ps-scroll-wrap--cue-top::before {
+    opacity: 1;
+}
+
+.ps-scroll-wrap--cue-bottom::after {
+    opacity: 1;
+}
+
+.ps-scroll-arrow {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.6rem;
+    line-height: 1;
+    color: #8c8672;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    z-index: 4;
+}
+
+.ps-scroll-arrow--top {
+    top: 1px;
+}
+
+.ps-scroll-arrow--bottom {
+    bottom: 1px;
+}
+
+.ps-scroll-wrap--cue-top .ps-scroll-arrow--top {
+    opacity: 0.85;
+}
+
+.ps-scroll-wrap--cue-bottom .ps-scroll-arrow--bottom {
+    opacity: 0.85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ps-scroll-wrap::before,
+    .ps-scroll-wrap::after,
+    .ps-scroll-arrow {
+        transition: none;
+    }
+}
+
+/* TAG 改為依型別分組的 prefix 行（我是…/我會…），唯讀。
+   .ps-tag-scroll 為可獨立捲動容器；scroll affordance 由外層 .ps-scroll-wrap 提示。 */
+.ps-tag-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 168px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.ps-tag-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+}
+
+.ps-tag-prefix {
+    flex: 0 0 auto;
+    font-size: 0.74rem;
+    font-weight: 800;
+    color: #8c8672;
+    white-space: nowrap;
+}
+
+.ps-tag-row-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-width: 0;
+}
+
+.ps-chip {
+    background: #efe7cf;
+    border: 1px solid #d7cdaf;
+    color: #5a5340;
+    font-size: 0.74rem;
+    font-weight: 600;
+    height: 26px;
+    box-sizing: border-box;
+    padding: 0 10px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.ps-right {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.ps-furname-label {
+    font-size: 0.66rem;
+    letter-spacing: 0.26em;
+    color: #a59b7d;
+    font-weight: 700;
+    margin: 0 0 2px;
+    text-align: left;
+    text-transform: uppercase;
+}
+
+.ps-furname {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #3f3a2c;
+    margin: 0;
+    line-height: 1.1;
+}
+
+.ps-section-line {
+    height: 1px;
+    background: #e3dabf;
+}
+
+/* social / sticker 各保留固定 slot 高度，讓兩區位置固定 */
+.ps-block--social {
+    min-height: 100px;
+    min-width: 0;
+}
+
+.ps-block--stickers {
+    min-height: 64px;
+}
+
+.ps-social-label {
+    font-size: 0.66rem;
+    letter-spacing: 0.18em;
+    color: #a59b7d;
+    font-weight: 700;
+    margin: 0 0 8px;
+    text-transform: uppercase;
+}
+
+.ps-social {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+/* 社群連結全部顯示且可捲動（scroll affordance 由 PassportOverlay 在 full 模式套用） */
+.ps-social-scroll {
+    max-height: 132px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.ps-social-link {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #5a5340;
+    font-size: 0.82rem;
+    text-decoration: none;
+    min-width: 0;
+}
+
+.ps-social-link:hover .ps-handle {
+    text-decoration: underline;
+}
+
+.ps-social-link:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(140, 134, 114, 0.55);
+    border-radius: 6px;
+}
+
+.ps-ic {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #f9f5e5;
+    flex: 0 0 auto;
+    overflow: hidden;
+}
+
+.ps-ic svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
+}
+
+.ps-handle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ps-stickers {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    position: relative;
+    z-index: 2;
+}
+
+.ps-sticker {
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
+    background: #efe7cf;
+    border: 1px solid #d7cdaf;
+    object-fit: contain;
+    cursor: zoom-in;
+}
+
+.ps-sticker:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(140, 134, 114, 0.6);
+}
+
+.ps-stamp {
+    position: absolute;
+    right: 24px;
+    bottom: 18px;
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    border: 3px dashed #b5483b;
+    color: #b5483b;
+    transform: rotate(-15deg);
+    opacity: 0.5;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    pointer-events: none;
+    line-height: 1.3;
+}
+
+.ps-stamp-l1 {
+    font-size: 0.72rem;
+}
+
+.ps-stamp-l2 {
+    font-size: 0.48rem;
+}
+
+.ps-stamp-l3 {
+    font-size: 0.54rem;
+}

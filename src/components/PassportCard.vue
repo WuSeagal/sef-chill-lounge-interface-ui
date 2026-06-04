@@ -1,20 +1,23 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
+import './PassportCard.css'
 import { PLATFORMS, type SocialPlatform } from '@/constants/platforms'
+import { TagType, TAG_TYPE_ORDER, TAG_TYPE_PREFIX, type Tag } from '@/types/user'
+import { useScrollEdges } from '@/composables/useScrollEdges'
 
 /**
  * 護照卡（review 確認頁 + 放大遮罩共用）。固定設計寬度 800，依容器寬度整體等比例縮放
  * （transform: scale，寬高+內容一起縮，不重排）。full=true 時以全尺寸 scale 1 呈現（放大遮罩用）。
- * ps-* 樣式來自 IntroView.css（全域載入；本元件僅在 IntroView 內使用）。
+ * 樣式自帶於 PassportCard.css（不依賴 IntroView.css 全域載入），確保任何路由皆可獨立渲染。
+ * TAG 區依 TagType 分組以 prefix 行（我是…/我會…）唯讀呈現；社群連結全部顯示且可點開。
  */
-interface TagItem { tagId: string; content: string }
 interface SocialItem { platform: string; links: string }
 
 const props = withDefaults(defineProps<{
   furName: string
   avatarSrc: string
   avatarStyle?: CSSProperties
-  tags?: TagItem[]
+  tags?: Tag[]
   socials?: SocialItem[]
   stickers?: string[]
   full?: boolean
@@ -26,21 +29,41 @@ const props = withDefaults(defineProps<{
   full: false,
 })
 
+const emit = defineEmits<{
+  (e: 'sticker-click', url: string): void
+}>()
+
 const DESIGN_W = 800
 const fitRef = ref<HTMLElement | null>(null)
 const cardRef = ref<HTMLElement | null>(null)
-const chiprowRef = ref<HTMLElement | null>(null)
-const tagsClipped = ref(false)
 let ro: ResizeObserver | null = null
 
-const platformMeta = (p: string) => PLATFORMS[p as SocialPlatform] ?? PLATFORMS.OTHER
-const shownSocials = computed(() => props.socials.slice(0, 3))
-const hasMoreSocials = computed(() => props.socials.length > 3)
-
-function measureTags(): void {
-  const el = chiprowRef.value
-  tagsClipped.value = !!el && el.scrollHeight > el.clientHeight + 1
+// scroll affordance：TAG 區 / 社群區各自獨立捲動，上/下還有內容時顯示漸層 + 箭頭
+const tagScrollRef = ref<HTMLElement | null>(null)
+const socialScrollRef = ref<HTMLElement | null>(null)
+const { edges: tagEdges, update: updateTagEdges } = useScrollEdges(tagScrollRef)
+const { edges: socialEdges, update: updateSocialEdges } = useScrollEdges(socialScrollRef)
+function refreshEdges(): void {
+  updateTagEdges()
+  updateSocialEdges()
 }
+
+const platformMeta = (p: string) => PLATFORMS[p as SocialPlatform] ?? PLATFORMS.OTHER
+
+// TAG 依型別分組（沿用 UserPopup 慣例）：同型別歸一行，行首顯示 prefix（CUSTOM 無 prefix）
+const groupedTags = computed<Record<TagType, Tag[]>>(() => {
+  const acc: Record<TagType, Tag[]> = {
+    [TagType.ROLE]: [], [TagType.LANGUAGE]: [], [TagType.FRAMEWORK]: [],
+    [TagType.DATABASE]: [], [TagType.DEVOPS]: [], [TagType.CUSTOM]: [],
+  }
+  for (const t of props.tags) {
+    if (acc[t.type]) acc[t.type].push(t)
+  }
+  return acc
+})
+const visibleTagTypes = computed(() => TAG_TYPE_ORDER.filter(type => groupedTags.value[type].length > 0))
+const tagPrefix = (type: TagType): string | undefined => TAG_TYPE_PREFIX[type]
+
 function fit(): void {
   const card = cardRef.value
   const fitEl = fitRef.value
@@ -51,21 +74,17 @@ function fit(): void {
   fitEl.style.height = `${card.offsetHeight * scale}px`
   if (props.full) fitEl.style.width = `${DESIGN_W * scale}px`
 }
-function refresh(): void {
-  measureTags()
-  void nextTick(fit)
-}
 
 onMounted(() => {
-  refresh()
+  void nextTick(() => { fit(); refreshEdges() })
   if (typeof ResizeObserver !== 'undefined' && fitRef.value) {
-    ro = new ResizeObserver(() => refresh())
+    ro = new ResizeObserver(() => void nextTick(() => { fit(); refreshEdges() }))
     ro.observe(fitRef.value)
   }
 })
 watch(
   () => [props.furName, props.tags, props.socials, props.stickers, props.full] as const,
-  () => void nextTick(refresh),
+  () => void nextTick(() => { fit(); refreshEdges() }),
   { deep: true },
 )
 onBeforeUnmount(() => {
@@ -98,10 +117,29 @@ onBeforeUnmount(() => {
           </div>
           <div v-if="tags.length > 0" class="ps-tags">
             <p class="ps-tags-label">TAGS</p>
-            <div ref="chiprowRef" class="ps-chiprow">
-              <span v-for="tag in tags" :key="tag.tagId" class="ps-chip">{{ tag.content }}</span>
+            <div
+              class="ps-scroll-wrap"
+              :class="{
+                'ps-scroll-wrap--cue-top': tagEdges.overflowing && !tagEdges.atTop,
+                'ps-scroll-wrap--cue-bottom': tagEdges.overflowing && !tagEdges.atBottom,
+              }"
+            >
+              <div ref="tagScrollRef" class="ps-tag-scroll" data-test="review-tags">
+                <div
+                  v-for="type in visibleTagTypes"
+                  :key="type"
+                  class="ps-tag-row"
+                  :class="{ 'ps-tag-row--custom': type === TagType.CUSTOM }"
+                >
+                  <span v-if="tagPrefix(type)" class="ps-tag-prefix">{{ tagPrefix(type) }}</span>
+                  <span class="ps-tag-row-chips">
+                    <span v-for="tag in groupedTags[type]" :key="tag.tagId" class="ps-chip">{{ tag.content }}</span>
+                  </span>
+                </div>
+              </div>
+              <span class="ps-scroll-arrow ps-scroll-arrow--top" aria-hidden="true">▲</span>
+              <span class="ps-scroll-arrow ps-scroll-arrow--bottom" aria-hidden="true">▼</span>
             </div>
-            <span v-if="tagsClipped" class="ps-tags-more" data-test="review-tags-more">…</span>
           </div>
         </div>
 
@@ -115,24 +153,50 @@ onBeforeUnmount(() => {
           <div class="ps-block ps-block--social">
             <template v-if="socials.length > 0">
               <p class="ps-social-label">SOCIAL LINKS</p>
-              <ul class="ps-social" data-test="review-socials">
-                <li v-for="link in shownSocials" :key="link.platform + link.links">
-                  <span
-                    class="ps-ic"
-                    :style="{ background: platformMeta(link.platform).brandColor }"
-                    v-html="platformMeta(link.platform).icon"
-                  ></span>
-                  <span class="ps-handle">{{ link.links }}</span>
-                </li>
-                <li v-if="hasMoreSocials" class="ps-more" data-test="review-socials-more">more...</li>
-              </ul>
+              <div
+                class="ps-scroll-wrap"
+                :class="{
+                  'ps-scroll-wrap--cue-top': socialEdges.overflowing && !socialEdges.atTop,
+                  'ps-scroll-wrap--cue-bottom': socialEdges.overflowing && !socialEdges.atBottom,
+                }"
+              >
+                <ul ref="socialScrollRef" class="ps-social ps-social-scroll" data-test="review-socials">
+                  <li v-for="link in socials" :key="link.platform + link.links">
+                    <a
+                      class="ps-social-link"
+                      :href="link.links"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <span
+                        class="ps-ic"
+                        :style="{ background: platformMeta(link.platform).brandColor }"
+                        v-html="platformMeta(link.platform).icon"
+                      ></span>
+                      <span class="ps-handle">{{ link.links }}</span>
+                    </a>
+                  </li>
+                </ul>
+                <span class="ps-scroll-arrow ps-scroll-arrow--top" aria-hidden="true">▲</span>
+                <span class="ps-scroll-arrow ps-scroll-arrow--bottom" aria-hidden="true">▼</span>
+              </div>
             </template>
           </div>
           <div class="ps-block ps-block--stickers">
             <template v-if="stickers.length > 0">
               <p class="ps-stk-label">STICKERS</p>
               <div class="ps-stickers">
-                <img v-for="(url, i) in stickers" :key="i" class="ps-sticker" :src="url" alt="sticker" />
+                <img
+                  v-for="(url, i) in stickers"
+                  :key="i"
+                  class="ps-sticker"
+                  :src="url"
+                  alt="sticker"
+                  role="button"
+                  tabindex="0"
+                  @click="emit('sticker-click', url)"
+                  @keydown.enter.space.prevent="emit('sticker-click', url)"
+                />
               </div>
             </template>
           </div>

@@ -110,4 +110,5 @@
     margin-top: 4px;
     border-radius: var(--radius-sm);
     object-fit: contain;
+    cursor: zoom-in;
 }

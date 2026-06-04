@@ -1,0 +1,43 @@
+/* 放大護照遮罩（lightbox）：半透明背景 + 全尺寸護照，可捲動檢視、選取/複製文字。
+   由 PassportOverlay.vue 自帶，onboarding review 放大與 /chat profile 共用。 */
+.passport-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(40, 34, 22, 0.62);
+    display: flex;
+    padding: 24px 16px;
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+
+.passport-overlay__inner {
+    margin: auto;
+    flex: none;
+}
+
+.passport-overlay__close {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: #f9f5e5;
+    color: #4a4433;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 1001;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.passport-overlay__close:hover {
+    background: #ebe3ce;
+}
+
+.passport-overlay__close:focus-visible {
+    outline: none;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(140, 134, 114, 0.65);
+}

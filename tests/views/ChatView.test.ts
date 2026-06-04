@@ -170,13 +170,15 @@ describe('ChatView', () => {
         expect(wrapper.text()).toContain('目前沒有訊息')
     })
 
-    it('opens UserPopup with the correct user when an avatar is clicked', async () => {
+    it('opens the passport profile overlay with the correct user when an avatar is clicked', async () => {
         const wrapper = mount(ChatView, { attachTo: document.body })
         await wrapper.findAll('.message-item__avatar')[0].trigger('click')
         await flushPromises()
+        await nextTick()
 
-        expect(wrapper.find('.user-popup').exists()).toBe(true)
-        expect(wrapper.find('.user-popup').text()).toContain('毛毛')
+        const overlay = document.body.querySelector('.passport-overlay')
+        expect(overlay).not.toBeNull()
+        expect(overlay!.textContent).toContain('毛毛')
         wrapper.unmount()
     })
 

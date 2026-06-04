@@ -16,10 +16,12 @@ async function onRedraw(): Promise<void> {
 
 <template>
     <div class="topic-card-tab" data-test="topic-card-tab">
-        <h3 class="topic-card-tab__title">話題卡</h3>
-        <p class="topic-card-tab__hint">每張話題卡會顯示在 Dashboard 與 ChatView。重抽即時生效</p>
-        <div class="topic-card-tab__card">
-            <span class="topic-card-tab__content">{{ topicContent || '(未抽取)' }}</span>
+        <div class="topic-card-tab__stage">
+            <h3 class="topic-card-tab__title">話題卡</h3>
+            <p class="topic-card-tab__hint">每張話題卡會顯示在 Dashboard 與 ChatView。重抽即時生效</p>
+            <div class="topic-card-tab__card">
+                <span class="topic-card-tab__content">{{ topicContent || '(未抽取)' }}</span>
+            </div>
             <button
                 type="button"
                 class="topic-card-tab__redraw"

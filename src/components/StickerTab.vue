@@ -35,14 +35,16 @@ defineExpose({ isDirty, saveAll })
 
 <template>
     <div class="sticker-tab" data-test="sticker-tab">
-        <h3 class="sticker-tab__title">自訂貼圖</h3>
-        <StickerManager ref="managerRef" :initial="initial" :key="initial.length" />
-        <button
-            class="sticker-tab__save"
-            type="button"
-            data-test="sticker-save"
-            :disabled="!isDirty || saving"
-            @click="onSave"
-        >{{ saving ? '儲存中…' : '儲存貼圖' }}</button>
+        <div class="sticker-tab__stage">
+            <h3 class="sticker-tab__title">自訂貼圖</h3>
+            <StickerManager ref="managerRef" :initial="initial" :key="initial.length" />
+            <button
+                class="sticker-tab__save"
+                type="button"
+                data-test="sticker-save"
+                :disabled="!isDirty || saving"
+                @click="onSave"
+            >{{ saving ? '儲存中…' : '儲存貼圖' }}</button>
+        </div>
     </div>
 </template>

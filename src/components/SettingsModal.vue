@@ -10,11 +10,11 @@ import DonateTab from './DonateTab.vue'
 type TabId = 'settings' | 'sticker' | 'topic' | 'feedback' | 'donate'
 
 const TABS: { id: TabId; label: string }[] = [
-    { id: 'settings', label: '設定' },
-    { id: 'sticker', label: '貼圖' },
-    { id: 'topic', label: '話題卡' },
-    { id: 'feedback', label: '回饋' },
-    { id: 'donate', label: '斗內' },
+    { id: 'settings', label: '個人資料' },
+    { id: 'sticker', label: '貼圖設定' },
+    { id: 'topic', label: '重抽話題卡' },
+    { id: 'feedback', label: '意見回饋' },
+    { id: 'donate', label: '斗內連結' },
 ]
 
 const props = defineProps<{ open: boolean }>()
@@ -83,8 +83,14 @@ onBeforeUnmount(() => {
     <Transition name="settings-modal">
         <div v-if="open" class="settings-modal" @click="attemptClose">
             <div class="settings-modal__panel" @click.stop>
-                <div class="settings-modal__header">
-                    <div class="settings-modal__tabs" role="tablist">
+                <button
+                    class="settings-modal__close"
+                    type="button"
+                    aria-label="close"
+                    @click="attemptClose"
+                >&#x2715;</button>
+                <div class="settings-modal__layout">
+                    <nav class="settings-modal__rail" role="tablist" aria-label="設定分頁">
                         <button
                             v-for="tab in TABS"
                             :key="tab.id"
@@ -95,20 +101,14 @@ onBeforeUnmount(() => {
                             :aria-selected="tab.id === activeTab"
                             @click="attemptSwitch(tab.id)"
                         >{{ tab.label }}</button>
+                    </nav>
+                    <div class="settings-modal__body">
+                        <SettingsTab v-if="activeTab === 'settings'" ref="settingsTabRef" />
+                        <StickerTab v-if="activeTab === 'sticker'" ref="stickerTabRef" />
+                        <TopicCardTab v-if="activeTab === 'topic'" />
+                        <FeedbackTab v-if="activeTab === 'feedback'" />
+                        <DonateTab v-if="activeTab === 'donate'" />
                     </div>
-                    <button
-                        class="settings-modal__close"
-                        type="button"
-                        aria-label="close"
-                        @click="attemptClose"
-                    >&#x2715;</button>
-                </div>
-                <div class="settings-modal__body">
-                    <SettingsTab v-if="activeTab === 'settings'" ref="settingsTabRef" />
-                    <StickerTab v-if="activeTab === 'sticker'" ref="stickerTabRef" />
-                    <TopicCardTab v-if="activeTab === 'topic'" />
-                    <FeedbackTab v-if="activeTab === 'feedback'" />
-                    <DonateTab v-if="activeTab === 'donate'" />
                 </div>
             </div>
         </div>
