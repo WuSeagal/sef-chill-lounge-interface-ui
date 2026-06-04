@@ -174,17 +174,22 @@ describe('SettingsTab — staged save', () => {
         expect(wrapper.find('.settings-tab__file-input').attributes('accept')).toBe('image/png,image/jpeg,image/webp')
     })
 
-    it('有 staged avatar 時顯示重新裁切與更換圖片', async () => {
-        const wrapper = mount(SettingsTab)
+    it('點頭像即開啟檔案選擇（與 onboarding 一致，無更換圖片/重新裁切按鈕）', async () => {
+        const wrapper = mount(SettingsTab, { attachTo: document.body })
         await flushPromises()
 
-        await (wrapper.vm as any).avatarDraft.setCroppedResult(
-            new File(['demo'], 'avatar.png', { type: 'image/png' }),
-        )
-        await flushPromises()
+        // 不再有獨立的更換圖片 / 重新裁切按鈕
+        expect(wrapper.text()).not.toContain('更換圖片')
+        expect(wrapper.text()).not.toContain('重新裁切')
+        expect(wrapper.text()).not.toContain('上傳圖片')
 
-        expect(wrapper.text()).toContain('更換圖片')
-        expect(wrapper.text()).toContain('重新裁切')
+        // 點頭像會開啟 file input
+        const fileInput = wrapper.find('.settings-tab__file-input').element as HTMLInputElement
+        const clickSpy = vi.spyOn(fileInput, 'click')
+        await wrapper.find('[data-test="settings-avatar-photo"]').trigger('click')
+        expect(clickSpy).toHaveBeenCalled()
+
+        wrapper.unmount()
     })
 
     it('裁切確認後只更新預覽,不立即 upload avatar', async () => {

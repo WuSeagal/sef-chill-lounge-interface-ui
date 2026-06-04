@@ -11,6 +11,20 @@
     justify-content: center;
     cursor: pointer;
     padding: 0;
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.circle-close:hover {
+    background: #837a66;
+}
+
+.circle-close:active {
+    transform: scale(0.92);
+}
+
+.circle-close:focus-visible {
+    outline: none;
+    box-shadow: 0 1px 3px rgba(74, 68, 51, 0.25), 0 0 0 3px rgba(140, 134, 114, 0.55);
 }
 
 .circle-close svg {

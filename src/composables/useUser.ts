@@ -25,9 +25,9 @@ export type UseUserReturn = {
     createProfile: (body: CreateProfileRequest) => Promise<void>
     updateProfile: (body: UpdateProfileRequest) => Promise<void>
     redrawTopicCard: () => Promise<void>
-    addTag: (body: AddTagRequest) => Promise<void>
+    addTag: (body: AddTagRequest) => Promise<boolean>
     removeTag: (tagId: string) => Promise<void>
-    addSocialLink: (body: AddSocialLinkRequest) => Promise<void>
+    addSocialLink: (body: AddSocialLinkRequest) => Promise<boolean>
     removeSocialLink: (id: number) => Promise<void>
 }
 
@@ -102,19 +102,22 @@ export function useUser(): UseUserReturn {
         }
     }
 
-    async function addTag(body: AddTagRequest): Promise<void> {
+    // 回傳是否成功（呼叫端可據此提示；失敗時設 error 但不 rethrow，維持 best-effort 流程）
+    async function addTag(body: AddTagRequest): Promise<boolean> {
         // 前端 dup 檢查（依 spec），後端的 409 為 race-condition 兜底
         if (body.tagId && profile.value?.tags?.some(t => t.tagId === body.tagId)) {
             error.value = '已新增過此 tag'
-            return
+            return true
         }
         try {
             const created: Tag = await userApi.addTag(body)
             if (profile.value) {
                 profile.value.tags = [...(profile.value.tags ?? []), created]
             }
+            return true
         } catch (e: any) {
             error.value = e?.response?.data?.message ?? '新增 tag 失敗'
+            return false
         }
     }
 
@@ -129,14 +132,16 @@ export function useUser(): UseUserReturn {
         }
     }
 
-    async function addSocialLink(body: AddSocialLinkRequest): Promise<void> {
+    async function addSocialLink(body: AddSocialLinkRequest): Promise<boolean> {
         try {
             const created: Social = await userApi.addSocialLink(body)
             if (profile.value) {
                 profile.value.socials = [...(profile.value.socials ?? []), created]
             }
+            return true
         } catch (e: any) {
             error.value = e?.response?.data?.message ?? '新增社群連結失敗'
+            return false
         }
     }
 

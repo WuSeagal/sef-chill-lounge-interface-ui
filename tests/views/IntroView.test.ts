@@ -7,6 +7,15 @@ vi.mock('@/api/userApi', () => ({
     fetchSelectableTags: vi.fn(),
 }))
 
+const pushWarningSpy = vi.fn()
+vi.mock('notivue', () => ({
+    push: {
+        warning: (...args: unknown[]) => pushWarningSpy(...args),
+        success: vi.fn(),
+        error: vi.fn(),
+    },
+}))
+
 const { uploadAvatarMock, stickerSaveAllSpy, stickerClearSpy } = vi.hoisted(() => ({
     uploadAvatarMock: vi.fn().mockResolvedValue({ avatarPath: '/user/u-uploaded.png' }),
     stickerSaveAllSpy: vi.fn().mockResolvedValue(undefined),
@@ -31,8 +40,8 @@ vi.mock('@/components/StickerManager.vue', () => ({
 const createProfileMock = vi.fn().mockImplementation(async () => {
     needsOnboardingRef.value = false
 })
-const addTagMock = vi.fn().mockResolvedValue(undefined)
-const addSocialLinkMock = vi.fn().mockResolvedValue(undefined)
+const addTagMock = vi.fn().mockResolvedValue(true)
+const addSocialLinkMock = vi.fn().mockResolvedValue(true)
 const fetchProfileMock = vi.fn().mockResolvedValue(undefined)
 const redrawTopicCardMock = vi.fn().mockImplementation(async () => {
     profileRef.value = {
@@ -773,6 +782,43 @@ describe('IntroView', () => {
         await flushPromises()
 
         expect(addSocialLinkMock).toHaveBeenCalledWith({ platform: 'X', links: 'https://x.com/googlefox' })
+    })
+
+    it('confirm 時 addSocialLink 失敗 → 顯示 toast，但 profile 仍建立（best-effort）', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+        addSocialLinkMock.mockResolvedValueOnce(false)
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        // nickname → avatar(skip) → tags(skip) → socials
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=later-edit]').trigger('click')
+        await flushPromises()
+
+        await wrapper.find('[data-test=add-social-link]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=social-platform-0]').setValue('X')
+        await wrapper.find('[data-test=social-url-0]').setValue('https://x.com/googlefox')
+        await flushPromises()
+
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=next-step]').trigger('click')
+        await flushPromises()
+
+        await wrapper.find('[data-test=confirm-create]').trigger('click')
+        await flushPromises()
+
+        expect(addSocialLinkMock).toHaveBeenCalledTimes(1)
+        expect(pushWarningSpy).toHaveBeenCalled()
+        // best-effort：profile 仍建立
+        expect(createProfileMock).toHaveBeenCalledTimes(1)
     })
 
     // =========================================================

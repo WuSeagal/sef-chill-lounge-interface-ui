@@ -40,6 +40,18 @@
     flex-wrap: wrap;
 }
 
+/* 點頭像即可上傳/更換（與 onboarding 證件照頁一致，不再有獨立按鈕） */
+.settings-tab__avatar-photo-wrap {
+    cursor: pointer;
+    border-radius: 50%;
+    line-height: 0;
+    transition: opacity 0.15s ease;
+}
+
+.settings-tab__avatar-photo-wrap:hover {
+    opacity: 0.85;
+}
+
 .settings-tab__avatar-img {
     width: 64px;
     height: 64px;
@@ -71,17 +83,6 @@
 .settings-tab__sublabel {
     font-size: 0.85rem;
     color: var(--input-text);
-}
-
-.settings-tab__avatar-upload {
-    font-size: 0.85rem;
-    min-width: 92px;
-}
-
-.settings-tab__avatar-recrop {
-    background: rgba(255, 255, 255, 0.82);
-    color: var(--input-text);
-    border: 1px solid var(--bubble-border);
 }
 
 .settings-tab__color-row {

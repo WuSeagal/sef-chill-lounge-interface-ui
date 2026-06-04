@@ -52,8 +52,6 @@ const displayAvatarColor = computed(() =>
 const displayAvatarBorder = computed(() =>
     draftAvatarBorder.value ?? user.profile.value?.avatarBorder ?? false)
 const avatarSrc = computed(() => avatarDraft.previewUrl.value ?? resolveAvatarSrc(user.profile.value?.avatar))
-const hasRecroppableAvatar = computed(() => avatarDraft.file.value !== null)
-const avatarButtonLabel = computed(() => (avatarDraft.previewUrl.value || user.profile.value?.avatar) ? '更換圖片' : '上傳圖片')
 const avatarPreviewStyle = computed(() =>
     buildAvatarRingStyle(displayAvatarColor.value, displayAvatarBorder.value, 'lg'))
 
@@ -120,10 +118,6 @@ void loadSelectable()
 
 function openAvatarPicker(): void {
     avatarInputRef.value?.click()
-}
-
-function reopenAvatarCrop(): void {
-    avatarDraft.reopenCrop()
 }
 
 function onAvatarFileChange(event: Event): void {
@@ -265,23 +259,19 @@ defineExpose({ isDirty, saveAll, avatarDraft })
         <div class="settings-tab__field">
             <label class="settings-tab__label">頭像</label>
             <div class="settings-tab__avatar-row">
-                <img
-                    class="settings-tab__avatar-img"
-                    :src="avatarSrc"
-                    alt="avatar"
-                    :style="avatarPreviewStyle"
-                />
-                <button
-                    type="button"
-                    class="settings-tab__btn settings-tab__avatar-upload"
+                <div
+                    class="settings-tab__avatar-photo-wrap"
+                    title="點擊上傳/更換"
+                    data-test="settings-avatar-photo"
                     @click="openAvatarPicker"
-                >{{ avatarButtonLabel }}</button>
-                <button
-                    v-if="hasRecroppableAvatar"
-                    type="button"
-                    class="settings-tab__btn settings-tab__avatar-upload settings-tab__avatar-recrop"
-                    @click="reopenAvatarCrop"
-                >重新裁切</button>
+                >
+                    <img
+                        class="settings-tab__avatar-img"
+                        :src="avatarSrc"
+                        alt="avatar"
+                        :style="avatarPreviewStyle"
+                    />
+                </div>
                 <input
                     ref="avatarInputRef"
                     class="settings-tab__file-input"

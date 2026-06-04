@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { push } from 'notivue'
 import './IntroView.css'
 import { fetchSelectableTags } from '@/api/userApi'
 import { uploadAvatar } from '@/api/avatarUploadApi'
@@ -310,18 +311,25 @@ async function confirmProfileSetup(): Promise<void> {
             avatarBorder: avatarStepConfigured ? avatarBorder.value : undefined,
         })
 
+        // tag / 社群連結為 best-effort：addTag/addSocialLink 失敗只設 user.error 不 rethrow（profile 仍建立）。
+        // 收集是否有失敗，最後以 toast 提示，避免白名單後變成完全靜默。
+        let anyExtraFailed = false
         const { toAdd, toCreate } = tagEditorState.diff([])
         for (const tagId of toAdd) {
-            await user.addTag({ tagId })
+            if (!await user.addTag({ tagId })) anyExtraFailed = true
         }
         for (const t of toCreate) {
-            await user.addTag({ type: t.type, content: t.content })
+            if (!await user.addTag({ type: t.type, content: t.content })) anyExtraFailed = true
         }
 
         for (const socialLink of selectedSocialLinks.value) {
             if (socialLink.platform) {
-                await user.addSocialLink({ platform: socialLink.platform, links: socialLink.links })
+                if (!await user.addSocialLink({ platform: socialLink.platform, links: socialLink.links })) anyExtraFailed = true
             }
+        }
+
+        if (anyExtraFailed) {
+            push.warning('部分標籤或社群連結新增失敗，資料已建立，可稍後於設定補上')
         }
 
         if (!skippedStepKeys.value.includes('stickers') && stickerManagerRef.value?.isDirty) {
