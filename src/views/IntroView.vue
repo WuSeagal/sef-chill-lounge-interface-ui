@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch, type ComponentPublicInstance } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { push } from 'notivue'
@@ -19,7 +19,9 @@ import ToggleSwitch from '@/components/ToggleSwitch.vue'
 import { TAG_TYPE_ORDER, TagType, type GroupedTags, type Tag } from '@/types/user'
 import { buildAvatarRingStyle } from '@/utils/avatarRing'
 import { resolveAvatarSrc } from '@/utils/avatarSource'
-import { PLATFORM_LIST, PLATFORMS, type SocialPlatform } from '@/constants/platforms'
+import { type SocialPlatform } from '@/constants/platforms'
+import PlatformSelect from '@/components/PlatformSelect.vue'
+import PassportCard from '@/components/PassportCard.vue'
 import { validateSocialUrl } from '@/utils/socialUrlValidation'
 import lizardchiEgg from '@/assets/lizardchi.png'
 import defaultAvatarImg from '@/assets/avatars/default-avatar.png'
@@ -73,6 +75,30 @@ const drawError = ref<string | null>(null)
 const drawCountdown = ref(5)
 // 顯示用秒數:clamp 下限 1，避免 interval 在 t=5s 跑到 0 時閃「0 秒」才跳轉
 const redirectCountdown = computed(() => Math.max(1, drawCountdown.value))
+
+// 護照放大遮罩（lightbox）：縮放/TAG「…」量測由 PassportCard 自管，這裡只管開關
+const zoomOpen = ref(false)
+const zoomCloseRef = ref<HTMLButtonElement | null>(null)
+const passportTriggerRef = ref<ComponentPublicInstance | null>(null)
+function openZoom(): void {
+    if (zoomOpen.value) return
+    zoomOpen.value = true
+    document.body.style.overflow = 'hidden'
+    void nextTick(() => zoomCloseRef.value?.focus())
+}
+function closeZoom(): void {
+    if (!zoomOpen.value) return
+    zoomOpen.value = false
+    document.body.style.overflow = ''
+    // a11y：關閉後把焦點還給觸發放大的護照（trigger）
+    void nextTick(() => (passportTriggerRef.value?.$el as HTMLElement | undefined)?.focus())
+}
+function onZoomKeydown(e: KeyboardEvent): void {
+    if (e.key === 'Escape' && zoomOpen.value) closeZoom()
+}
+
+// 已選平台的社群連結（供護照 PassportCard 顯示）
+const reviewSocials = computed(() => selectedSocialLinks.value.filter(l => l.platform))
 
 // 給 TagEditorPreview 用:把 staged draft 攤回 Tag[](real tagId + new custom 用合成 id)
 const previewTags = computed<Tag[]>(() => {
@@ -398,10 +424,14 @@ watch(defaultFurName, (nextFurName) => {
     furName.value = nextFurName
 })
 
+window.addEventListener('keydown', onZoomKeydown)
+
 onBeforeUnmount(() => {
     wizardActive.value = false
     avatarDraft.clearDraft()
     clearTimers()
+    window.removeEventListener('keydown', onZoomKeydown)
+    document.body.style.overflow = ''
 })
 </script>
 
@@ -410,7 +440,7 @@ onBeforeUnmount(() => {
     <LizardLoading v-if="showSyncFallback" message="同步中" :refresh-after-ms="5000" />
 
     <div v-else class="intro-view" :class="{ 'intro-view--focus': !showOnboarding }">
-        <div class="intro-view__stage" :class="{ 'intro-view__stage--focus': !showOnboarding }">
+        <div class="intro-view__stage" :class="{ 'intro-view__stage--focus': !showOnboarding, 'intro-view__stage--review': showOnboarding && currentStep.key === 'review' }">
             <img
                 v-if="!showOnboarding"
                 class="intro-view__easter-egg"
@@ -543,19 +573,13 @@ onBeforeUnmount(() => {
                         class="intro-view__so-row-wrap"
                     >
                         <div class="intro-view__so-row">
-                            <select
+                            <PlatformSelect
                                 class="intro-view__so-sel"
                                 :data-test="`social-platform-${idx}`"
-                                :value="row.platform"
-                                @change="row.platform = ($event.target as HTMLSelectElement).value as SocialPlatform | ''"
-                            >
-                                <option value="">{{ t('intro.social.selectPlatform') }}</option>
-                                <option
-                                    v-for="p in PLATFORM_LIST"
-                                    :key="p.value"
-                                    :value="p.value"
-                                >{{ p.label }}</option>
-                            </select>
+                                :model-value="row.platform"
+                                :placeholder="t('intro.social.selectPlatform')"
+                                @update:model-value="(v: SocialPlatform) => { row.platform = v }"
+                            />
                             <input
                                 class="intro-view__so-url"
                                 :class="{
@@ -594,95 +618,47 @@ onBeforeUnmount(() => {
                     >＋ 新增</button>
                 </section>
 
-                <!-- Review step: passport layout -->
+                <!-- Review step: passport layout（點護照可開放大遮罩） -->
                 <section v-else-if="currentStep.key === 'review'" class="intro-view__step-card intro-view__step-card--passport" data-test="review-passport">
-                    <div class="passport">
-                        <!-- Inner dashed frame via ::before -->
-                        <div class="ps-head">
-                            <span class="ps-brand">SEF·CLI</span>
-                            <span class="ps-kind">
-                                ✈ BOARDING&nbsp;PASS
-                                <span class="ps-bars">
-                                    <i></i><i></i><i></i><i></i><i></i><i></i>
-                                    <i></i><i></i><i></i><i></i><i></i><i></i>
-                                </span>
-                            </span>
-                        </div>
+                    <PassportCard
+                        ref="passportTriggerRef"
+                        class="passport-trigger"
+                        role="button"
+                        tabindex="0"
+                        aria-label="點擊放大檢視護照"
+                        :fur-name="furName"
+                        :avatar-src="avatarPreviewSrc"
+                        :avatar-style="avatarPreviewStyle"
+                        :tags="previewTags"
+                        :socials="reviewSocials"
+                        :stickers="stickerManagerRef?.previews ?? []"
+                        @click="openZoom"
+                        @keydown.enter.space.prevent="openZoom"
+                    />
 
-                        <div class="ps-body">
-                            <!-- LEFT: avatar + tags -->
-                            <div class="ps-left">
-                                <div class="ps-photo-wrap" data-test="review-avatar">
-                                    <img
-                                        class="ps-photo"
-                                        :src="avatarPreviewSrc"
-                                        alt="avatar"
-                                        :style="avatarPreviewStyle"
-                                    />
-                                    <span class="ps-photo-tick tick-tl"></span>
-                                    <span class="ps-photo-tick tick-br"></span>
-                                </div>
-                                <div class="ps-tags" v-if="previewTags.length > 0">
-                                    <p class="ps-tags-label">TAGS</p>
-                                    <div class="ps-chiprow">
-                                        <span
-                                            v-for="tag in previewTags"
-                                            :key="tag.tagId"
-                                            class="ps-chip"
-                                        >{{ tag.content }}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- RIGHT: furname / socials / stickers -->
-                            <div class="ps-right">
-                                <div>
-                                    <p class="ps-furname-label">FUR NAME</p>
-                                    <h3 class="ps-furname" data-test="review-furname">{{ furName }}</h3>
-                                </div>
-                                <div class="ps-section-line"></div>
-                                <div v-if="selectedSocialLinks.filter(l => l.platform).length > 0">
-                                    <p class="ps-social-label">SOCIAL LINKS</p>
-                                    <ul class="ps-social" data-test="review-socials">
-                                        <li
-                                            v-for="link in selectedSocialLinks.filter(l => l.platform).slice(0, 3)"
-                                            :key="link.platform + link.links"
-                                        >
-                                            <span
-                                                class="ps-ic"
-                                                :style="{ background: (PLATFORMS[link.platform as SocialPlatform] ?? PLATFORMS.OTHER).brandColor }"
-                                                v-html="(PLATFORMS[link.platform as SocialPlatform] ?? PLATFORMS.OTHER).icon"
-                                            ></span>
-                                            <span class="ps-handle">{{ link.links }}</span>
-                                        </li>
-                                        <li
-                                            v-if="selectedSocialLinks.filter(l => l.platform).length > 3"
-                                            class="ps-more"
-                                            data-test="review-socials-more"
-                                        >more...</li>
-                                    </ul>
-                                </div>
-                                <div v-if="stickerManagerRef?.previews?.length">
-                                    <p class="ps-stk-label">STICKERS</p>
-                                    <div class="ps-stickers">
-                                        <img
-                                            v-for="(url, i) in stickerManagerRef.previews"
-                                            :key="i"
-                                            class="ps-sticker"
-                                            :src="url"
-                                            alt="sticker"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
+                    <!-- 放大遮罩（lightbox）：teleport 到 body，全尺寸護照可捲動檢視 + 選取/複製文字 -->
+                    <Teleport to="body">
+                        <div v-if="zoomOpen" class="passport-overlay" data-test="passport-zoom" @click.self="closeZoom">
+                            <button
+                                ref="zoomCloseRef"
+                                type="button"
+                                class="passport-overlay__close"
+                                aria-label="關閉放大檢視"
+                                @click="closeZoom"
+                            >✕</button>
+                            <PassportCard
+                                class="passport-overlay__inner"
+                                :full="true"
+                                :fur-name="furName"
+                                :avatar-src="avatarPreviewSrc"
+                                :avatar-style="avatarPreviewStyle"
+                                :tags="previewTags"
+                                :socials="reviewSocials"
+                                :stickers="stickerManagerRef?.previews ?? []"
+                            />
                         </div>
+                    </Teleport>
 
-                        <div class="ps-stamp" aria-hidden="true">
-                            <span class="ps-stamp-l1">SEF-CLI</span>
-                            <span class="ps-stamp-l2">for UTFG</span>
-                            <span class="ps-stamp-l3">環遊世界</span>
-                        </div>
-                    </div>
                     <p v-if="submitError" class="intro-view__error-inline">{{ submitError }}</p>
                 </section>
 

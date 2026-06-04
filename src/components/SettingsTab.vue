@@ -15,7 +15,8 @@ import { fetchSelectableTags } from '@/api/userApi'
 import { uploadAvatar } from '@/api/avatarUploadApi'
 import { resolveAvatarSrc } from '@/utils/avatarSource'
 import { TagType, TAG_TYPE_ORDER, type GroupedTags, type Tag, type AddSocialLinkRequest } from '@/types/user'
-import { PLATFORM_LIST, resolvePlatformMeta, type SocialPlatform } from '@/constants/platforms'
+import { resolvePlatformMeta, type SocialPlatform } from '@/constants/platforms'
+import PlatformSelect from '@/components/PlatformSelect.vue'
 import { validateSocialUrl, type UrlValidationReason } from '@/utils/socialUrlValidation'
 
 const TAG_MAX = 20
@@ -319,20 +320,22 @@ defineExpose({ isDirty, saveAll, avatarDraft })
             <label class="settings-tab__label">社群連結</label>
             <div class="settings-tab__social-list">
                 <div v-for="link in previewSocials" :key="link.id" class="settings-tab__social-item">
-                    <span class="settings-tab__social-platform">{{ resolvePlatformMeta(link.platform).label }}</span>
+                    <span
+                        class="settings-tab__social-ic"
+                        :style="{ background: resolvePlatformMeta(link.platform).brandColor }"
+                        v-html="resolvePlatformMeta(link.platform).icon"
+                    />
                     <a :href="link.links" target="_blank" rel="noopener noreferrer" class="settings-tab__social-url">{{ link.links }}</a>
                     <button type="button" class="settings-tab__social-remove" @click="stageRemoveSocial(link.id)">&times;</button>
                 </div>
             </div>
             <div class="settings-tab__add-row">
-                <select
+                <PlatformSelect
                     v-model="newSocialPlatform"
-                    class="settings-tab__input settings-tab__input--short"
+                    class="settings-tab__platform-select"
                     data-test="social-platform-select"
-                >
-                    <option value="">{{ t('intro.social.selectPlatform') }}</option>
-                    <option v-for="p in PLATFORM_LIST" :key="p.value" :value="p.value">{{ p.label }}</option>
-                </select>
+                    :placeholder="t('intro.social.selectPlatform')"
+                />
                 <input
                     v-model="newSocialUrl"
                     class="settings-tab__input"

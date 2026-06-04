@@ -8,6 +8,13 @@ vi.mock('vue-i18n', () => ({
     useI18n: () => ({ t: (key: string) => key }),
 }))
 
+/** 在自訂 PlatformSelect 下拉選平台（取代原生 select 的 .setValue） */
+async function pickPlatform(wrapper: ReturnType<typeof mount>, value: string) {
+    await wrapper.find('[data-test=social-platform-select] [role="combobox"]').trigger('click')
+    await wrapper.find(`[data-test=social-platform-select] [role="option"][data-value="${value}"]`).trigger('click')
+    await flushPromises()
+}
+
 const initialProfile = (): UserProfile => ({
     userId: 'u-1',
     username: '小毛',
@@ -240,12 +247,13 @@ describe('SettingsTab — staged save', () => {
 
     it('加社群連結 staged 進預覽,儲存才送 API', async () => {
         const wrapper = mount(SettingsTab)
-        await wrapper.find('[data-test=social-platform-select]').setValue('INSTAGRAM')
+        await pickPlatform(wrapper, 'INSTAGRAM')
         await wrapper.find('[data-test=social-url-input]').setValue('https://instagram.com/test')
         await wrapper.find('[data-test=social-add-btn]').trigger('click')
         await flushPromises()
         expect(addSocialLinkMock).not.toHaveBeenCalled()
-        expect(wrapper.text()).toContain('Instagram')
+        // 預覽改為比照護照頁：icon 晶片 + URL（不再顯示平台文字 label）
+        expect(wrapper.text()).toContain('https://instagram.com/test')
 
         await wrapper.find('[data-test=save-all]').trigger('click')
         await flushPromises()
@@ -268,7 +276,7 @@ describe('SettingsTab — staged save', () => {
 
     it('社群連結 — URL 格式錯誤(localhost)顯示錯誤且阻擋加入', async () => {
         const wrapper = mount(SettingsTab)
-        await wrapper.find('[data-test=social-platform-select]').setValue('GITHUB')
+        await pickPlatform(wrapper, 'GITHUB')
         await wrapper.find('[data-test=social-url-input]').setValue('http://localhost:3000')
         await wrapper.find('[data-test=social-add-btn]').trigger('click')
         await flushPromises()
@@ -278,7 +286,7 @@ describe('SettingsTab — staged save', () => {
 
     it('社群連結 — 平台不符(URL 對不上選的平台)顯示錯誤且阻擋加入', async () => {
         const wrapper = mount(SettingsTab)
-        await wrapper.find('[data-test=social-platform-select]').setValue('GITHUB')
+        await pickPlatform(wrapper, 'GITHUB')
         await wrapper.find('[data-test=social-url-input]').setValue('https://twitter.com/test')
         await wrapper.find('[data-test=social-add-btn]').trigger('click')
         await flushPromises()
@@ -288,7 +296,7 @@ describe('SettingsTab — staged save', () => {
 
     it('社群連結 — 合法平台+URL 可加入,draft 攜帶 enum value', async () => {
         const wrapper = mount(SettingsTab)
-        await wrapper.find('[data-test=social-platform-select]').setValue('GITHUB')
+        await pickPlatform(wrapper, 'GITHUB')
         await wrapper.find('[data-test=social-url-input]').setValue('https://github.com/myname')
         await wrapper.find('[data-test=social-add-btn]').trigger('click')
         await flushPromises()
@@ -336,7 +344,7 @@ describe('SettingsTab — staged save', () => {
         await flushPromises()
         await wrapper.find('.settings-tab__nickname').setValue('新名字')
         // 加一個新 social link 把 saveAll 流程延長
-        await wrapper.find('[data-test=social-platform-select]').setValue('GITHUB')
+        await pickPlatform(wrapper, 'GITHUB')
         await wrapper.find('[data-test=social-url-input]').setValue('https://github.com/test')
         await wrapper.find('[data-test=social-add-btn]').trigger('click')
         await flushPromises()

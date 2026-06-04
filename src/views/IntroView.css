@@ -18,6 +18,11 @@
     margin: 0 auto;
 }
 
+/* review（護照）步驟給更寬的舞台，讓 TAG / SOCIAL / STICKER 有更多空間 */
+.intro-view__stage--review {
+    width: min(900px, 100%);
+}
+
 .intro-view__panel {
     width: 100%;
     min-height: calc(100dvh - clamp(32px, 6vw, 64px));
@@ -487,22 +492,20 @@
     align-items: center;
 }
 
+/* PlatformSelect 包在 so-row 第一欄：外層 wrapper 不帶任何視覺 chrome（避免多一圈），
+   只讓內部 .ps-trigger 呈現，並對齊 .intro-view__so-url 的輸入框樣式 */
 .intro-view__so-sel {
+    min-width: 0;
+}
+
+.intro-view__so-sel .ps-trigger {
+    min-height: 0;
     padding: 11px 14px;
     border: 1.5px solid #d7cdaf;
     border-radius: 11px;
     background: #fffdf6;
     font-size: 0.9rem;
     color: #3f3a2c;
-    font: inherit;
-    appearance: none;
-    background-image:
-        linear-gradient(45deg, transparent 50%, #8c8672 50%),
-        linear-gradient(135deg, #8c8672 50%, transparent 50%);
-    background-position: calc(100% - 18px) center, calc(100% - 13px) center;
-    background-size: 5px 5px, 5px 5px;
-    background-repeat: no-repeat;
-    cursor: pointer;
 }
 
 .intro-view__so-url {
@@ -581,9 +584,70 @@
     border: none;
 }
 
+/* 等比例縮放容器：護照以固定設計寬度排版，再依此容器寬度整體 scale */
+.passport-fit {
+    width: 100%;
+    overflow: hidden;
+}
+
+/* in-page 護照（trigger）顯示 zoom-in 並可聚焦；放大遮罩內的護照維持一般游標以利選字 */
+.passport-trigger {
+    cursor: zoom-in;
+}
+
+.passport-trigger:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(140, 134, 114, 0.6);
+}
+
+/* 放大遮罩（lightbox）：半透明背景 + 全尺寸護照，可捲動檢視、選取/複製文字 */
+.passport-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: rgba(40, 34, 22, 0.62);
+    display: flex;
+    padding: 24px 16px;
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+
+.passport-overlay__inner {
+    margin: auto;
+    flex: none;
+}
+
+.passport-overlay__close {
+    position: fixed;
+    top: 14px;
+    right: 14px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: #f9f5e5;
+    color: #4a4433;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 1001;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.passport-overlay__close:hover {
+    background: #ebe3ce;
+}
+
+.passport-overlay__close:focus-visible {
+    outline: none;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35), 0 0 0 3px rgba(140, 134, 114, 0.65);
+}
+
 .passport {
     position: relative;
-    width: 100%;
+    /* 固定設計寬度；窄於此時由 JS 以 transform: scale() 整體等比例縮小 */
+    width: 800px;
+    transform-origin: top left;
     background: #f9f5e5;
     border: 2px solid #6b5d3e;
     border-radius: 16px;
@@ -650,9 +714,12 @@
 
 .ps-body {
     display: grid;
-    grid-template-columns: 180px 1fr;
+    grid-template-columns: 240px 1fr;
     gap: 32px;
     padding: 2px 10px 6px;
+    /* 護照高度釘在「正常都有（avatar+tags+socials+stickers）」高度，
+       讓有/無貼圖、有/無 TAG 都等高（min-height 不夾，內容更高時仍可長） */
+    min-height: 240px;
 }
 
 .ps-left {
@@ -714,6 +781,19 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+    /* TAG 太多時不撐高護照：剛好 2 行（chip 26 + gap 6 + chip 26 = 58，+1 緩衝），
+       超出隱藏，由 .ps-tags-more 顯示「…」；chip 為固定高度避免切到最後一行底端 */
+    max-height: 59px;
+    overflow: hidden;
+}
+
+.ps-tags-more {
+    display: inline-block;
+    margin-top: 4px;
+    color: #a59b7d;
+    font-weight: 800;
+    font-size: 0.95rem;
+    line-height: 1;
 }
 
 .ps-chip {
@@ -721,9 +801,14 @@
     border: 1px solid #d7cdaf;
     color: #5a5340;
     font-size: 0.74rem;
-    padding: 4px 10px;
-    border-radius: 999px;
     font-weight: 600;
+    /* 固定高度，讓 .ps-chiprow 的 2 行裁切落在行與行之間，不會切到 chip 底端 */
+    height: 26px;
+    box-sizing: border-box;
+    padding: 0 10px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
 }
 
 .ps-right {
@@ -754,6 +839,16 @@
 .ps-section-line {
     height: 1px;
     background: #e3dabf;
+}
+
+/* social / sticker 各保留固定 slot 高度，讓兩區位置固定：
+   沒 social link 時 sticker 不會往上跑（空 slot 仍占位） */
+.ps-block--social {
+    min-height: 100px;
+}
+
+.ps-block--stickers {
+    min-height: 64px;
 }
 
 .ps-social-label {
@@ -827,7 +922,7 @@
     border-radius: 10px;
     background: #efe7cf;
     border: 1px solid #d7cdaf;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .ps-stamp {
@@ -865,21 +960,7 @@
     font-size: 0.54rem;
 }
 
-@media (max-width: 720px) {
-    .ps-body {
-        grid-template-columns: 1fr;
-        gap: 20px;
-    }
-
-    .ps-photo {
-        width: 110px;
-        height: 110px;
-    }
-
-    .ps-right {
-        gap: 10px;
-    }
-}
+/* 護照刻意不做手機單欄變形：維持兩欄形狀，窄螢幕由 step-card 水平捲動 / 放大檢視 */
 
 /* === Review step: old list (keep selectors for backward compat) === */
 .intro-view__review-avatar-card {

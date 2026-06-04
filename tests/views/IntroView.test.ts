@@ -130,6 +130,18 @@ async function advanceToReview(wrapper: ReturnType<typeof mountIntroView>) {
     await skipOptionalStepsToReview(wrapper)
 }
 
+/** 在自訂 PlatformSelect 下拉選平台（取代原生 select 的 .setValue） */
+async function pickPlatform(
+    wrapper: ReturnType<typeof mountIntroView>,
+    testId: string,
+    value: string,
+) {
+    await wrapper.find(`[data-test=${testId}] [role="combobox"]`).trigger('click')
+    await flushPromises()
+    await wrapper.find(`[data-test=${testId}] [role="option"][data-value="${value}"]`).trigger('click')
+    await flushPromises()
+}
+
 describe('IntroView', () => {
     let originalLocation: Location
 
@@ -414,7 +426,7 @@ describe('IntroView', () => {
         await flushPromises()
 
         // Select platform X and enter valid X URL
-        await wrapper.find('[data-test=social-platform-0]').setValue('X')
+        await pickPlatform(wrapper, 'social-platform-0', 'X')
         await wrapper.find('[data-test=social-url-0]').setValue('https://x.com/googlefox')
         await flushPromises()
 
@@ -438,7 +450,7 @@ describe('IntroView', () => {
         await flushPromises()
 
         // GITHUB platform but x.com URL → mismatch
-        await wrapper.find('[data-test=social-platform-0]').setValue('GITHUB')
+        await pickPlatform(wrapper, 'social-platform-0', 'GITHUB')
         await wrapper.find('[data-test=social-url-0]').setValue('https://x.com/googlefox')
         await flushPromises()
 
@@ -767,7 +779,7 @@ describe('IntroView', () => {
         // Add a valid X link
         await wrapper.find('[data-test=add-social-link]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=social-platform-0]').setValue('X')
+        await pickPlatform(wrapper, 'social-platform-0', 'X')
         await wrapper.find('[data-test=social-url-0]').setValue('https://x.com/googlefox')
         await flushPromises()
 
@@ -803,7 +815,7 @@ describe('IntroView', () => {
 
         await wrapper.find('[data-test=add-social-link]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=social-platform-0]').setValue('X')
+        await pickPlatform(wrapper, 'social-platform-0', 'X')
         await wrapper.find('[data-test=social-url-0]').setValue('https://x.com/googlefox')
         await flushPromises()
 
@@ -845,7 +857,7 @@ describe('IntroView', () => {
         // socials: add one valid link
         await wrapper.find('[data-test=add-social-link]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=social-platform-0]').setValue('GITHUB')
+        await pickPlatform(wrapper, 'social-platform-0', 'GITHUB')
         await wrapper.find('[data-test=social-url-0]').setValue('https://github.com/googlefox')
         await flushPromises()
         // next-step to stickers
@@ -863,6 +875,29 @@ describe('IntroView', () => {
         expect(passport.find('[data-test=review-socials]').text()).toContain('https://github.com/googlefox')
         // No more... row since only 1 link
         expect(passport.find('[data-test=review-socials-more]').exists()).toBe(false)
+    })
+
+    it('點護照開啟放大遮罩並鎖背景捲動，Esc 關閉還原', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+        await advanceToReview(wrapper)
+
+        // 開啟：點護照 → 鎖背景捲動 + 遮罩 teleport 至 body
+        await wrapper.find('[data-test=review-passport] .passport').trigger('click')
+        await flushPromises()
+        expect(document.body.style.overflow).toBe('hidden')
+        expect(document.body.querySelector('[data-test=passport-zoom]')).not.toBeNull()
+
+        // 關閉：Esc → 還原背景捲動
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+        await flushPromises()
+        expect(document.body.style.overflow).toBe('')
+
+        wrapper.unmount()
     })
 
     it('passport review: 社群超過 3 筆顯示 more...', async () => {
@@ -885,7 +920,7 @@ describe('IntroView', () => {
         for (let i = 0; i < 4; i++) {
             await wrapper.find('[data-test=add-social-link]').trigger('click')
             await flushPromises()
-            await wrapper.find(`[data-test=social-platform-${i}]`).setValue('GITHUB')
+            await pickPlatform(wrapper, `social-platform-${i}`, 'GITHUB')
             await wrapper.find(`[data-test=social-url-${i}]`).setValue(`https://github.com/user${i}`)
             await flushPromises()
         }
@@ -922,7 +957,7 @@ describe('IntroView', () => {
         await flushPromises()
         await wrapper.find('[data-test=add-social-link]').trigger('click')
         await flushPromises()
-        await wrapper.find('[data-test=social-platform-0]').setValue('X')
+        await pickPlatform(wrapper, 'social-platform-0', 'X')
         await wrapper.find('[data-test=social-url-0]').setValue('https://x.com/googlefox')
         await flushPromises()
         await wrapper.find('[data-test=next-step]').trigger('click')

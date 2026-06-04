@@ -33,6 +33,21 @@
     flex-shrink: 0;
 }
 
+.settings-tab__platform-select {
+    min-width: 0;
+}
+
+/* 平台下拉 trigger 對齊 URL 輸入框（settings-tab__input）外觀，避免多一圈與高度不齊 */
+.settings-tab__platform-select .ps-trigger {
+    min-height: 0;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid var(--bubble-border);
+    border-radius: var(--radius-sm);
+    background: var(--input-bg);
+    color: var(--input-text);
+    font-size: 0.95rem;
+}
+
 .settings-tab__avatar-row {
     display: flex;
     align-items: center;
@@ -175,7 +190,8 @@
 }
 
 .settings-tab__add-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 132px 1fr auto;
     gap: var(--space-xs);
     align-items: center;
 }
@@ -214,10 +230,23 @@
     font-size: 0.85rem;
 }
 
-.settings-tab__social-platform {
-    font-weight: 600;
-    color: var(--input-text);
-    min-width: 60px;
+/* 比照「確認你的設定」護照頁的 .ps-ic：品牌色圓角小晶片 + 白色 icon，後接 URL */
+.settings-tab__social-ic {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #f9f5e5;
+    flex: 0 0 auto;
+    overflow: hidden;
+}
+
+.settings-tab__social-ic svg {
+    width: 14px;
+    height: 14px;
+    fill: currentColor;
 }
 
 .settings-tab__social-url {
