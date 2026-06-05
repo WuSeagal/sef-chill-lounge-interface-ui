@@ -77,3 +77,48 @@ describe('PassportCard — sticker click', () => {
         expect(wrapper.emitted('sticker-click')![0]).toEqual(['/s2.png'])
     })
 })
+
+describe('PassportCard — fit() applies a scale transform', () => {
+    it('applies a scale(...) transform to the card in full mode', async () => {
+        const wrapper = mountCard({ full: true })
+        await wrapper.vm.$nextTick()
+        const card = wrapper.find('.passport').element as HTMLElement
+        expect(card.style.transform).toMatch(/^scale\(/)
+    })
+
+    it('applies a scale(...) transform to the card in non-full mode', async () => {
+        const wrapper = mountCard({ full: false })
+        await wrapper.vm.$nextTick()
+        const card = wrapper.find('.passport').element as HTMLElement
+        expect(card.style.transform).toMatch(/^scale\(/)
+    })
+})
+
+describe('PassportCard — avatar zoomable', () => {
+    it('avatar is not interactive by default', async () => {
+        const wrapper = mountCard()
+        const img = wrapper.find('.ps-photo')
+        expect(img.attributes('role')).toBeUndefined()
+        expect(img.attributes('tabindex')).toBeUndefined()
+        await img.trigger('click')
+        expect(wrapper.emitted('avatar-click')).toBeFalsy()
+    })
+
+    it('emits avatar-click with avatarSrc on click when avatarZoomable', async () => {
+        const wrapper = mountCard({ avatarZoomable: true, avatarSrc: '/me.png' })
+        const img = wrapper.find('.ps-photo')
+        expect(img.attributes('role')).toBe('button')
+        expect(img.attributes('tabindex')).toBe('0')
+        await img.trigger('click')
+        expect(wrapper.emitted('avatar-click')).toBeTruthy()
+        expect(wrapper.emitted('avatar-click')![0]).toEqual(['/me.png'])
+    })
+
+    it('emits avatar-click on Enter key when avatarZoomable', async () => {
+        const wrapper = mountCard({ avatarZoomable: true, avatarSrc: '/me.png' })
+        const img = wrapper.find('.ps-photo')
+        await img.trigger('keydown', { key: 'Enter' })
+        expect(wrapper.emitted('avatar-click')).toBeTruthy()
+        expect(wrapper.emitted('avatar-click')![0]).toEqual(['/me.png'])
+    })
+})

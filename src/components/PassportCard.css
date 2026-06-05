@@ -431,3 +431,12 @@
 .ps-stamp-l3 {
     font-size: 0.54rem;
 }
+
+.ps-photo--zoomable {
+    cursor: pointer;
+}
+
+.ps-photo--zoomable:focus-visible {
+    outline: 3px solid rgba(140, 134, 114, 0.85);
+    outline-offset: 2px;
+}

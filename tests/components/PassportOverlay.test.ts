@@ -84,6 +84,29 @@ describe('PassportOverlay', () => {
         wrapper.unmount()
     })
 
+    it('opens an ImageLightbox when the avatar is clicked', async () => {
+        const wrapper = mountOverlay()
+        const avatar = document.body.querySelector('.ps-photo') as HTMLElement
+        expect(avatar.getAttribute('role')).toBe('button')
+        avatar.click()
+        await wrapper.vm.$nextTick()
+        await wrapper.vm.$nextTick()
+        expect(document.body.querySelector('.image-lightbox')).not.toBeNull()
+        wrapper.unmount()
+    })
+
+    it('does NOT emit close on Escape while the avatar lightbox is open', async () => {
+        const wrapper = mountOverlay()
+        ;(document.body.querySelector('.ps-photo') as HTMLElement).click()
+        await wrapper.vm.$nextTick()
+        await wrapper.vm.$nextTick()
+        expect(document.body.querySelector('.image-lightbox')).not.toBeNull()
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+        await wrapper.vm.$nextTick()
+        expect(wrapper.emitted('close')).toBeFalsy()
+        wrapper.unmount()
+    })
+
     it('restores focus to the element focused before open, when closed via prop', async () => {
         const trigger = document.createElement('button')
         document.body.appendChild(trigger)

@@ -4,6 +4,7 @@ import './PassportCard.css'
 import { PLATFORMS, type SocialPlatform } from '@/constants/platforms'
 import { TagType, TAG_TYPE_ORDER, TAG_TYPE_PREFIX, type Tag } from '@/types/user'
 import { useScrollEdges } from '@/composables/useScrollEdges'
+import { computeFitScale } from '@/utils/passportFit'
 
 /**
  * 護照卡（review 確認頁 + 放大遮罩共用）。固定設計寬度 800，依容器寬度整體等比例縮放
@@ -21,22 +22,32 @@ const props = withDefaults(defineProps<{
   socials?: SocialItem[]
   stickers?: string[]
   full?: boolean
+  avatarZoomable?: boolean
 }>(), {
   avatarStyle: () => ({}),
   tags: () => [],
   socials: () => [],
   stickers: () => [],
   full: false,
+  avatarZoomable: false,
 })
 
 const emit = defineEmits<{
   (e: 'sticker-click', url: string): void
+  (e: 'avatar-click', url: string): void
 }>()
 
 const DESIGN_W = 800
 const fitRef = ref<HTMLElement | null>(null)
 const cardRef = ref<HTMLElement | null>(null)
 let ro: ResizeObserver | null = null
+// fit() 冪等 guard：full 模式觀察的父容器是 overflow:auto，護照溢出時捲軸出現/消失會改變其
+// clientWidth/Height 而再次觸發 RO。收斂由等比 fit-both 數學本身保證（縮放後卡片必定塞進可用
+// 空間→捲軸消失→重算的 scale 仍塞得進→穩定，不會在兩值間振盪）；此 guard 的作用是「相同
+// (scale, natH) 不重複寫 DOM」，吃掉收斂後那次多餘回呼與 "ResizeObserver loop" console 警告。
+// 注意必須同時比對 natH——內容變高時 scale 可能仍鎖在 1 但 fitEl 高度仍需重算，只比 scale 會漏掉高度更新。
+let lastScale = -1
+let lastNatH = -1
 
 // scroll affordance：TAG 區 / 社群區各自獨立捲動，上/下還有內容時顯示漸層 + 箭頭
 const tagScrollRef = ref<HTMLElement | null>(null)
@@ -68,18 +79,43 @@ function fit(): void {
   const card = cardRef.value
   const fitEl = fitRef.value
   if (!card || !fitEl) return
-  const scale = props.full ? 1 : Math.min(1, fitEl.clientWidth / DESIGN_W)
+  const natH = card.offsetHeight // transform 不影響 layout box，量到的恆為原寸高
+  let availW: number
+  let availH: number
+  if (props.full) {
+    // full（放大遮罩）：以父容器內容框為可用空間，寬高皆適配
+    const parent = fitEl.parentElement
+    if (parent) {
+      const cs = getComputedStyle(parent)
+      availW = parent.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+      availH = parent.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+    } else {
+      availW = fitEl.clientWidth
+      availH = natH
+    }
+  } else {
+    availW = fitEl.clientWidth
+    availH = natH
+  }
+  const scale = computeFitScale({ availW, availH, natW: DESIGN_W, natH, full: props.full })
+  // 冪等：相同結果不重複寫 DOM，斷開「縮放→捲軸變化→RO 再觸發」的回授
+  if (scale === lastScale && natH === lastNatH) return
+  lastScale = scale
+  lastNatH = natH
   card.style.transform = `scale(${scale})`
   // transform 不改變佈局盒尺寸，手動把外層設成縮放後視覺尺寸，避免留白/溢位
-  fitEl.style.height = `${card.offsetHeight * scale}px`
+  fitEl.style.height = `${natH * scale}px`
   if (props.full) fitEl.style.width = `${DESIGN_W * scale}px`
 }
 
 onMounted(() => {
   void nextTick(() => { fit(); refreshEdges() })
-  if (typeof ResizeObserver !== 'undefined' && fitRef.value) {
-    ro = new ResizeObserver(() => void nextTick(() => { fit(); refreshEdges() }))
-    ro.observe(fitRef.value)
+  if (typeof ResizeObserver !== 'undefined') {
+    const target = props.full ? (fitRef.value?.parentElement ?? fitRef.value) : fitRef.value
+    if (target) {
+      ro = new ResizeObserver(() => void nextTick(() => { fit(); refreshEdges() }))
+      ro.observe(target)
+    }
   }
 })
 watch(
@@ -111,7 +147,18 @@ onBeforeUnmount(() => {
         <!-- LEFT: avatar + tags -->
         <div class="ps-left">
           <div class="ps-photo-wrap" data-test="review-avatar">
-            <img class="ps-photo" :src="avatarSrc" alt="avatar" :style="avatarStyle" />
+            <img
+              class="ps-photo"
+              :class="{ 'ps-photo--zoomable': avatarZoomable }"
+              :src="avatarSrc"
+              alt="avatar"
+              :style="avatarStyle"
+              :role="avatarZoomable ? 'button' : undefined"
+              :aria-label="avatarZoomable ? '放大檢視頭像' : undefined"
+              :tabindex="avatarZoomable ? 0 : undefined"
+              @click="avatarZoomable && emit('avatar-click', avatarSrc)"
+              @keydown.enter.space.prevent="avatarZoomable && emit('avatar-click', avatarSrc)"
+            />
             <span class="ps-photo-tick tick-tl"></span>
             <span class="ps-photo-tick tick-br"></span>
           </div>

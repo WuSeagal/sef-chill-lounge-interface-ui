@@ -37,6 +37,9 @@ let lastFocused: HTMLElement | null = null
 function onStickerClick(url: string): void {
   lightboxUrl.value = url
 }
+function onAvatarClick(url: string): void {
+  lightboxUrl.value = url
+}
 function closeLightbox(): void {
   lightboxUrl.value = null
 }
@@ -104,7 +107,9 @@ onBeforeUnmount(() => {
         :tags="tags"
         :socials="socials"
         :stickers="stickers"
+        :avatar-zoomable="true"
         @sticker-click="onStickerClick"
+        @avatar-click="onAvatarClick"
       />
     </div>
     <ImageLightbox
