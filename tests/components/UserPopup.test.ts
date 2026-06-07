@@ -6,6 +6,10 @@ vi.mock('@/api/userApi', () => ({
     fetchProfileDetail: vi.fn(),
 }))
 
+vi.mock('@/composables/useUser', () => ({
+    useUser: () => ({ profile: { value: { userId: 'me' } } }),
+}))
+
 import { fetchProfileDetail } from '@/api/userApi'
 
 const sampleProfile = {
@@ -96,6 +100,40 @@ describe('UserPopup (passport overlay)', () => {
         await wrapper.vm.$nextTick()
         await wrapper.vm.$nextTick()
         expect(document.body.querySelector('.image-lightbox')).not.toBeNull()
+        wrapper.unmount()
+    })
+})
+
+import PassportOverlay from '@/components/PassportOverlay.vue'
+
+function makeProfile(userId: string) {
+    return {
+        userId, username: 'u', furName: 'Foxy',
+        avatar: null, avatarColor: null, avatarBorder: false,
+        tags: [], socials: [], stickers: [],
+    }
+}
+
+describe('UserPopup — exportable', () => {
+    beforeEach(() => (fetchProfileDetail as any).mockReset())
+
+    it('passes exportable=true to PassportOverlay when viewing self', async () => {
+        ;(fetchProfileDetail as any).mockResolvedValue(makeProfile('me'))
+        const wrapper = mount(UserPopup, { props: { open: true, userId: 'me' }, attachTo: document.body })
+        await flushPromises()
+        const overlay = wrapper.findComponent(PassportOverlay)
+        expect(overlay.exists()).toBe(true)
+        expect(overlay.props('exportable')).toBe(true)
+        wrapper.unmount()
+    })
+
+    it('passes exportable=false when viewing someone else', async () => {
+        ;(fetchProfileDetail as any).mockResolvedValue(makeProfile('other'))
+        const wrapper = mount(UserPopup, { props: { open: true, userId: 'other' }, attachTo: document.body })
+        await flushPromises()
+        const overlay = wrapper.findComponent(PassportOverlay)
+        expect(overlay.exists()).toBe(true)
+        expect(overlay.props('exportable')).toBe(false)
         wrapper.unmount()
     })
 })

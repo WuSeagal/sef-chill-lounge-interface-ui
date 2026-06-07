@@ -440,3 +440,16 @@
     outline: 3px solid rgba(140, 134, 114, 0.85);
     outline-offset: 2px;
 }
+
+/* 匯出 png 時隱藏原生捲軸：html-to-image 以 foreignObject 算繪，clone 的 scrollTop 恆為 0，
+   捲軸 thumb 會固定畫在頂端，與「烤進畫面的捲動內容」不一致。故匯出時隱藏原生捲軸，
+   捲動狀態改由保留的上下箭頭 + 漸層 cue 表達（WYSIWYG，不影響螢幕上的 live 捲軸）。 */
+.passport.export-mode .ps-tag-scroll,
+.passport.export-mode .ps-social-scroll {
+    scrollbar-width: none;
+}
+
+.passport.export-mode .ps-tag-scroll::-webkit-scrollbar,
+.passport.export-mode .ps-social-scroll::-webkit-scrollbar {
+    display: none;
+}

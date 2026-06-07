@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import './UserPopup.css'
 import PassportOverlay from './PassportOverlay.vue'
 import { fetchProfileDetail } from '@/api/userApi'
+import { useUser } from '@/composables/useUser'
 import { buildAvatarRingStyle } from '@/utils/avatarRing'
 import { resolveAvatarSrc } from '@/utils/avatarSource'
 import { assetUrl } from '@/utils/assetUrl'
@@ -21,6 +22,9 @@ const props = defineProps<{
 const emit = defineEmits<{
     (e: 'close'): void
 }>()
+
+const me = useUser()
+const exportable = computed(() => !!props.userId && props.userId === me.profile.value?.userId)
 
 const profile = ref<UserProfile | null>(null)
 const loading = ref<boolean>(false)
@@ -96,6 +100,7 @@ onBeforeUnmount(() => {
         :tags="passportTags"
         :socials="passportSocials"
         :stickers="passportStickers"
+        :exportable="exportable"
         @close="emit('close')"
     />
     <Teleport to="body">

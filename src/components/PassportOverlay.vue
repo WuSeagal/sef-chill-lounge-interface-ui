@@ -4,6 +4,8 @@ import './PassportOverlay.css'
 import PassportCard from './PassportCard.vue'
 import ImageLightbox from './ImageLightbox.vue'
 import type { Tag } from '@/types/user'
+import { exportPassportToPng, buildPassportFileName } from '@/utils/exportPassport'
+import { push } from 'notivue'
 
 /**
  * 放大護照共用遮罩（lightbox）：teleport 至 body、半透明背景 + 全尺寸護照，
@@ -20,11 +22,13 @@ const props = withDefaults(defineProps<{
   tags?: Tag[]
   socials?: SocialItem[]
   stickers?: string[]
+  exportable?: boolean
 }>(), {
   avatarStyle: () => ({}),
   tags: () => [],
   socials: () => [],
   stickers: () => [],
+  exportable: false,
 })
 
 const emit = defineEmits<{ (e: 'close'): void }>()
@@ -39,6 +43,22 @@ function onStickerClick(url: string): void {
 }
 function onAvatarClick(url: string): void {
   lightboxUrl.value = url
+}
+
+const exporting = ref(false)
+async function onSave(): Promise<void> {
+  if (exporting.value) return
+  const card = document.querySelector('.passport-overlay .passport') as HTMLElement | null
+  if (!card) return
+  exporting.value = true
+  try {
+    await exportPassportToPng(card, { fileName: buildPassportFileName(props.furName) })
+  } catch (e) {
+    console.error('[匯出護照] 失敗:', e)
+    push.error('匯出失敗，請再試一次')
+  } finally {
+    exporting.value = false
+  }
 }
 function closeLightbox(): void {
   lightboxUrl.value = null
@@ -98,19 +118,35 @@ onBeforeUnmount(() => {
         aria-label="關閉放大檢視"
         @click="emit('close')"
       >✕</button>
-      <PassportCard
-        class="passport-overlay__inner"
-        :full="true"
-        :fur-name="furName"
-        :avatar-src="avatarSrc"
-        :avatar-style="avatarStyle"
-        :tags="tags"
-        :socials="socials"
-        :stickers="stickers"
-        :avatar-zoomable="true"
-        @sticker-click="onStickerClick"
-        @avatar-click="onAvatarClick"
-      />
+      <div
+        class="passport-overlay__viewport"
+        data-passport-fit-viewport
+        @click.self="emit('close')"
+      >
+        <div class="passport-overlay__group">
+          <PassportCard
+            class="passport-overlay__inner"
+            :full="true"
+            :reserve-bottom="exportable ? 44 : 0"
+            :fur-name="furName"
+            :avatar-src="avatarSrc"
+            :avatar-style="avatarStyle"
+            :tags="tags"
+            :socials="socials"
+            :stickers="stickers"
+            :avatar-zoomable="true"
+            @sticker-click="onStickerClick"
+            @avatar-click="onAvatarClick"
+          />
+          <button
+            v-if="exportable"
+            type="button"
+            class="passport-overlay__save"
+            :disabled="exporting"
+            @click="onSave"
+          >{{ exporting ? '匯出中…' : '儲存護照' }}</button>
+        </div>
+      </div>
     </div>
     <ImageLightbox
       :open="lightboxUrl !== null"

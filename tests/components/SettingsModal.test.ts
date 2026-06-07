@@ -19,15 +19,16 @@ describe('SettingsModal', () => {
         expect(wrapper.find('.settings-modal__panel').exists()).toBe(true)
     })
 
-    it('renders five tab buttons in order with the renamed labels', () => {
+    it('renders six tab buttons in order with the renamed labels', () => {
         const wrapper = mount(SettingsModal, { props: { open: true } })
         const tabs = wrapper.findAll('.settings-modal__tab')
-        expect(tabs.length).toBe(5)
+        expect(tabs.length).toBe(6)
         expect(tabs[0].text()).toBe('個人資料')
-        expect(tabs[1].text()).toBe('貼圖設定')
-        expect(tabs[2].text()).toBe('重抽話題卡')
-        expect(tabs[3].text()).toBe('意見回饋')
-        expect(tabs[4].text()).toBe('斗內連結')
+        expect(tabs[1].text()).toBe('輸出護照')
+        expect(tabs[2].text()).toBe('貼圖設定')
+        expect(tabs[3].text()).toBe('重抽話題卡')
+        expect(tabs[4].text()).toBe('意見回饋')
+        expect(tabs[5].text()).toBe('斗內連結')
     })
 
     it('uses a two-column layout: a left tab rail and a right content body', () => {
@@ -36,7 +37,7 @@ describe('SettingsModal', () => {
         expect(wrapper.find('.settings-modal__body').exists()).toBe(true)
         // tabs live inside the rail
         const rail = wrapper.find('.settings-modal__rail')
-        expect(rail.findAll('.settings-modal__tab').length).toBe(5)
+        expect(rail.findAll('.settings-modal__tab').length).toBe(6)
     })
 
     it('defaults to the settings tab being active', () => {
@@ -115,14 +116,14 @@ describe('SettingsModal', () => {
     it('renders StickerTab when sticker tab active', async () => {
         const wrapper = mount(SettingsModal, { props: { open: true } })
         const tabs = wrapper.findAll('.settings-modal__tab')
-        await tabs[1].trigger('click')
+        await tabs[2].trigger('click')
         expect(wrapper.find('[data-test=sticker-tab]').exists()).toBe(true)
     })
 
     it('renders TopicCardTab when topic tab active', async () => {
         const wrapper = mount(SettingsModal, { props: { open: true } })
         const tabs = wrapper.findAll('.settings-modal__tab')
-        await tabs[2].trigger('click')
+        await tabs[3].trigger('click')
         expect(wrapper.find('[data-test=topic-card-tab]').exists()).toBe(true)
     })
 

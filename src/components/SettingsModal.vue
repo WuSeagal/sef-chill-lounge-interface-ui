@@ -6,11 +6,13 @@ import StickerTab from './StickerTab.vue'
 import TopicCardTab from './TopicCardTab.vue'
 import FeedbackTab from './FeedbackTab.vue'
 import DonateTab from './DonateTab.vue'
+import ExportPassportTab from './ExportPassportTab.vue'
 
-type TabId = 'settings' | 'sticker' | 'topic' | 'feedback' | 'donate'
+type TabId = 'settings' | 'export' | 'sticker' | 'topic' | 'feedback' | 'donate'
 
 const TABS: { id: TabId; label: string }[] = [
     { id: 'settings', label: '個人資料' },
+    { id: 'export', label: '輸出護照' },
     { id: 'sticker', label: '貼圖設定' },
     { id: 'topic', label: '重抽話題卡' },
     { id: 'feedback', label: '意見回饋' },
@@ -104,6 +106,7 @@ onBeforeUnmount(() => {
                     </nav>
                     <div class="settings-modal__body">
                         <SettingsTab v-if="activeTab === 'settings'" ref="settingsTabRef" />
+                        <ExportPassportTab v-if="activeTab === 'export'" />
                         <StickerTab v-if="activeTab === 'sticker'" ref="stickerTabRef" />
                         <TopicCardTab v-if="activeTab === 'topic'" />
                         <FeedbackTab v-if="activeTab === 'feedback'" />

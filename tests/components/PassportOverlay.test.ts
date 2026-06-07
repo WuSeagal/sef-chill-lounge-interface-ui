@@ -1,7 +1,13 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import PassportOverlay from '@/components/PassportOverlay.vue'
 import { TagType, type Tag } from '@/types/user'
+
+const exportSpy = vi.fn(() => Promise.resolve())
+vi.mock('@/utils/exportPassport', () => ({
+    exportPassportToPng: (...a: unknown[]) => exportSpy(...a),
+    buildPassportFileName: () => 'passport-foo.png',
+}))
 
 const tags: Tag[] = [
     { tagId: 'l1', type: TagType.LANGUAGE, content: 'Java', isCustom: false },
@@ -131,5 +137,22 @@ describe('PassportOverlay', () => {
         wrapper.unmount()
         expect(document.activeElement).toBe(trigger)
         trigger.remove()
+    })
+
+    it('does NOT show the save button by default', () => {
+        const wrapper = mountOverlay()
+        expect(document.body.querySelector('.passport-overlay__save')).toBeNull()
+        wrapper.unmount()
+    })
+
+    it('shows the save button when exportable and triggers export on click', async () => {
+        exportSpy.mockClear()
+        const wrapper = mountOverlay({ exportable: true })
+        const btn = document.body.querySelector('.passport-overlay__save') as HTMLElement
+        expect(btn).not.toBeNull()
+        btn.click()
+        await wrapper.vm.$nextTick()
+        expect(exportSpy).toHaveBeenCalledTimes(1)
+        wrapper.unmount()
     })
 })

@@ -23,6 +23,8 @@ const props = withDefaults(defineProps<{
   stickers?: string[]
   full?: boolean
   avatarZoomable?: boolean
+  /** full 模式下，量測可用高度時預留的底部空間（px），供外層在護照下方放按鈕用 */
+  reserveBottom?: number
 }>(), {
   avatarStyle: () => ({}),
   tags: () => [],
@@ -30,6 +32,7 @@ const props = withDefaults(defineProps<{
   stickers: () => [],
   full: false,
   avatarZoomable: false,
+  reserveBottom: 0,
 })
 
 const emit = defineEmits<{
@@ -41,6 +44,7 @@ const DESIGN_W = 800
 const fitRef = ref<HTMLElement | null>(null)
 const cardRef = ref<HTMLElement | null>(null)
 let ro: ResizeObserver | null = null
+let roRaf: number | null = null
 // fit() 冪等 guard：full 模式觀察的父容器是 overflow:auto，護照溢出時捲軸出現/消失會改變其
 // clientWidth/Height 而再次觸發 RO。收斂由等比 fit-both 數學本身保證（縮放後卡片必定塞進可用
 // 空間→捲軸消失→重算的 scale 仍塞得進→穩定，不會在兩值間振盪）；此 guard 的作用是「相同
@@ -83,12 +87,14 @@ function fit(): void {
   let availW: number
   let availH: number
   if (props.full) {
-    // full（放大遮罩）：以父容器內容框為可用空間，寬高皆適配
-    const parent = fitEl.parentElement
-    if (parent) {
-      const cs = getComputedStyle(parent)
-      availW = parent.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
-      availH = parent.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+    // full（放大遮罩）：以標記的固定 viewport 容器（data-passport-fit-viewport）為可用空間，
+    // 寬高皆適配並扣掉 reserveBottom（保留底部按鈕空間）。量「固定 viewport」而非直接父層，
+    // 是為了讓外層可用「縮到護照尺寸」的群組包按鈕，而不會與寬度量測產生循環依賴。
+    const viewport = (fitEl.closest('[data-passport-fit-viewport]') as HTMLElement | null) ?? fitEl.parentElement
+    if (viewport) {
+      const cs = getComputedStyle(viewport)
+      availW = viewport.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+      availH = viewport.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - props.reserveBottom
     } else {
       availW = fitEl.clientWidth
       availH = natH
@@ -111,9 +117,20 @@ function fit(): void {
 onMounted(() => {
   void nextTick(() => { fit(); refreshEdges() })
   if (typeof ResizeObserver !== 'undefined') {
-    const target = props.full ? (fitRef.value?.parentElement ?? fitRef.value) : fitRef.value
+    const target = props.full
+      ? ((fitRef.value?.closest('[data-passport-fit-viewport]') as HTMLElement | null) ?? fitRef.value?.parentElement ?? fitRef.value)
+      : fitRef.value
     if (target) {
-      ro = new ResizeObserver(() => void nextTick(() => { fit(); refreshEdges() }))
+      // rAF debounce：把 fit 推到下一幀，避免 RO callback 在同一幀內又改變佈局造成
+      // "ResizeObserver loop completed with undelivered notifications" 警告（配合冪等 guard 收斂）
+      ro = new ResizeObserver(() => {
+        if (roRaf !== null) return
+        roRaf = requestAnimationFrame(() => {
+          roRaf = null
+          fit()
+          refreshEdges()
+        })
+      })
       ro.observe(target)
     }
   }
@@ -126,6 +143,10 @@ watch(
 onBeforeUnmount(() => {
   ro?.disconnect()
   ro = null
+  if (roRaf !== null) {
+    cancelAnimationFrame(roRaf)
+    roRaf = null
+  }
 })
 </script>
 
