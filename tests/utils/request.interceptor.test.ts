@@ -44,6 +44,7 @@ describe('axios response interceptor', () => {
         ['/user/social-links', '社群連結'],
         ['/user/topic-card/redraw', '「/」抽話題卡 / TopicCardTab'],
         ['/topics/random', '隨機話題'],
+        ['/feedback', '意見回饋送出（FeedbackTab push.promise reject toast）'],
     ])('白名單端點 %s 500 不觸發 router.push（%s 由呼叫端 toast/inline 處理）', async (url) => {
         const error = {
             response: { status: 500, data: {} },

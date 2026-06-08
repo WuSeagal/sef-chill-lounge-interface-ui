@@ -41,6 +41,7 @@ service.interceptors.response.use(
         //   /user/profile   — 當前 / 指定 user profile、profile/update（useUser.error、UserPopup.loadError）
         //   /user/social-links — 社群連結（SettingsTab；亦涵蓋 /remove）
         //   /user/topic-card、/topics — 「/」抽話題卡（IntroView drawError）、TopicCardTab
+        //   /feedback       — 意見回饋送出（FeedbackTab push.promise reject toast；寄信失敗 500 不該整頁導去 /error）
         const NO_REDIRECT_PATTERNS = [
             '/upload/',
             '/messages',
@@ -50,6 +51,7 @@ service.interceptors.response.use(
             '/user/social-links',
             '/user/topic-card',
             '/topics',
+            '/feedback',
         ]
         const handledByCaller = NO_REDIRECT_PATTERNS.some(pattern => from.includes(pattern))
         // 已在 /error 頁時不再 push /error（防 redirect loop）；只 gate push，不吞其他錯誤處理

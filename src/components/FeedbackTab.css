@@ -63,7 +63,7 @@
 }
 
 .feedback-tab__submit {
-    align-self: flex-start;
+    align-self: flex-end;
     padding: var(--space-sm) var(--space-lg);
     background: var(--bottom-bar-bg);
     color: var(--bottom-bar-icon);

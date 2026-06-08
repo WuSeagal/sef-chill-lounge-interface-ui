@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import './FeedbackTab.css'
 import { push } from 'notivue'
 import { useUser } from '@/composables/useUser'
+import { submitFeedback } from '@/api/feedbackApi'
 
 const user = useUser()
 const displayName = computed(() => user.profile.value?.furName ?? user.profile.value?.username ?? '')
@@ -10,16 +11,25 @@ const displayName = computed(() => user.profile.value?.furName ?? user.profile.v
 const subject = ref('')
 const body = ref('')
 
-function onSubmit() {
-    if (!subject.value.trim() || !body.value.trim()) return
-    console.log('[FeedbackTab] submit:', {
-        furName: displayName.value,
-        subject: subject.value,
-        body: body.value,
-    })
-    push.success('已送出（mock）')
-    subject.value = ''
-    body.value = ''
+async function onSubmit() {
+    if (!subject.value.trim() || !body.value.trim()) {
+        push.warning('問題主題與問題描述不能為空')
+        return
+    }
+
+    const notif = push.promise('傳送中...')
+    try {
+        await submitFeedback({
+            title: subject.value.trim(),
+            content: body.value.trim(),
+            username: displayName.value,
+        })
+        notif.resolve('已送出，感謝你的回饋！')
+        subject.value = ''
+        body.value = ''
+    } catch {
+        notif.reject('傳送失敗，請稍後再試')
+    }
 }
 </script>
 
@@ -28,7 +38,7 @@ function onSubmit() {
         <div class="feedback-tab__form">
             <p class="feedback-tab__hint">不論系統使用上有問題要反應，或是想要回饋心得，都可以使用此處。</p>
             <div class="feedback-tab__field">
-                <label class="feedback-tab__label">暱稱</label>
+                <label class="feedback-tab__label">回報者</label>
                 <input
                     class="feedback-tab__nickname"
                     type="text"
@@ -37,20 +47,20 @@ function onSubmit() {
                 />
             </div>
             <div class="feedback-tab__field">
-                <label class="feedback-tab__label">主旨</label>
+                <label class="feedback-tab__label">問題主題</label>
                 <input
                     v-model="subject"
                     class="feedback-tab__subject"
                     type="text"
-                    placeholder="信件標題"
+                    placeholder="問題主要關於什麼？"
                 />
             </div>
             <div class="feedback-tab__field">
-                <label class="feedback-tab__label">內文</label>
+                <label class="feedback-tab__label">問題描述</label>
                 <textarea
                     v-model="body"
                     class="feedback-tab__body"
-                    placeholder="請輸入回饋內容..."
+                    placeholder="請輸入回報內容"
                 ></textarea>
             </div>
             <button class="feedback-tab__submit" type="button" @click="onSubmit">送出</button>
