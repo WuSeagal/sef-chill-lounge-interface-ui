@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onBeforeUnmount, watch } from 'vue'
 import './SettingsModal.css'
 import SettingsTab from './SettingsTab.vue'
 import StickerTab from './StickerTab.vue'
@@ -7,6 +7,7 @@ import TopicCardTab from './TopicCardTab.vue'
 import FeedbackTab from './FeedbackTab.vue'
 import DonateTab from './DonateTab.vue'
 import ExportPassportTab from './ExportPassportTab.vue'
+import ConfirmDialog from './ConfirmDialog.vue'
 
 type TabId = 'settings' | 'export' | 'sticker' | 'topic' | 'feedback' | 'donate'
 
@@ -27,38 +28,72 @@ const activeTab = ref<TabId>('settings')
 // Explicit shape for SettingsTab.defineExpose — keeps type safety even though Vue
 // auto-unwraps ComputedRef when accessed via parent ref. If SettingsTab's exposed
 // shape changes, TS will catch it instead of silently breaking this guard.
-interface SettingsTabExposed {
+interface UnsavedTabExposed {
     isDirty: boolean
     saveAll: () => Promise<void>
+    discardDrafts: () => void
 }
-const settingsTabRef = ref<(InstanceType<typeof SettingsTab> & SettingsTabExposed) | null>(null)
-const stickerTabRef = ref<{ isDirty: boolean; saveAll: () => Promise<void> } | null>(null)
+const settingsTabRef = ref<(InstanceType<typeof SettingsTab> & UnsavedTabExposed) | null>(null)
+const stickerTabRef = ref<UnsavedTabExposed | null>(null)
+
+// 當前若停在有 staged-save 的分頁（個人資料 / 貼圖設定），回傳其 expose，否則 null
+function activeUnsavedTab(): UnsavedTabExposed | null {
+    if (activeTab.value === 'settings') return settingsTabRef.value
+    if (activeTab.value === 'sticker') return stickerTabRef.value
+    return null
+}
 
 function activeDirty(): boolean {
-    if (activeTab.value === 'settings') return settingsTabRef.value?.isDirty ?? false
-    if (activeTab.value === 'sticker') return stickerTabRef.value?.isDirty ?? false
-    return false
+    return activeUnsavedTab()?.isDirty ?? false
 }
+
+// modal 層級未儲存浮層：當前分頁可 staged-save 且 dirty 時，從 panel 底部滑出
+const showUnsavedBar = computed(() =>
+    (activeTab.value === 'settings' || activeTab.value === 'sticker') && activeDirty())
+
+function onBarSave(): void {
+    void activeUnsavedTab()?.saveAll()
+}
+function onBarDiscard(): void {
+    activeUnsavedTab()?.discardDrafts()
+}
+
+// 未儲存離開警告改用自訂 ConfirmDialog（非同步）：以 pendingAction 記住待執行動作
+const pendingAction = ref<{ type: 'switch'; tab: TabId } | { type: 'close' } | null>(null)
 
 function attemptSwitch(id: TabId): void {
     if (id === activeTab.value) return
     if (activeDirty()) {
-        const ok = window.confirm('有未儲存的變更,確定要切換頁簽?')
-        if (!ok) return
+        pendingAction.value = { type: 'switch', tab: id }
+        return
     }
     activeTab.value = id
 }
 
 function attemptClose(): void {
     if (activeDirty()) {
-        const ok = window.confirm('有未儲存的變更,確定要關閉?')
-        if (!ok) return
+        pendingAction.value = { type: 'close' }
+        return
     }
     emit('close')
 }
 
+// ConfirmDialog「狠心離開」→ 執行待辦動作；「取消」→ 留在原處
+function onConfirmLeave(): void {
+    const action = pendingAction.value
+    pendingAction.value = null
+    if (!action) return
+    if (action.type === 'switch') activeTab.value = action.tab
+    else emit('close')
+}
+function onCancelLeave(): void {
+    pendingAction.value = null
+}
+
 function onKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape' && props.open) {
+        // ConfirmDialog 開著時讓它自己處理 Esc（取消），不重複觸發關閉流程
+        if (pendingAction.value !== null) return
         attemptClose()
     }
 }
@@ -68,6 +103,7 @@ watch(
     (open) => {
         if (open) {
             activeTab.value = 'settings'
+            pendingAction.value = null
             window.addEventListener('keydown', onKeydown)
         } else {
             window.removeEventListener('keydown', onKeydown)
@@ -104,7 +140,10 @@ onBeforeUnmount(() => {
                             @click="attemptSwitch(tab.id)"
                         >{{ tab.label }}</button>
                     </nav>
-                    <div class="settings-modal__body">
+                    <div
+                        class="settings-modal__body"
+                        :class="{ 'settings-modal__body--with-bar': showUnsavedBar }"
+                    >
                         <SettingsTab v-if="activeTab === 'settings'" ref="settingsTabRef" />
                         <ExportPassportTab v-if="activeTab === 'export'" />
                         <StickerTab v-if="activeTab === 'sticker'" ref="stickerTabRef" />
@@ -113,7 +152,34 @@ onBeforeUnmount(() => {
                         <DonateTab v-if="activeTab === 'donate'" />
                     </div>
                 </div>
+                <!-- #12 未儲存浮層：附在 panel 底、從下滑出；個人資料/貼圖設定 dirty 時顯示，原頁面與原儲存鈕不變 -->
+                <Transition name="unsaved-bar">
+                    <div v-if="showUnsavedBar" class="settings-modal__unsaved" data-test="unsaved-bar">
+                        <span class="settings-modal__unsaved-msg">您有未儲存的改動！</span>
+                        <div class="settings-modal__unsaved-actions">
+                            <button
+                                type="button"
+                                class="settings-modal__unsaved-discard"
+                                @click="onBarDiscard"
+                            >還原</button>
+                            <button
+                                type="button"
+                                class="settings-modal__unsaved-save"
+                                @click="onBarSave"
+                            >儲存</button>
+                        </div>
+                    </div>
+                </Transition>
             </div>
+            <ConfirmDialog
+                :open="pendingAction !== null"
+                message="有尚未儲存的改動，要離開嗎？"
+                confirm-text="狠心離開"
+                cancel-text="取消"
+                @confirm="onConfirmLeave"
+                @cancel="onCancelLeave"
+            />
         </div>
     </Transition>
 </template>
+

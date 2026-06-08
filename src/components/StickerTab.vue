@@ -30,7 +30,12 @@ async function saveAll(): Promise<void> {
     await onSave()
 }
 
-defineExpose({ isDirty, saveAll })
+// 「還原」：清掉所有暫存的貼圖新增/刪除（供 modal 層級未儲存浮層用）
+function discardDrafts(): void {
+    managerRef.value?.clearStaging()
+}
+
+defineExpose({ isDirty, saveAll, discardDrafts })
 </script>
 
 <template>

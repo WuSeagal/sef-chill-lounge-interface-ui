@@ -109,6 +109,87 @@
     border-radius: 3px;
 }
 
+/* 浮層顯示時，body 讓出底部空間，避免浮層蓋住各分頁原本的 in-page 儲存鈕（使用者要求原鈕保留可見） */
+.settings-modal__body--with-bar {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+/* #12 未儲存浮層：絕對定位貼 panel 底（被 panel overflow:hidden 裁切，配合 transition 從下滑出） */
+.settings-modal__unsaved {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 3;
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    padding-bottom: calc(var(--space-sm) + env(safe-area-inset-bottom));
+    background: var(--bubble-bg);
+    border-top: 1px solid var(--bubble-border);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.12);
+}
+.settings-modal__unsaved-msg {
+    flex: 1;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #4a4433;
+}
+.settings-modal__unsaved-actions {
+    display: flex;
+    gap: var(--space-sm);
+    flex: 0 0 auto;
+}
+/* 還原＝外框次要、儲存＝實心 primary（比照 ConfirmDialog / AvatarCropModal token） */
+.settings-modal__unsaved-discard,
+.settings-modal__unsaved-save {
+    min-height: 40px;
+    padding: 0 var(--space-md);
+    font-size: 0.9rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--bubble-border);
+    cursor: pointer;
+    font-family: inherit;
+}
+.settings-modal__unsaved-discard {
+    background: var(--bubble-bg);
+    color: var(--input-text);
+}
+.settings-modal__unsaved-discard:hover {
+    background: rgba(255, 255, 255, 0.7);
+}
+.settings-modal__unsaved-save {
+    background: var(--bottom-bar-bg);
+    color: var(--bottom-bar-icon);
+    border-color: var(--bottom-bar-bg);
+}
+.settings-modal__unsaved-save:hover {
+    background: color-mix(in srgb, var(--bottom-bar-bg) 88%, white);
+}
+
+/* 從下往上滑出 / 收回 */
+.unsaved-bar-enter-active,
+.unsaved-bar-leave-active {
+    transition: transform 220ms ease, opacity 220ms ease;
+}
+.unsaved-bar-enter-from,
+.unsaved-bar-leave-to {
+    transform: translateY(100%);
+    opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+    .unsaved-bar-enter-active,
+    .unsaved-bar-leave-active {
+        transition: none;
+    }
+    .unsaved-bar-enter-from,
+    .unsaved-bar-leave-to {
+        transform: none;
+    }
+}
+
 /* RWD：窄螢幕改為頂部橫向頁籤列、內容滿版（單欄上下堆疊） */
 @media (max-width: 640px) {
     .settings-modal {

@@ -180,6 +180,23 @@ function stageRemoveSocial(id: number): void {
     }
 }
 
+// 清空所有未儲存 draft，回到 profile 原值。saveAll 成功段與「還原」共用，避免兩處 drift。
+function resetDrafts(): void {
+    avatarDraft.clearDraft()
+    draftFurName.value = null
+    draftAvatarColor.value = null
+    draftAvatarBorder.value = null
+    draftSocialAdd.value = []
+    draftSocialRemove.value = []
+    tagEditorState.reset(user.profile.value?.tags ?? [])
+}
+
+// 「還原」：丟棄所有未儲存改動，不打 API
+function discardDrafts(): void {
+    resetDrafts()
+    socialAddError.value = null
+}
+
 async function saveAll(): Promise<void> {
     if (!isDirty.value || saving.value) return
     saving.value = true
@@ -222,13 +239,7 @@ async function saveAll(): Promise<void> {
         }
 
         // Full success — now safe to clear all drafts atomically
-        avatarDraft.clearDraft()
-        draftFurName.value = null
-        draftAvatarColor.value = null
-        draftAvatarBorder.value = null
-        draftSocialAdd.value = []
-        draftSocialRemove.value = []
-        tagEditorState.reset(user.profile.value?.tags ?? [])
+        resetDrafts()
         push.success('已儲存')
     } catch (e: any) {
         const apiMsg = e?.response?.data?.message
@@ -242,7 +253,7 @@ onBeforeUnmount(() => {
     avatarDraft.clearDraft()
 })
 
-defineExpose({ isDirty, saveAll, avatarDraft })
+defineExpose({ isDirty, saveAll, discardDrafts, avatarDraft })
 </script>
 
 <template>

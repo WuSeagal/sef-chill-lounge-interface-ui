@@ -1,0 +1,81 @@
+/* 泛用確認對話框：scrim + 卡片。視覺沿用既有 token（比照 AvatarCropModal），無自創色。 */
+.confirm-dialog {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    background: var(--modal-overlay);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-md);
+}
+
+.confirm-dialog__card {
+    width: min(320px, 100%);
+    background: var(--bubble-bg);
+    border: 1px solid var(--bubble-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-popup);
+    overflow: hidden;
+}
+
+.confirm-dialog__message {
+    margin: 0;
+    padding: var(--space-lg) var(--space-md) var(--space-sm);
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1.6;
+    color: #4a4433;
+    text-align: center;
+}
+
+.confirm-dialog__actions {
+    display: flex;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+}
+
+/* base：比照 .avatar-crop-modal__btn —— 兩顆共用邊框/尺寸 */
+.confirm-dialog__btn {
+    min-height: 42px;
+    padding: 0 var(--space-md);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--bubble-border);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 180ms ease, border-color 180ms ease;
+}
+
+.confirm-dialog__btn:focus-visible {
+    outline: 2px solid var(--bottom-bar-bg);
+    outline-offset: 2px;
+}
+
+/* 取消＝primary 實心（安全動作強調、預設焦點） */
+.confirm-dialog__cancel {
+    background: var(--bottom-bar-bg);
+    color: var(--bottom-bar-icon);
+    border-color: var(--bottom-bar-bg);
+}
+
+.confirm-dialog__cancel:hover {
+    background: color-mix(in srgb, var(--bottom-bar-bg) 88%, white);
+}
+
+/* 狠心離開＝secondary 外框（破壞性、次要） */
+.confirm-dialog__confirm {
+    background: var(--bubble-bg);
+    color: var(--input-text);
+}
+
+.confirm-dialog__confirm:hover {
+    background: rgba(255, 255, 255, 0.7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .confirm-dialog__btn {
+        transition: none;
+    }
+}

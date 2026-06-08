@@ -127,44 +127,39 @@ describe('SettingsModal', () => {
         expect(wrapper.find('[data-test=topic-card-tab]').exists()).toBe(true)
     })
 
-    describe('attemptClose with unsaved changes', () => {
+    describe('attemptClose with unsaved changes (ConfirmDialog)', () => {
         afterEach(() => {
-            vi.unstubAllGlobals()
+            document.body.innerHTML = ''
         })
 
-        it('shows confirm dialog when SettingsTab is dirty', async () => {
-            const confirmMock = vi.fn().mockReturnValue(false)
-            vi.stubGlobal('confirm', confirmMock)
-            const wrapper = mount(SettingsModal, { props: { open: true } })
+        it('opens ConfirmDialog when SettingsTab is dirty and does not close yet', async () => {
+            const wrapper = mount(SettingsModal, { props: { open: true }, attachTo: document.body })
             await flushPromises()
-            const input = wrapper.find('.settings-tab__nickname')
-            await input.setValue('變更名稱')
+            await wrapper.find('.settings-tab__nickname').setValue('變更名稱')
             await flushPromises()
-
             await wrapper.find('.settings-modal__close').trigger('click')
-            expect(confirmMock).toHaveBeenCalledWith('有未儲存的變更,確定要關閉?')
+            await nextTick()
+            expect(document.body.querySelector('.confirm-dialog')).not.toBeNull()
             expect(wrapper.emitted('close')).toBeFalsy()
         })
 
-        it('emits close immediately when not dirty', async () => {
-            const confirmMock = vi.fn()
-            vi.stubGlobal('confirm', confirmMock)
-            const wrapper = mount(SettingsModal, { props: { open: true } })
+        it('emits close immediately when not dirty (no dialog)', async () => {
+            const wrapper = mount(SettingsModal, { props: { open: true }, attachTo: document.body })
             await flushPromises()
             await wrapper.find('.settings-modal__close').trigger('click')
-            expect(confirmMock).not.toHaveBeenCalled()
+            expect(document.body.querySelector('.confirm-dialog')).toBeNull()
             expect(wrapper.emitted('close')).toBeTruthy()
         })
 
-        it('emits close when user confirms', async () => {
-            const confirmMock = vi.fn().mockReturnValue(true)
-            vi.stubGlobal('confirm', confirmMock)
-            const wrapper = mount(SettingsModal, { props: { open: true } })
+        it('emits close when user confirms 狠心離開', async () => {
+            const wrapper = mount(SettingsModal, { props: { open: true }, attachTo: document.body })
             await flushPromises()
-            const input = wrapper.find('.settings-tab__nickname')
-            await input.setValue('變更名稱')
+            await wrapper.find('.settings-tab__nickname').setValue('變更名稱')
             await flushPromises()
             await wrapper.find('.settings-modal__close').trigger('click')
+            await nextTick()
+            ;(document.body.querySelector('.confirm-dialog__confirm') as HTMLElement).click()
+            await nextTick()
             expect(wrapper.emitted('close')).toBeTruthy()
         })
     })
