@@ -24,10 +24,20 @@ describe('TopicCardTab', () => {
         vi.clearAllMocks()
     })
 
-    it('顯示當前話題卡內容', () => {
+    it('顯示當前話題卡內容,前後以粗體雙引號包覆（比照 onboarding）', () => {
         const wrapper = mount(TopicCardTab)
-        expect(wrapper.find('.topic-card-tab__content').text())
-            .toBe('你的設定中最喜歡哪個元素？')
+        const content = wrapper.find('.topic-card-tab__content')
+        expect(content.text()).toContain('你的設定中最喜歡哪個元素？')
+        const quotes = content.findAll('b')
+        expect(quotes.length).toBe(2)
+        expect(quotes[0].text()).toBe('"')
+        expect(quotes[1].text()).toBe('"')
+    })
+
+    it('hint 顯示邀請式新文案', () => {
+        const wrapper = mount(TopicCardTab)
+        expect(wrapper.find('.topic-card-tab__hint').text())
+            .toBe('想要開話題的好點子？ 抽抽看不同的話題卡來找個新話題來聊天吧！')
     })
 
     it('點重抽呼叫 redrawTopicCard', async () => {

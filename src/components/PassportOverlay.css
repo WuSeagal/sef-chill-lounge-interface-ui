@@ -13,7 +13,13 @@
    不觸發 ResizeObserver 回授迴圈；置中放置 group。 */
 .passport-overlay__viewport {
     position: absolute;
-    inset: 24px 16px;
+    /* #13(d) 以 env(safe-area-inset-*) 內縮，讓底部「儲存護照」鈕避開瀏海/底部手勢列；
+       桌機與無安全區裝置 env=0，max() 回退到原本的 24px/16px，不影響既有版面 */
+    inset:
+        max(24px, env(safe-area-inset-top))
+        max(16px, env(safe-area-inset-right))
+        max(24px, env(safe-area-inset-bottom))
+        max(16px, env(safe-area-inset-left));
     overflow: hidden;
     display: flex;
     align-items: center;

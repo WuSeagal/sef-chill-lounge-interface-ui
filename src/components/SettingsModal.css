@@ -125,15 +125,29 @@
         flex-direction: column;
     }
 
+    /* #3 方案 A：rail 捲動視窗右緣以 margin-right 停在關閉鈕✕左側
+       → 頁籤與✕「零重疊」，按✕不會誤觸底下頁籤；分隔線由 body border-top 跨滿寬 */
     .settings-modal__rail {
         flex: 0 0 auto;
         flex-direction: row;
         gap: var(--space-xs);
         overflow-x: auto;
         border-right: none;
-        border-bottom: 1px solid var(--bubble-border);
+        border-bottom: none;
         padding: var(--space-sm);
-        padding-right: 52px; /* 讓出右上角關閉鈕空間 */
+        /* ✕（.settings-modal__close: right 12px + width 36px ≈ 佔右側 48px）；
+           用 64px 在最後一個頁籤與✕之間多留約 16px 淨空，進一步避免誤觸。
+           若 .settings-modal__close 尺寸/位置改動，此值需一併調整 */
+        margin-right: 64px;
+        /* 手機上 rail 底色改回與 panel 一致 → ✕讓出的空間與頁籤區同色、無色差
+           （頁籤區與內容區改靠 body border-top 分隔，不靠底色差異） */
+        background: var(--page-bg);
+    }
+
+    /* #13(b) 行動裝置 body padding 縮小 + 滿寬分隔線 */
+    .settings-modal__body {
+        border-top: 1px solid var(--bubble-border);
+        padding: var(--space-md) var(--space-md) var(--space-sm);
     }
 
     .settings-modal__tab {
@@ -141,6 +155,10 @@
         white-space: nowrap;
         border-left: none;
         border-bottom: 2px solid transparent;
+        /* #13(a) 觸控目標 ≥44px */
+        min-height: 44px;
+        display: flex;
+        align-items: center;
     }
 
     .settings-modal__tab--active {

@@ -18,9 +18,12 @@ async function onRedraw(): Promise<void> {
     <div class="topic-card-tab" data-test="topic-card-tab">
         <div class="topic-card-tab__stage">
             <h3 class="topic-card-tab__title">話題卡</h3>
-            <p class="topic-card-tab__hint">每張話題卡會顯示在 Dashboard 與 ChatView。重抽即時生效</p>
+            <p class="topic-card-tab__hint">想要開話題的好點子？ 抽抽看不同的話題卡來找個新話題來聊天吧！</p>
             <div class="topic-card-tab__card">
-                <span class="topic-card-tab__content">{{ topicContent || '(未抽取)' }}</span>
+                <span class="topic-card-tab__content">
+                    <template v-if="topicContent"><b>"</b>{{ topicContent }}<b>"</b></template>
+                    <template v-else>(未抽取)</template>
+                </span>
             </div>
             <button
                 type="button"

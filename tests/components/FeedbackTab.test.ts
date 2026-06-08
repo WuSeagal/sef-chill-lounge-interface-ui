@@ -31,6 +31,13 @@ describe('FeedbackTab', () => {
         expect((nicknameInput.element as HTMLInputElement).value).toBe('小毛')
     })
 
+    it('renders an explanatory hint at the top of the form', () => {
+        const wrapper = mount(FeedbackTab)
+        const hint = wrapper.find('.feedback-tab__hint')
+        expect(hint.exists()).toBe(true)
+        expect(hint.text()).toBe('不論系統使用上有問題要反應，或是想要回饋心得，都可以使用此處。')
+    })
+
     it('renders subject input and body textarea', () => {
         const wrapper = mount(FeedbackTab)
         expect(wrapper.find('.feedback-tab__subject').exists()).toBe(true)

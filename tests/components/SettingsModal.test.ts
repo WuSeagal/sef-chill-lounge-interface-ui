@@ -24,8 +24,8 @@ describe('SettingsModal', () => {
         const tabs = wrapper.findAll('.settings-modal__tab')
         expect(tabs.length).toBe(6)
         expect(tabs[0].text()).toBe('個人資料')
-        expect(tabs[1].text()).toBe('輸出護照')
-        expect(tabs[2].text()).toBe('貼圖設定')
+        expect(tabs[1].text()).toBe('貼圖設定')
+        expect(tabs[2].text()).toBe('輸出護照')
         expect(tabs[3].text()).toBe('重抽話題卡')
         expect(tabs[4].text()).toBe('意見回饋')
         expect(tabs[5].text()).toBe('斗內連結')
@@ -116,7 +116,7 @@ describe('SettingsModal', () => {
     it('renders StickerTab when sticker tab active', async () => {
         const wrapper = mount(SettingsModal, { props: { open: true } })
         const tabs = wrapper.findAll('.settings-modal__tab')
-        await tabs[2].trigger('click')
+        await tabs[1].trigger('click')
         expect(wrapper.find('[data-test=sticker-tab]').exists()).toBe(true)
     })
 

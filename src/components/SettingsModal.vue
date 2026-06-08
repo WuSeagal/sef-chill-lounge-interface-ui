@@ -12,8 +12,8 @@ type TabId = 'settings' | 'export' | 'sticker' | 'topic' | 'feedback' | 'donate'
 
 const TABS: { id: TabId; label: string }[] = [
     { id: 'settings', label: '個人資料' },
-    { id: 'export', label: '輸出護照' },
     { id: 'sticker', label: '貼圖設定' },
+    { id: 'export', label: '輸出護照' },
     { id: 'topic', label: '重抽話題卡' },
     { id: 'feedback', label: '意見回饋' },
     { id: 'donate', label: '斗內連結' },
