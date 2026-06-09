@@ -24,6 +24,7 @@ import PlatformSelect from '@/components/PlatformSelect.vue'
 import PassportCard from '@/components/PassportCard.vue'
 import PassportOverlay from '@/components/PassportOverlay.vue'
 import { validateSocialUrl } from '@/utils/socialUrlValidation'
+import SocialLinkInput from '@/components/SocialLinkInput.vue'
 import lizardchiEgg from '@/assets/lizardchi.png'
 import defaultAvatarImg from '@/assets/avatars/default-avatar.png'
 
@@ -140,6 +141,14 @@ const allSocialsValid = computed(() =>
     selectedSocialLinks.value.length > 0 &&
     socialRowValidations.value.every(r => r.valid)
 )
+
+// 驗證狀態以 CSS 變數套到 SocialLinkInput 的輸入框邊框（綠=有效 / 紅=無效；未填則不上色）
+function socialFieldStyle(idx: number): Record<string, string> {
+    const row = selectedSocialLinks.value[idx]
+    if (!row?.platform || !row.links) return {}
+    const color = socialRowValidations.value[idx]?.valid ? '#6b8a4a' : '#c2695c'
+    return { '--sli-border': color, '--sli-border-focus': color }
+}
 
 // touched states per optional step
 const touchedAvatar = computed(() => hasStagedAvatar.value || avatarBorder.value)
@@ -277,6 +286,7 @@ function getSocialErrorMsg(validation: ReturnType<typeof validateSocialUrl>): st
         case 'invalid_url': return t('intro.social.invalidUrl')
         case 'unsafe_url': return t('intro.social.unsafe')
         case 'platform_mismatch': return t('intro.social.mismatch')
+        case 'too_long': return t('intro.social.tooLong')
     }
 }
 
@@ -565,31 +575,28 @@ onBeforeUnmount(() => {
                         class="intro-view__so-row-wrap"
                     >
                         <div class="intro-view__so-row">
-                            <PlatformSelect
-                                class="intro-view__so-sel"
-                                :data-test="`social-platform-${idx}`"
-                                :model-value="row.platform"
-                                :placeholder="t('intro.social.selectPlatform')"
-                                @update:model-value="(v: SocialPlatform) => { row.platform = v }"
-                            />
-                            <input
-                                class="intro-view__so-url"
-                                :class="{
-                                    'intro-view__so-url--ok': row.platform && row.links && socialRowValidations[idx]?.valid,
-                                    'intro-view__so-url--bad': row.platform && row.links && !socialRowValidations[idx]?.valid
-                                }"
-                                type="url"
-                                inputmode="url"
+                            <div class="intro-view__so-top">
+                                <PlatformSelect
+                                    class="intro-view__so-sel"
+                                    :data-test="`social-platform-${idx}`"
+                                    :model-value="row.platform"
+                                    :placeholder="t('intro.social.selectPlatform')"
+                                    @update:model-value="(v: SocialPlatform) => { row.platform = v }"
+                                />
+                                <button
+                                    type="button"
+                                    class="intro-view__so-x"
+                                    :data-test="`remove-social-${idx}`"
+                                    @click="removeSocialRow(idx)"
+                                >✕</button>
+                            </div>
+                            <SocialLinkInput
+                                :platform="row.platform"
+                                :disabled="!row.platform"
                                 :data-test="`social-url-${idx}`"
+                                :style="socialFieldStyle(idx)"
                                 v-model="row.links"
-                                :placeholder="t('intro.placeholders.socialUrl')"
                             />
-                            <button
-                                type="button"
-                                class="intro-view__so-x"
-                                :data-test="`remove-social-${idx}`"
-                                @click="removeSocialRow(idx)"
-                            >✕</button>
                         </div>
                         <div
                             v-if="row.platform && row.links && !socialRowValidations[idx]?.valid"

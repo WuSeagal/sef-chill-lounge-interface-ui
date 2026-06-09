@@ -96,6 +96,7 @@ const zhTW = {
             invalidUrl: '請輸入合法的 http/https 連結',
             unsafe: '不可使用 localhost 或 IP 連結',
             mismatch: '與所選平台的連結格式不符',
+            tooLong: '連結過長（上限 200 字）',
             selectPlatform: '選擇平台…',
         },
     },

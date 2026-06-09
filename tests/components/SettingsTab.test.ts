@@ -100,6 +100,33 @@ describe('SettingsTab — staged save', () => {
         expect(updateProfileMock).not.toHaveBeenCalled()
     })
 
+    it('邊框色可編輯 hex：合法 #RRGGBB 寫回 draft 並儲存', async () => {
+        const wrapper = mount(SettingsTab)
+        await wrapper.find('[data-test=avatar-border-toggle] input').setValue(true)
+        await flushPromises()
+        await wrapper.find('[data-test=avatar-border-hex]').setValue('#abcdef')
+        await flushPromises()
+        await wrapper.find('[data-test=save-all]').trigger('click')
+        await flushPromises()
+        expect(updateProfileMock).toHaveBeenCalledWith(
+            expect.objectContaining({ avatarColor: '#abcdef' }),
+        )
+    })
+
+    it('邊框色可編輯 hex：打到一半的非法值不寫回 draft', async () => {
+        const wrapper = mount(SettingsTab)
+        await wrapper.find('[data-test=avatar-border-toggle] input').setValue(true)
+        await flushPromises()
+        await wrapper.find('[data-test=avatar-border-hex]').setValue('#ab')
+        await flushPromises()
+        await wrapper.find('[data-test=save-all]').trigger('click')
+        await flushPromises()
+        // 只有開框算 dirty，顏色非法不應帶進 avatarColor
+        expect(updateProfileMock).toHaveBeenCalledWith(
+            expect.objectContaining({ avatarColor: undefined }),
+        )
+    })
+
     it('儲存按鈕無 dirty 時 disabled', () => {
         const wrapper = mount(SettingsTab)
         const btn = wrapper.find('[data-test=save-all]')
@@ -259,18 +286,19 @@ describe('SettingsTab — staged save', () => {
     it('加社群連結 staged 進預覽,儲存才送 API', async () => {
         const wrapper = mount(SettingsTab)
         await pickPlatform(wrapper, 'INSTAGRAM')
+        // 帳號模式：貼整條 URL → 偵測剝成帳號 → 組回正規化（補 www.）後儲存
         await wrapper.find('[data-test=social-url-input]').setValue('https://instagram.com/test')
         await wrapper.find('[data-test=social-add-btn]').trigger('click')
         await flushPromises()
         expect(addSocialLinkMock).not.toHaveBeenCalled()
-        // 預覽改為比照護照頁：icon 晶片 + URL（不再顯示平台文字 label）
-        expect(wrapper.text()).toContain('https://instagram.com/test')
+        // 預覽改為比照護照頁：icon 晶片 + 去前綴顯示 @帳號
+        expect(wrapper.text()).toContain('@test')
 
         await wrapper.find('[data-test=save-all]').trigger('click')
         await flushPromises()
         expect(addSocialLinkMock).toHaveBeenCalledWith({
             platform: 'INSTAGRAM',
-            links: 'https://instagram.com/test',
+            links: 'https://www.instagram.com/test',
         })
     })
 
@@ -285,9 +313,9 @@ describe('SettingsTab — staged save', () => {
         expect((wrapper.find('[data-test=save-all]').element as HTMLButtonElement).disabled).toBe(true)
     })
 
-    it('社群連結 — URL 格式錯誤(localhost)顯示錯誤且阻擋加入', async () => {
+    it('社群連結 — free 模式 URL 格式錯誤(localhost)顯示錯誤且阻擋加入', async () => {
         const wrapper = mount(SettingsTab)
-        await pickPlatform(wrapper, 'GITHUB')
+        await pickPlatform(wrapper, 'PERSONAL')
         await wrapper.find('[data-test=social-url-input]').setValue('http://localhost:3000')
         await wrapper.find('[data-test=social-add-btn]').trigger('click')
         await flushPromises()
@@ -295,14 +323,55 @@ describe('SettingsTab — staged save', () => {
         expect((wrapper.find('[data-test=save-all]').element as HTMLButtonElement).disabled).toBe(true)
     })
 
-    it('社群連結 — 平台不符(URL 對不上選的平台)顯示錯誤且阻擋加入', async () => {
+    it('社群連結 — 帳號模式貼整條 URL（含尾斜線/query）正規化後加入並顯示 @帳號', async () => {
         const wrapper = mount(SettingsTab)
         await pickPlatform(wrapper, 'GITHUB')
-        await wrapper.find('[data-test=social-url-input]').setValue('https://twitter.com/test')
+        await wrapper.find('[data-test=social-url-input]').setValue('https://github.com/myname/?tab=repos')
         await wrapper.find('[data-test=social-add-btn]').trigger('click')
         await flushPromises()
-        expect(wrapper.find('[data-test=social-add-error]').exists()).toBe(true)
-        expect((wrapper.find('[data-test=save-all]').element as HTMLButtonElement).disabled).toBe(true)
+        expect(wrapper.find('[data-test=social-add-error]').exists()).toBe(false)
+        expect(wrapper.text()).toContain('@myname')
+
+        await wrapper.find('[data-test=save-all]').trigger('click')
+        await flushPromises()
+        expect(addSocialLinkMock).toHaveBeenCalledWith({
+            platform: 'GITHUB',
+            links: 'https://github.com/myname',
+        })
+    })
+
+    it('社群連結 — 選了平台但帳號留空,點加入不會加入空連結', async () => {
+        const wrapper = mount(SettingsTab)
+        await pickPlatform(wrapper, 'INSTAGRAM')
+        // 不輸入帳號直接按加入
+        await wrapper.find('[data-test=social-add-btn]').trigger('click')
+        await flushPromises()
+        await wrapper.find('[data-test=save-all]').trigger('click')
+        await flushPromises()
+        expect(addSocialLinkMock).not.toHaveBeenCalled()
+    })
+
+    it('社群連結 — 儲存後清空進行中的新增列（平台 + 帳號）', async () => {
+        const wrapper = mount(SettingsTab)
+        // 先 stage 一筆讓表單 dirty
+        await pickPlatform(wrapper, 'GITHUB')
+        await wrapper.find('[data-test=social-url-input]').setValue('myname')
+        await wrapper.find('[data-test=social-add-btn]').trigger('click')
+        await flushPromises()
+        // 再於新增列輸入但「不」按加入
+        await pickPlatform(wrapper, 'INSTAGRAM')
+        await wrapper.find('[data-test=social-url-input]').setValue('halftyped')
+        // 儲存
+        await wrapper.find('[data-test=save-all]').trigger('click')
+        await flushPromises()
+        // 新增列已清空（帳號欄空 + 平台回到 placeholder）
+        expect((wrapper.find('[data-test=social-url-input]').element as HTMLInputElement).value).toBe('')
+        expect(wrapper.find('[data-test=social-platform-select]').text()).toContain('intro.social.selectPlatform')
+    })
+
+    it('社群連結 — 平台未選時輸入框 disabled', () => {
+        const wrapper = mount(SettingsTab)
+        expect((wrapper.find('[data-test=social-url-input]').element as HTMLInputElement).disabled).toBe(true)
     })
 
     it('社群連結 — 合法平台+URL 可加入,draft 攜帶 enum value', async () => {

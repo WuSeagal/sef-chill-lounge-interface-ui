@@ -39,4 +39,12 @@ describe('validateSocialUrl（含平台層）', () => {
   it('平台層之前先過安全層：PERSONAL + localhost → unsafe_url', () => {
     expect(validateSocialUrl('PERSONAL', 'http://localhost')).toEqual({ valid: false, reason: 'unsafe_url' })
   })
+  it('超過 200 字 → too_long（與後端 MAX_LINKS_LENGTH 一致）', () => {
+    const long = 'https://x.com/' + 'a'.repeat(200) // 214 chars
+    expect(validateSocialUrl('X', long)).toEqual({ valid: false, reason: 'too_long' })
+  })
+  it('剛好 200 字不算過長', () => {
+    const url = 'https://x.com/' + 'a'.repeat(200 - 'https://x.com/'.length)
+    expect(validateSocialUrl('X', url)).toEqual({ valid: true })
+  })
 })

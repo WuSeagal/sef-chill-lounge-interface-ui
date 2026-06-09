@@ -124,19 +124,47 @@
     gap: var(--space-sm);
 }
 
+/* 邊框色：圓形預覽（比照 onboarding swatch-circle）+ 可編輯 hex 輸入 */
 .settings-tab__color-input {
-    width: 48px;
-    height: 32px;
+    width: 30px;
+    height: 30px;
     border: 1px solid var(--bubble-border);
-    border-radius: var(--radius-sm);
+    border-radius: 50%;
     cursor: pointer;
-    padding: 2px;
+    padding: 0;
+    flex-shrink: 0;
 }
 
-.settings-tab__color-value {
-    font-size: 0.85rem;
+.settings-tab__color-input::-webkit-color-swatch-wrapper {
+    padding: 0;
+}
+
+.settings-tab__color-input::-webkit-color-swatch {
+    border: none;
+    border-radius: 50%;
+}
+
+.settings-tab__color-input::-moz-color-swatch {
+    border: none;
+    border-radius: 50%;
+}
+
+.settings-tab__hex-input {
+    width: 10ch;
+    text-align: center;
+    padding: 4px 6px;
+    border: 1px solid var(--bubble-border);
+    border-radius: var(--radius-sm);
+    background: var(--input-bg);
     color: var(--input-text);
     font-family: monospace;
+    font-size: 0.85rem;
+    text-transform: lowercase;
+}
+
+.settings-tab__hex-input:focus {
+    outline: none;
+    border-color: var(--input-text);
 }
 
 
@@ -207,11 +235,45 @@
     opacity: 1;
 }
 
+/* 新增社群列：平台選單 + 加入鈕一行（平台獨佔寬度不截斷），affix + 輸入框在下方（由 SocialLinkInput 直式呈現）。
+   以 CSS 變數把 SocialLinkInput 的欄位主題對齊 settings 的 token 系統。 */
 .settings-tab__add-row {
-    display: grid;
-    grid-template-columns: 132px 1fr auto;
+    display: flex;
+    flex-direction: column;
     gap: var(--space-xs);
+    --sli-border: var(--bubble-border);
+    --sli-bg: var(--input-bg);
+    --sli-text: var(--input-text);
+    --sli-affix: var(--input-text);
+    --sli-radius: var(--radius-sm);
+    --sli-pad: var(--space-sm) var(--space-md);
+    --sli-font: 0.95rem;
+}
+
+/* 平台選單獨佔一行（全寬不截斷）；輸入框 + 加入鈕在下一行 */
+.settings-tab__add-bottom {
+    display: flex;
+    gap: var(--space-xs);
+    align-items: flex-end;
+}
+
+.settings-tab__add-bottom .social-link-input {
+    flex: 1;
+    min-width: 0;
+}
+
+/* 加入鈕與輸入框等高（相同 padding / border / 字級 / 行高）→ flex-end 對齊後即與輸入框同一垂直帶；
+   + 字以 flex 水平垂直置中 */
+.settings-tab__add-bottom .settings-tab__btn {
+    display: inline-flex;
     align-items: center;
+    justify-content: center;
+    padding: var(--space-sm) var(--space-md);
+    border: 1px solid transparent;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    min-width: 2.5rem;
+    flex-shrink: 0;
 }
 
 .settings-tab__btn {
@@ -235,6 +297,12 @@
     flex-direction: column;
     gap: var(--space-xs);
     margin-bottom: var(--space-xs);
+}
+
+/* 已加入的社群清單與下方「新增/編輯區」之間以細橫線分隔（僅在清單有項目時，避免空狀態留突兀線條） */
+.settings-tab__social-list:not(:empty) {
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--bubble-border);
 }
 
 .settings-tab__social-item {

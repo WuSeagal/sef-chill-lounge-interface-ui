@@ -424,7 +424,8 @@
 
 /* 可編輯 hex 欄位:沿用 color-value 的字體/色，外觀做成小輸入框 */
 .intro-view__hex-input {
-    width: 8ch;
+    width: 10ch;
+    text-align: center;
     padding: 3px 6px;
     border: 1px solid #d7cdaf;
     border-radius: 6px;
@@ -481,20 +482,32 @@
 }
 
 /* === Socials step === */
+/* 每筆社群為一個分組（平台+✕ 一行 / affix+輸入 在下），分組間用細橫線分隔（比照全站 --bubble-border 慣例） */
 .intro-view__so-row-wrap {
-    margin-bottom: 10px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--bubble-border, #d7cdaf);
+}
+
+.intro-view__so-row-wrap:last-of-type {
+    border-bottom: none;
 }
 
 .intro-view__so-row {
-    display: grid;
-    grid-template-columns: 180px 1fr 38px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* 平台選單 + 移除鈕同一行（平台獨佔寬度不截斷） */
+.intro-view__so-top {
+    display: flex;
     gap: 10px;
     align-items: center;
 }
 
-/* PlatformSelect 包在 so-row 第一欄：外層 wrapper 不帶任何視覺 chrome（避免多一圈），
-   只讓內部 .ps-trigger 呈現，並對齊 .intro-view__so-url 的輸入框樣式 */
 .intro-view__so-sel {
+    flex: 1;
     min-width: 0;
 }
 
@@ -506,26 +519,6 @@
     background: #fffdf6;
     font-size: 0.9rem;
     color: #3f3a2c;
-}
-
-.intro-view__so-url {
-    padding: 11px 14px;
-    border: 1.5px solid #d7cdaf;
-    border-radius: 11px;
-    background: #fffdf6;
-    font: inherit;
-    font-size: 0.9rem;
-    color: #3f3a2c;
-}
-
-.intro-view__so-url--ok {
-    border-color: #6b8a4a;
-    background: #f3f7ec;
-}
-
-.intro-view__so-url--bad {
-    border-color: #c2695c;
-    background: #f9eeec;
 }
 
 .intro-view__so-x {
@@ -549,7 +542,7 @@
 
 .intro-view__so-msg {
     font-size: 0.72rem;
-    margin: 4px 0 0 190px;
+    margin: 4px 0 0 0;
 }
 
 .intro-view__so-msg--bad {
@@ -726,13 +719,8 @@
         grid-row: 2;
     }
 
-    .intro-view__so-row {
-        grid-template-columns: 1fr 1fr 38px;
-    }
-
-    .intro-view__so-msg {
-        margin-left: 0;
-    }
+    /* 手機：平台選單獨立一行（整行避免長 label 截斷），輸入框 + 移除鈕在下一行 */
+    /* so-row 已為直式 flex（平台行 + 輸入行），手機無需額外覆寫 */
 
     .intro-view__review-avatar-card {
         align-items: flex-start;

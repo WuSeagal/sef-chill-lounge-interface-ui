@@ -433,7 +433,9 @@ describe('IntroView', () => {
         expect((wrapper.find('[data-test=next-step]').element as HTMLButtonElement).disabled).toBe(false)
     })
 
-    it('socials: mismatched URL blocks next-step and shows error', async () => {
+    // 帳號模式改版後：template 平台 host 由模板固定，不可能 platform_mismatch。
+    // 不安全 URL 只可能出現在 free 模式（PERSONAL/OTHER），改測該情境擋下一步。
+    it('socials: free 模式不安全 URL（localhost）blocks next-step and shows error', async () => {
         authState.isLogin = true
         authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
         needsOnboardingRef.value = true
@@ -449,14 +451,13 @@ describe('IntroView', () => {
         await wrapper.find('[data-test=add-social-link]').trigger('click')
         await flushPromises()
 
-        // GITHUB platform but x.com URL → mismatch
-        await pickPlatform(wrapper, 'social-platform-0', 'GITHUB')
-        await wrapper.find('[data-test=social-url-0]').setValue('https://x.com/googlefox')
+        // PERSONAL（free 模式）+ localhost → 安全層擋下
+        await pickPlatform(wrapper, 'social-platform-0', 'PERSONAL')
+        await wrapper.find('[data-test=social-url-0]').setValue('http://localhost:3000')
         await flushPromises()
 
         expect((wrapper.find('[data-test=next-step]').element as HTMLButtonElement).disabled).toBe(true)
         expect(wrapper.find('[data-test=social-error-0]').exists()).toBe(true)
-        expect(wrapper.find('[data-test=social-error-0]').text()).toContain('與所選平台')
     })
 
     it('socials: later-fill (untouched) skips the step', async () => {
@@ -871,8 +872,8 @@ describe('IntroView', () => {
         const passport = wrapper.find('[data-test=review-passport]')
         expect(passport.exists()).toBe(true)
         expect(passport.find('[data-test=review-furname]').text()).toContain('Google Fox')
-        // Social entry shows handle
-        expect(passport.find('[data-test=review-socials]').text()).toContain('https://github.com/googlefox')
+        // Social entry shows handle（帳號模式：去前綴顯示 @帳號）
+        expect(passport.find('[data-test=review-socials]').text()).toContain('@googlefox')
         // No more... row since only 1 link
         expect(passport.find('[data-test=review-socials-more]').exists()).toBe(false)
     })

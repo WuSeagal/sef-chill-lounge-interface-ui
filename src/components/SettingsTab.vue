@@ -17,7 +17,9 @@ import { resolveAvatarSrc } from '@/utils/avatarSource'
 import { TagType, TAG_TYPE_ORDER, type GroupedTags, type Tag, type AddSocialLinkRequest } from '@/types/user'
 import { resolvePlatformMeta, type SocialPlatform } from '@/constants/platforms'
 import PlatformSelect from '@/components/PlatformSelect.vue'
+import SocialLinkInput from '@/components/SocialLinkInput.vue'
 import { validateSocialUrl, type UrlValidationReason } from '@/utils/socialUrlValidation'
+import { formatSocialDisplay } from '@/utils/socialUrl'
 
 const TAG_MAX = 20
 
@@ -141,6 +143,17 @@ function stageAvatarColor(value: string): void {
     const current = user.profile.value?.avatarColor ?? '#cccccc'
     draftAvatarColor.value = value === current ? null : value
 }
+
+// 邊框顏色可編輯 hex（比照 onboarding）：hexInput 跟著 displayAvatarColor 同步（picker 選色 / reset），
+// 只有輸入符合 #RRGGBB 時才寫回 draft，避免打到一半（如 #ab）就清空 swatch。
+const HEX_COLOR_RE = /^#[0-9a-fA-F]{6}$/
+const colorHexInput = ref<string>(displayAvatarColor.value)
+watch(displayAvatarColor, value => { colorHexInput.value = value })
+function onColorHexInput(raw: string): void {
+    colorHexInput.value = raw
+    if (!HEX_COLOR_RE.test(raw)) return
+    stageAvatarColor(raw)
+}
 function stageAvatarBorder(value: boolean): void {
     const current = user.profile.value?.avatarBorder ?? false
     draftAvatarBorder.value = value === current ? null : value
@@ -150,6 +163,7 @@ function getSocialErrorMsg(reason: UrlValidationReason): string {
         case 'invalid_url': return t('intro.social.invalidUrl')
         case 'unsafe_url': return t('intro.social.unsafe')
         case 'platform_mismatch': return t('intro.social.mismatch')
+        case 'too_long': return t('intro.social.tooLong')
     }
 }
 
@@ -188,6 +202,10 @@ function resetDrafts(): void {
     draftAvatarBorder.value = null
     draftSocialAdd.value = []
     draftSocialRemove.value = []
+    // 清空進行中的社群新增列（平台 + 帳號 + 錯誤），避免還原/儲存後殘留
+    newSocialPlatform.value = ''
+    newSocialUrl.value = ''
+    socialAddError.value = null
     tagEditorState.reset(user.profile.value?.tags ?? [])
 }
 
@@ -308,12 +326,23 @@ defineExpose({ isDirty, saveAll, discardDrafts, avatarDraft })
                     <div v-if="displayAvatarBorder" class="settings-tab__av-row">
                         <span class="settings-tab__sublabel">邊框顏色</span>
                         <input
-                            class="settings-tab__color-input"
+                            class="settings-tab__color-input settings-tab__swatch-circle"
                             type="color"
                             :value="displayAvatarColor"
                             @input="stageAvatarColor(($event.target as HTMLInputElement).value)"
                         />
-                        <span class="settings-tab__color-value">{{ displayAvatarColor }}</span>
+                        <input
+                            class="settings-tab__hex-input"
+                            type="text"
+                            data-test="avatar-border-hex"
+                            aria-label="邊框顏色"
+                            :value="colorHexInput"
+                            maxlength="7"
+                            spellcheck="false"
+                            autocapitalize="off"
+                            placeholder="#RRGGBB"
+                            @input="onColorHexInput(($event.target as HTMLInputElement).value)"
+                        />
                     </div>
                 </div>
             </div>
@@ -336,7 +365,7 @@ defineExpose({ isDirty, saveAll, discardDrafts, avatarDraft })
                         :style="{ background: resolvePlatformMeta(link.platform).brandColor }"
                         v-html="resolvePlatformMeta(link.platform).icon"
                     />
-                    <a :href="link.links" target="_blank" rel="noopener noreferrer" class="settings-tab__social-url">{{ link.links }}</a>
+                    <a :href="link.links" target="_blank" rel="noopener noreferrer" class="settings-tab__social-url">{{ formatSocialDisplay(link.platform, link.links) }}</a>
                     <button type="button" class="settings-tab__social-remove" @click="stageRemoveSocial(link.id)">&times;</button>
                 </div>
             </div>
@@ -347,14 +376,16 @@ defineExpose({ isDirty, saveAll, discardDrafts, avatarDraft })
                     data-test="social-platform-select"
                     :placeholder="t('intro.social.selectPlatform')"
                 />
-                <input
-                    v-model="newSocialUrl"
-                    class="settings-tab__input"
-                    placeholder="URL"
-                    data-test="social-url-input"
-                    @keydown.enter="stageAddSocial"
-                />
-                <button type="button" class="settings-tab__btn" data-test="social-add-btn" @click="stageAddSocial">+</button>
+                <div class="settings-tab__add-bottom">
+                    <SocialLinkInput
+                        v-model="newSocialUrl"
+                        :platform="newSocialPlatform"
+                        :disabled="!newSocialPlatform"
+                        data-test="social-url-input"
+                        @keydown.enter="stageAddSocial"
+                    />
+                    <button type="button" class="settings-tab__btn" data-test="social-add-btn" @click="stageAddSocial">+</button>
+                </div>
             </div>
             <div v-if="socialAddError" class="settings-tab__social-error" data-test="social-add-error">
                 {{ socialAddError }}

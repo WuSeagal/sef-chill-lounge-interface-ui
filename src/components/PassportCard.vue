@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, type CSSProperties } from 'vue'
 import './PassportCard.css'
 import { PLATFORMS, type SocialPlatform } from '@/constants/platforms'
+import { formatSocialDisplay } from '@/utils/socialUrl'
 import { TagType, TAG_TYPE_ORDER, TAG_TYPE_PREFIX, type Tag } from '@/types/user'
 import { useScrollEdges } from '@/composables/useScrollEdges'
 import { computeFitScale } from '@/utils/passportFit'
@@ -241,7 +242,7 @@ onBeforeUnmount(() => {
                         :style="{ background: platformMeta(link.platform).brandColor }"
                         v-html="platformMeta(link.platform).icon"
                       ></span>
-                      <span class="ps-handle">{{ link.links }}</span>
+                      <span class="ps-handle">{{ formatSocialDisplay(link.platform, link.links) }}</span>
                     </a>
                   </li>
                 </ul>

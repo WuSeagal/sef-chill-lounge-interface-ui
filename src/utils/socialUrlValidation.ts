@@ -1,7 +1,10 @@
 import { PLATFORMS, type SocialPlatform } from '@/constants/platforms'
 
-export type UrlValidationReason = 'invalid_url' | 'unsafe_url' | 'platform_mismatch'
+export type UrlValidationReason = 'invalid_url' | 'unsafe_url' | 'platform_mismatch' | 'too_long'
 export type UrlValidationResult = { valid: true } | { valid: false; reason: UrlValidationReason }
+
+/** 社群連結最大長度（與後端 SocialUrlValidator.MAX_LINKS_LENGTH 一致） */
+export const MAX_SOCIAL_LINK_LENGTH = 200
 
 const IPV4 = /^\d{1,3}(\.\d{1,3}){3}$/
 
@@ -33,6 +36,7 @@ export function validateSafeUrl(raw: string): UrlValidationResult {
 }
 
 export function validateSocialUrl(platform: SocialPlatform, raw: string): UrlValidationResult {
+  if (raw.length > MAX_SOCIAL_LINK_LENGTH) return { valid: false, reason: 'too_long' }
   const safe = validateSafeUrl(raw)
   if (!safe.valid) return safe
 

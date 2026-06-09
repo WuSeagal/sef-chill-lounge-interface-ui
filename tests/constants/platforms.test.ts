@@ -31,8 +31,10 @@ describe('urlPattern host matching', () => {
 })
 
 describe('platforms registry', () => {
-  it('恰好 14 個平台、含 PERSONAL/OTHER、不含 EMAIL', () => {
-    expect(SOCIAL_PLATFORMS).toHaveLength(14)
+  it('恰好 16 個平台、含 FACEBOOK_PAGE/DISCORD_SERVER/PERSONAL/OTHER、不含 EMAIL', () => {
+    expect(SOCIAL_PLATFORMS).toHaveLength(16)
+    expect(SOCIAL_PLATFORMS).toContain('FACEBOOK_PAGE')
+    expect(SOCIAL_PLATFORMS).toContain('DISCORD_SERVER')
     expect(SOCIAL_PLATFORMS).toContain('PERSONAL')
     expect(SOCIAL_PLATFORMS).toContain('OTHER')
     expect(SOCIAL_PLATFORMS as readonly string[]).not.toContain('EMAIL')
@@ -54,6 +56,63 @@ describe('platforms registry', () => {
   })
   it('PLATFORM_LIST 順序與 SOCIAL_PLATFORMS 一致', () => {
     expect(PLATFORM_LIST.map(m => m.value)).toEqual([...SOCIAL_PLATFORMS])
+  })
+})
+
+describe('platform input/display metadata', () => {
+  it('FACEBOOK_PAGE / DISCORD_SERVER 沿用本尊 icon 與品牌色', () => {
+    expect(PLATFORMS.FACEBOOK_PAGE.icon).toBe(PLATFORMS.FACEBOOK.icon)
+    expect(PLATFORMS.FACEBOOK_PAGE.brandColor).toBe(PLATFORMS.FACEBOOK.brandColor)
+    expect(PLATFORMS.DISCORD_SERVER.icon).toBe(PLATFORMS.DISCORD.icon)
+    expect(PLATFORMS.DISCORD_SERVER.brandColor).toBe(PLATFORMS.DISCORD.brandColor)
+  })
+
+  it('模式 A（template + handle）平台帶正確模板與顯示模式', () => {
+    expect(PLATFORMS.INSTAGRAM.inputMode).toBe('template')
+    expect(PLATFORMS.INSTAGRAM.displayMode).toBe('handle')
+    expect(PLATFORMS.INSTAGRAM.urlTemplate).toBe('https://www.instagram.com/{{}}')
+    expect(PLATFORMS.INSTAGRAM.fillPlaceholder).toBe('username')
+
+    expect(PLATFORMS.LINKEDIN.urlTemplate).toBe('https://www.linkedin.com/in/{{}}')
+    expect(PLATFORMS.LINKEDIN.fillPlaceholder).toBe('name')
+    expect(PLATFORMS.THREADS.urlTemplate).toBe('https://www.threads.com/@{{}}')
+    expect(PLATFORMS.BLUESKY.urlTemplate).toBe('https://bsky.app/profile/{{}}')
+    expect(PLATFORMS.CAKERESUME.urlTemplate).toBe('https://www.cake.me/me/{{}}')
+    expect(PLATFORMS.FACEBOOK.displayMode).toBe('handle')
+    expect(PLATFORMS.FACEBOOK.urlTemplate).toBe('https://www.facebook.com/{{}}')
+  })
+
+  it('模式 B（template + fullUrl）平台帶正確模板與顯示模式', () => {
+    expect(PLATFORMS.STEAM.inputMode).toBe('template')
+    expect(PLATFORMS.STEAM.displayMode).toBe('fullUrl')
+    expect(PLATFORMS.STEAM.urlTemplate).toBe('https://steamcommunity.com/profiles/{{}}')
+    expect(PLATFORMS.STEAM.fillPlaceholder).toBe('id')
+
+    expect(PLATFORMS.DISCORD.urlTemplate).toBe('https://discord.com/users/{{}}')
+    expect(PLATFORMS.DISCORD.displayMode).toBe('fullUrl')
+    expect(PLATFORMS.DISCORD_SERVER.urlTemplate).toBe('https://discord.gg/{{}}')
+    expect(PLATFORMS.DISCORD_SERVER.fillPlaceholder).toBe('key')
+    expect(PLATFORMS.FACEBOOK_PAGE.urlTemplate).toBe('https://www.facebook.com/profile.php?id={{}}')
+    expect(PLATFORMS.FACEBOOK_PAGE.displayMode).toBe('fullUrl')
+    expect(PLATFORMS.FACEBOOK_PAGE.fillPlaceholder).toBe('id')
+  })
+
+  it('模式 C（free + fullUrl）平台無模板', () => {
+    expect(PLATFORMS.PERSONAL.inputMode).toBe('free')
+    expect(PLATFORMS.PERSONAL.displayMode).toBe('fullUrl')
+    expect(PLATFORMS.PERSONAL.urlTemplate).toBeUndefined()
+    expect(PLATFORMS.OTHER.inputMode).toBe('free')
+  })
+
+  it('每個 template 平台 urlTemplate 含 {{}} 槽位、free 平台無模板', () => {
+    for (const p of SOCIAL_PLATFORMS) {
+      const meta = PLATFORMS[p]
+      if (meta.inputMode === 'template') {
+        expect(meta.urlTemplate).toContain('{{}}')
+      } else {
+        expect(meta.urlTemplate).toBeUndefined()
+      }
+    }
   })
 })
 
