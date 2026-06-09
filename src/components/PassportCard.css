@@ -81,15 +81,21 @@
     grid-template-columns: 240px 1fr;
     gap: 32px;
     padding: 2px 10px 6px;
-    /* 護照高度釘在「正常都有（avatar+tags+socials+stickers）」高度，
-       讓有/無貼圖、有/無 TAG 都等高（min-height 不夾，內容更高時仍可長） */
-    min-height: 240px;
+    /* 護照高度釘死為「avatar + TAGS 標題 + 6 種 TAG 類型各一行 + 呼吸空間」高度，使所有護照等寬高比
+       （內容少者下方留白；TAG/社群超出時於各自 scroll 區內部捲動，整體高度不變）。
+       = avatar 140 + .ps-tags margin-top 18 + 標題 ~20 + 6 列(196) + 10 呼吸 ≈ 384。
+       關鍵：用 grid-template-rows 定值列高（非 height）——auto row 會被內容撐高，
+       定值列高才能夾住，讓社群 flex:1 變「填滿固定空間+超出捲動」而非「撐大卡片」。
+       注意：依賴 grid 預設 align-items:stretch 讓左右欄撐滿 384（社群 flex:1 才有定值空間、
+       貼圖才會貼底）；勿在此加 align-items 覆寫，否則貼圖貼底機制會失效。 */
+    grid-template-rows: 384px;
 }
 
 .ps-left {
     display: flex;
     flex-direction: column;
     min-width: 0;
+    min-height: 0;
 }
 
 .ps-photo-wrap {
@@ -224,7 +230,8 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    max-height: 168px;
+    /* 6 列完整顯示 + 呼吸空間（6×26 chip + 5×8 gap = 196，+10）；第 7 列以上內部捲動 */
+    max-height: 206px;
     overflow-y: auto;
     overscroll-behavior: contain;
 }
@@ -270,6 +277,7 @@
     flex-direction: column;
     gap: 14px;
     min-width: 0;
+    min-height: 0;
 }
 
 .ps-furname-label {
@@ -295,14 +303,29 @@
     background: #e3dabf;
 }
 
-/* social / sticker 各保留固定 slot 高度，讓兩區位置固定 */
+/* social 區吃掉右欄多餘高度（flex:1），把 sticker 推到卡底；sticker 保留固定 slot 高度 */
 .ps-block--social {
     min-height: 100px;
     min-width: 0;
+    /* 吸收右欄 slack：社群區長大、可多顯示幾筆才捲動，sticker 自然落到底部 */
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* social 區的 scroll 鏈一路 flex-fill：block→scroll-wrap→scroll 都填滿並解除固定 max-height，
+   讓社群連結區確實補滿被 flex:1 撐開的空間（只 scope 社群側，不動共用的 TAG scroll-wrap） */
+.ps-block--social .ps-scroll-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .ps-block--stickers {
     min-height: 64px;
+    /* 與卡底留一點呼吸空間，不貼齊邊框 */
+    margin-bottom: 10px;
 }
 
 .ps-social-label {
@@ -323,9 +346,12 @@
     gap: 7px;
 }
 
-/* 社群連結全部顯示且可捲動（scroll affordance 由 PassportOverlay 在 full 模式套用） */
+/* 社群連結全部顯示且可捲動（scroll affordance 由 PassportOverlay 在 full 模式套用）。
+   flex-fill 填滿被 flex:1 撐開的 scroll-wrap；解除固定 max-height，內容超出時於此區捲動 */
 .ps-social-scroll {
-    max-height: 132px;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
     overflow-y: auto;
     overscroll-behavior: contain;
 }

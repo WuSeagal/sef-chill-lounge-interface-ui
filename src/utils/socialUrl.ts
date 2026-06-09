@@ -1,4 +1,4 @@
-import { PLATFORMS, type SocialPlatform, type PlatformMeta } from '@/constants/platforms'
+import { PLATFORMS, type PlatformMeta } from '@/constants/platforms'
 
 const SLOT = '{{}}'
 
