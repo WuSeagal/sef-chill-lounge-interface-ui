@@ -140,4 +140,33 @@ describe('TagEditorModal', () => {
         await wrapper.find('[data-test="chip-c-held"]').trigger('click')
         expect(state.selectedTagIds.value.has('c-held')).toBe(false)
     })
+
+    it('剛新增的 staged custom 出現在可點 chips 清單、標為已選', async () => {
+        const state = useTagEditorState({ maxPerUser: 20 })
+        state.reset([])
+        const wrapper = mount(TagEditorModal, {
+            props: { open: true, selectable: mockGrouped, state, maxPerUser: 20 },
+        })
+        await wrapper.find('[data-test="row-head-CUSTOM"]').trigger('click')
+        await wrapper.find('[data-test="add-input-CUSTOM"]').setValue('私房菜')
+        await wrapper.find('[data-test="add-btn-CUSTOM"]').trigger('click')
+
+        const chip = wrapper.find('[data-test="chip-__new__CUSTOM__私房菜"]')
+        expect(chip.exists()).toBe(true)
+        expect(chip.classes()).toContain('tag-editor-modal__chip--selected')
+    })
+
+    it('剛新增的 staged custom chip 可點擊移除（不必存檔重開）', async () => {
+        const state = useTagEditorState({ maxPerUser: 20 })
+        state.reset([])
+        const wrapper = mount(TagEditorModal, {
+            props: { open: true, selectable: mockGrouped, state, maxPerUser: 20 },
+        })
+        await wrapper.find('[data-test="row-head-CUSTOM"]').trigger('click')
+        await wrapper.find('[data-test="add-input-CUSTOM"]').setValue('私房菜')
+        await wrapper.find('[data-test="add-btn-CUSTOM"]').trigger('click')
+
+        await wrapper.find('[data-test="chip-__new__CUSTOM__私房菜"]').trigger('click')
+        expect(state.newCustomTags.value.get(TagType.CUSTOM) ?? []).not.toContain('私房菜')
+    })
 })
