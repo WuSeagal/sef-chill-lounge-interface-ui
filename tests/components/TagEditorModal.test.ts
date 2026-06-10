@@ -169,4 +169,91 @@ describe('TagEditorModal', () => {
         await wrapper.find('[data-test="chip-__new__CUSTOM__私房菜"]').trigger('click')
         expect(state.newCustomTags.value.get(TagType.CUSTOM) ?? []).not.toContain('私房菜')
     })
+
+    // ---- M2：＋新增打的內容等於既有同型別 tag → 選取既有、不建 staged 重複 ----
+
+    it('＋新增既有未選 tag 的內容 → 選取既有、不建 staged', async () => {
+        const state = useTagEditorState({ maxPerUser: 20 })
+        state.reset([])
+        const wrapper = mount(TagEditorModal, {
+            props: { open: true, selectable: mockGrouped, state, maxPerUser: 20 },
+        })
+        await wrapper.find('[data-test="row-head-LANGUAGE"]').trigger('click')
+        await wrapper.find('[data-test="add-input-LANGUAGE"]').setValue('TypeScript')
+        await wrapper.find('[data-test="add-btn-LANGUAGE"]').trigger('click')
+
+        expect(state.selectedTagIds.value.has('l-2')).toBe(true)
+        expect(state.newCustomTags.value.get(TagType.LANGUAGE) ?? []).toEqual([])
+    })
+
+    it('＋新增既有已選 tag 的內容 → 無動作、不建 staged', async () => {
+        const state = useTagEditorState({ maxPerUser: 20 })
+        state.reset([{ tagId: 'l-1', type: TagType.LANGUAGE, content: 'Java', isCustom: false }])
+        const wrapper = mount(TagEditorModal, {
+            props: { open: true, selectable: mockGrouped, state, maxPerUser: 20 },
+        })
+        await wrapper.find('[data-test="row-head-LANGUAGE"]').trigger('click')
+        await wrapper.find('[data-test="add-input-LANGUAGE"]').setValue('Java')
+        await wrapper.find('[data-test="add-btn-LANGUAGE"]').trigger('click')
+
+        expect(state.selectedTagIds.value.has('l-1')).toBe(true)
+        expect(state.newCustomTags.value.get(TagType.LANGUAGE) ?? []).toEqual([])
+    })
+
+    it('＋新增既有 tag 的內容（大小寫不同）也命中既有、不建 staged', async () => {
+        const state = useTagEditorState({ maxPerUser: 20 })
+        state.reset([])
+        const wrapper = mount(TagEditorModal, {
+            props: { open: true, selectable: mockGrouped, state, maxPerUser: 20 },
+        })
+        await wrapper.find('[data-test="row-head-LANGUAGE"]').trigger('click')
+        await wrapper.find('[data-test="add-input-LANGUAGE"]').setValue('  java  ')
+        await wrapper.find('[data-test="add-btn-LANGUAGE"]').trigger('click')
+
+        expect(state.selectedTagIds.value.has('l-1')).toBe(true)
+        expect(state.newCustomTags.value.get(TagType.LANGUAGE) ?? []).toEqual([])
+    })
+
+    it('＋新增全新內容 → 仍 stage 成新 custom', async () => {
+        const state = useTagEditorState({ maxPerUser: 20 })
+        state.reset([])
+        const wrapper = mount(TagEditorModal, {
+            props: { open: true, selectable: mockGrouped, state, maxPerUser: 20 },
+        })
+        await wrapper.find('[data-test="row-head-LANGUAGE"]').trigger('click')
+        await wrapper.find('[data-test="add-input-LANGUAGE"]').setValue('Rust')
+        await wrapper.find('[data-test="add-btn-LANGUAGE"]').trigger('click')
+
+        expect(state.newCustomTags.value.get(TagType.LANGUAGE)).toEqual(['Rust'])
+    })
+
+    it('＋新增既有未選 tag 內容但已達上限 → 警告且不選取', async () => {
+        const state = useTagEditorState({ maxPerUser: 1 })
+        state.reset([])
+        state.toggle('r-1') // 已 1 個，達上限
+        const wrapper = mount(TagEditorModal, {
+            props: { open: true, selectable: mockGrouped, state, maxPerUser: 1 },
+        })
+        await wrapper.find('[data-test="row-head-LANGUAGE"]').trigger('click')
+        await wrapper.find('[data-test="add-input-LANGUAGE"]').setValue('Java')
+        await wrapper.find('[data-test="add-btn-LANGUAGE"]').trigger('click')
+
+        expect(state.selectedTagIds.value.has('l-1')).toBe(false)
+        expect(warnSpy).toHaveBeenCalledWith('最多只能選 1 個 TAG')
+    })
+
+    it('＋新增同內容 staged custom（大小寫不同）→ 不重複 stage', async () => {
+        const state = useTagEditorState({ maxPerUser: 20 })
+        state.reset([])
+        const wrapper = mount(TagEditorModal, {
+            props: { open: true, selectable: mockGrouped, state, maxPerUser: 20 },
+        })
+        await wrapper.find('[data-test="row-head-LANGUAGE"]').trigger('click')
+        await wrapper.find('[data-test="add-input-LANGUAGE"]').setValue('Rust')
+        await wrapper.find('[data-test="add-btn-LANGUAGE"]').trigger('click')
+        await wrapper.find('[data-test="add-input-LANGUAGE"]').setValue('rust')
+        await wrapper.find('[data-test="add-btn-LANGUAGE"]').trigger('click')
+
+        expect(state.newCustomTags.value.get(TagType.LANGUAGE)).toEqual(['Rust'])
+    })
 })

@@ -86,6 +86,29 @@ function onChipClick(chip: DisplayChip): void {
 function onAddCustom(type: TagType): void {
     const content = newInputByType.value[type].trim()
     if (!content) return
+    // M2：輸入內容若等於既有同型別 tag（trim + 大小寫不敏感，比照後端 B content 合併），
+    // 選取既有那筆而非建立 staged 重複（避免 real + staged 雙 chip 與冗餘 toCreate）。
+    const existing = chipsForType(type).find(c =>
+        !c.staged && c.content.trim().toLowerCase() === content.toLowerCase())
+    if (existing) {
+        if (!existing.selected) {
+            if (props.state.totalCount.value >= props.maxPerUser) {
+                push.warning(`最多只能選 ${props.maxPerUser} 個 TAG`)
+                return
+            }
+            if (existing.tagId) props.state.toggle(existing.tagId)
+        }
+        // 既有已選/已持有 → 無動作
+        newInputByType.value[type] = ''
+        return
+    }
+    // 同內容已 staged（大小寫不敏感）→ 不重複 stage（addCustom 內建去重僅 exact-case，這裡補齊）
+    const stagedDup = (props.state.newCustomTags.value.get(type) ?? [])
+        .some(c => c.trim().toLowerCase() === content.toLowerCase())
+    if (stagedDup) {
+        newInputByType.value[type] = ''
+        return
+    }
     if (props.state.totalCount.value >= props.maxPerUser) {
         push.warning(`最多只能選 ${props.maxPerUser} 個 TAG`)
         return
