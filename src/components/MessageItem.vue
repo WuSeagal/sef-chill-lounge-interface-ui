@@ -13,6 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{
     (e: 'avatar-click', userId: string): void
     (e: 'image-click', imageUrl: string): void
+    (e: 'image-load'): void
 }>()
 
 const displayNickname = computed(() => props.message.furName || '')
@@ -66,6 +67,7 @@ const avatarStyle = computed(() => ({
                         class="message-item__image"
                         :src="assetUrl(imageUrl)"
                         alt=""
+                        @load="emit('image-load')"
                     />
                 </div>
             </div>
@@ -78,6 +80,7 @@ const avatarStyle = computed(() => ({
                 tabindex="0"
                 @click="emit('image-click', message.stickerImageUrl)"
                 @keydown.enter.space.prevent="emit('image-click', message.stickerImageUrl)"
+                @load="emit('image-load')"
             />
         </div>
     </div>

@@ -184,4 +184,34 @@ describe('MessageItem', () => {
         await wrapper.findAll('.message-item__image')[1].trigger('click')
         expect(wrapper.emitted('image-click')?.[0]).toEqual(['/mock-images/chat-image-2.jpg'])
     })
+
+    it('emits image-load when a message image finishes loading', async () => {
+        const wrapper = mount(MessageItem, {
+            props: {
+                message: makeMessage({
+                    content: null,
+                    imageUrls: ['/mock-images/chat-image-1.jpg'],
+                }),
+            },
+        })
+
+        await wrapper.find('.message-item__image').trigger('load')
+        expect(wrapper.emitted('image-load')).toBeTruthy()
+    })
+
+    it('emits image-load when a sticker image finishes loading', async () => {
+        const wrapper = mount(MessageItem, {
+            props: {
+                message: makeMessage({
+                    messageType: 'STICKER',
+                    content: null,
+                    imageUrls: [],
+                    stickerImageUrl: '/mock-images/sticker-1.png',
+                }),
+            },
+        })
+
+        await wrapper.find('.message-item__sticker').trigger('load')
+        expect(wrapper.emitted('image-load')).toBeTruthy()
+    })
 })

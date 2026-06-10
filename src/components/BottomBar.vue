@@ -148,6 +148,14 @@ function onEmojiPickerClose() {
     emojiPickerOpen.value = false
 }
 
+// 選檔完成後讓父層把 focus 移回輸入框，Enter 才能直接送出
+// （而不是停在 + 按鈕上再次打開選檔視窗）。
+function focusInput() {
+    textareaEl.value?.focus()
+}
+
+defineExpose({ focusInput })
+
 // @click.stop on the sticker button prevents the click from bubbling to
 // StickerPicker's window-level outside-click listener (same pattern as emoji).
 function onStickerButtonClick() {

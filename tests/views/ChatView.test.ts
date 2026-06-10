@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref, nextTick } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import ChatView from '@/views/ChatView.vue'
+import BottomBar from '@/components/BottomBar.vue'
 import type { MessageResponse } from '@/types/message'
 
 vi.mock('vue-i18n', () => ({
@@ -50,6 +51,7 @@ const reconnectSpy = vi.fn()
 const disposeSpy = vi.fn()
 const loadMoreSpy = vi.fn()
 const sendChatMessageSpy = vi.fn()
+const sendStickerMessageSpy = vi.fn()
 const disconnectSpy = vi.fn()
 const connectSpy = vi.fn()
 
@@ -82,6 +84,7 @@ vi.mock('@/composables/useChatMessages', () => ({
         reconnect: reconnectSpy,
         dispose: disposeSpy,
         sendChatMessage: sendChatMessageSpy,
+        sendStickerMessage: sendStickerMessageSpy,
         kicked: kickedRef,
         wsReconnecting: ref(false),
         wsFailed: ref(false),
@@ -122,6 +125,7 @@ describe('ChatView', () => {
         disposeSpy.mockReset()
         loadMoreSpy.mockReset().mockResolvedValue(undefined)
         sendChatMessageSpy.mockReset()
+        sendStickerMessageSpy.mockReset()
         connectSpy.mockReset()
         disconnectSpy.mockReset()
         pushWarningSpy.mockReset()
@@ -249,5 +253,215 @@ describe('ChatView', () => {
 
         expect(disposeSpy).toHaveBeenCalled()
         expect(disconnectSpy).toHaveBeenCalled()
+    })
+
+    // --- own-send 強制捲底 / 圖片載入補捲 / 選檔後 focus ---
+
+    function defineListMetrics(
+        list: HTMLElement,
+        { scrollHeight, clientHeight, scrollTop }: { scrollHeight: number; clientHeight: number; scrollTop: number },
+    ) {
+        Object.defineProperty(list, 'scrollHeight', { value: scrollHeight, configurable: true })
+        Object.defineProperty(list, 'clientHeight', { value: clientHeight, configurable: true })
+        Object.defineProperty(list, 'scrollTop', { value: scrollTop, configurable: true, writable: true })
+    }
+
+    it('自己送出文字訊息後，廣播進列表時即使非貼底也強制捲底', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        const list = wrapper.find('.chat-view__list').element as HTMLElement
+        defineListMetrics(list, { scrollHeight: 1200, clientHeight: 600, scrollTop: 200 })
+        const scrollToSpy = vi.fn()
+        ;(list as unknown as { scrollTo: typeof scrollToSpy }).scrollTo = scrollToSpy
+        await wrapper.find('.chat-view__list').trigger('scroll') // isAtBottom -> false
+
+        await wrapper.find('.bottom-bar__input').setValue('hello')
+        await wrapper.find('[data-btn="send"]').trigger('click')
+        await flushPromises()
+        scrollToSpy.mockClear() // 排除 onSend 在訊息渲染前的那次捲動
+
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 13, messageId: 'msg-own', content: 'hello' })]
+        await nextTick()
+        await flushPromises()
+
+        expect(scrollToSpy).toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('自己送出貼圖後，廣播進列表時即使非貼底也強制捲底', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        const list = wrapper.find('.chat-view__list').element as HTMLElement
+        defineListMetrics(list, { scrollHeight: 1200, clientHeight: 600, scrollTop: 200 })
+        const scrollToSpy = vi.fn()
+        ;(list as unknown as { scrollTo: typeof scrollToSpy }).scrollTo = scrollToSpy
+        await wrapper.find('.chat-view__list').trigger('scroll')
+
+        wrapper.findComponent(BottomBar).vm.$emit('sticker-select', '/stickers/a.png')
+        await flushPromises()
+        expect(sendStickerMessageSpy).toHaveBeenCalledWith('/stickers/a.png')
+        scrollToSpy.mockClear()
+
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 14, messageId: 'msg-sticker', messageType: 'STICKER', content: '', stickerImageUrl: '/stickers/a.png' })]
+        await nextTick()
+        await flushPromises()
+
+        expect(scrollToSpy).toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('他人新訊息到達時，非貼底不捲動（維持既有行為）', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        const list = wrapper.find('.chat-view__list').element as HTMLElement
+        defineListMetrics(list, { scrollHeight: 1200, clientHeight: 600, scrollTop: 200 })
+        const scrollToSpy = vi.fn()
+        ;(list as unknown as { scrollTo: typeof scrollToSpy }).scrollTo = scrollToSpy
+        await wrapper.find('.chat-view__list').trigger('scroll')
+
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 15, messageId: 'msg-other', userId: 'u-202', content: 'yo' })]
+        await nextTick()
+        await flushPromises()
+
+        expect(scrollToSpy).not.toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('空白輸入按送出不會殘留強制捲底旗標（之後他人訊息不被拉到底）', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        const list = wrapper.find('.chat-view__list').element as HTMLElement
+        defineListMetrics(list, { scrollHeight: 1200, clientHeight: 600, scrollTop: 200 })
+        const scrollToSpy = vi.fn()
+        ;(list as unknown as { scrollTo: typeof scrollToSpy }).scrollTo = scrollToSpy
+        await wrapper.find('.chat-view__list').trigger('scroll')
+
+        await wrapper.find('[data-btn="send"]').trigger('click') // 空輸入送出 = no-op
+        await flushPromises()
+        scrollToSpy.mockClear()
+
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 16, messageId: 'msg-other-2', userId: 'u-202', content: 'yo' })]
+        await nextTick()
+        await flushPromises()
+
+        expect(scrollToSpy).not.toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('own-send 旗標只消費一次：自己的訊息捲底後，後續他人訊息在非貼底時不再強制捲底', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        const list = wrapper.find('.chat-view__list').element as HTMLElement
+        defineListMetrics(list, { scrollHeight: 1200, clientHeight: 600, scrollTop: 200 })
+        const scrollToSpy = vi.fn()
+        ;(list as unknown as { scrollTo: typeof scrollToSpy }).scrollTo = scrollToSpy
+        await wrapper.find('.chat-view__list').trigger('scroll')
+
+        await wrapper.find('.bottom-bar__input').setValue('hello')
+        await wrapper.find('[data-btn="send"]').trigger('click')
+        await flushPromises()
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 17, messageId: 'msg-own-2', content: 'hello' })]
+        await nextTick()
+        await flushPromises()
+        expect(scrollToSpy).toHaveBeenCalled()
+        scrollToSpy.mockClear()
+
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 18, messageId: 'msg-other-3', userId: 'u-202', content: 'yo' })]
+        await nextTick()
+        await flushPromises()
+
+        expect(scrollToSpy).not.toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('own-send 捲底動畫尚未落底時圖片載入完成，仍補捲到底', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        const list = wrapper.find('.chat-view__list').element as HTMLElement
+        defineListMetrics(list, { scrollHeight: 1200, clientHeight: 600, scrollTop: 200 })
+        const scrollToSpy = vi.fn()
+        ;(list as unknown as { scrollTo: typeof scrollToSpy }).scrollTo = scrollToSpy
+        await wrapper.find('.chat-view__list').trigger('scroll') // isAtBottom -> false
+
+        await wrapper.find('.bottom-bar__input').setValue('pic')
+        await wrapper.find('[data-btn="send"]').trigger('click')
+        await flushPromises()
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 19, messageId: 'msg-own-img', content: '', imageUrls: ['/img/a.png'] })]
+        await nextTick()
+        await flushPromises()
+        scrollToSpy.mockClear()
+        // spy 不會真的捲動，scroll 事件沒發生 → isAtBottom 仍為 false，
+        // 模擬「smooth 捲底動畫進行中」的窗口
+        await wrapper.find('.message-item__image').trigger('load')
+        await flushPromises()
+
+        expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'auto' }))
+        wrapper.unmount()
+    })
+
+    it('貼底狀態下圖片載入完成時，以 auto 行為補捲到底', async () => {
+        messagesRef.value = [
+            makeMessage({ cursorId: 11, messageId: 'msg-img', content: '', imageUrls: ['/img/a.png'] }),
+        ]
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        const list = wrapper.find('.chat-view__list').element as HTMLElement
+        defineListMetrics(list, { scrollHeight: 600, clientHeight: 600, scrollTop: 0 })
+        const scrollToSpy = vi.fn()
+        ;(list as unknown as { scrollTo: typeof scrollToSpy }).scrollTo = scrollToSpy
+        await wrapper.find('.chat-view__list').trigger('scroll') // isAtBottom -> true
+
+        await wrapper.find('.message-item__image').trigger('load')
+        await flushPromises()
+
+        expect(scrollToSpy).toHaveBeenCalledWith(expect.objectContaining({ behavior: 'auto' }))
+        wrapper.unmount()
+    })
+
+    it('非貼底狀態下圖片載入完成時不捲動', async () => {
+        messagesRef.value = [
+            makeMessage({ cursorId: 11, messageId: 'msg-img', content: '', imageUrls: ['/img/a.png'] }),
+        ]
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        const list = wrapper.find('.chat-view__list').element as HTMLElement
+        defineListMetrics(list, { scrollHeight: 1200, clientHeight: 600, scrollTop: 200 })
+        const scrollToSpy = vi.fn()
+        ;(list as unknown as { scrollTo: typeof scrollToSpy }).scrollTo = scrollToSpy
+        await wrapper.find('.chat-view__list').trigger('scroll')
+
+        await wrapper.find('.message-item__image').trigger('load')
+        await flushPromises()
+
+        expect(scrollToSpy).not.toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('選檔完成後 focus 回到訊息輸入框', async () => {
+        const origCreateObjectURL = URL.createObjectURL
+        URL.createObjectURL = vi.fn(() => 'blob:mock') as typeof URL.createObjectURL
+        try {
+            const wrapper = mount(ChatView, { attachTo: document.body })
+            await flushPromises()
+
+            const fileInput = wrapper.find('[data-testid="chat-image-picker"]')
+            const file = new File(['x'], 'a.png', { type: 'image/png' })
+            Object.defineProperty(fileInput.element, 'files', { value: [file], configurable: true })
+            await fileInput.trigger('change')
+            await nextTick()
+
+            expect(document.activeElement).toBe(wrapper.find('.bottom-bar__input').element)
+            wrapper.unmount()
+        } finally {
+            URL.createObjectURL = origCreateObjectURL
+        }
     })
 })

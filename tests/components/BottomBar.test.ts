@@ -220,4 +220,15 @@ describe('BottomBar sticker picker', () => {
         expect(wrapper.emitted('sticker-select')?.[0]).toEqual(['/sticker/u/1.png?v=1'])
         expect(wrapper.find('.sticker-picker').exists()).toBe(false)
     })
+
+    it('exposes focusInput() that moves focus to the textarea', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '' }, attachTo: document.body })
+        const vm = wrapper.vm as unknown as { focusInput?: () => void }
+
+        expect(typeof vm.focusInput).toBe('function')
+        vm.focusInput!()
+
+        expect(document.activeElement).toBe(wrapper.find('.bottom-bar__input').element)
+        wrapper.unmount()
+    })
 })

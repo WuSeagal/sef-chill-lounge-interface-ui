@@ -29,6 +29,7 @@ const { messages, loading, hasMore, loadMore, init, reconnect, dispose, sendChat
 const wsClient = useChatWebSocket()
 const imageUpload = useChatImageUpload()
 const fileInputRef = ref<HTMLInputElement | null>(null)
+const bottomBarRef = ref<InstanceType<typeof BottomBar> | null>(null)
 const user = useUser()
 const currentProfile = computed(() => user.profile.value)
 const myStickers = computed(() => user.profile.value?.stickers ?? [])
@@ -62,11 +63,23 @@ const listEl = ref<HTMLElement | null>(null)
 const isAtBottom = ref(true)
 const SCROLL_BOTTOM_THRESHOLD = 80
 
+// 程式主動捲底的 smooth 動畫進行中也視為「應貼底」：圖片此時載入完成會讓
+// smooth 目標（舊 scrollHeight）落空，補捲條件須涵蓋這段期間。用時間上限
+// 自我過期＋落底時清除，避免動畫被使用者中斷後旗標殘留，之後歷史圖片
+// 載入又把畫面硬拉回底部。
+const SCROLL_CATCH_UP_WINDOW_MS = 600
+let scrollCatchUpUntil = 0
+
+function isCatchingUpToBottom(): boolean {
+    return Date.now() < scrollCatchUpUntil
+}
+
 function updateAtBottom() {
     const el = listEl.value
     if (!el) return
     const distance = el.scrollHeight - el.scrollTop - el.clientHeight
     isAtBottom.value = distance <= SCROLL_BOTTOM_THRESHOLD
+    if (isAtBottom.value) scrollCatchUpUntil = 0
 }
 
 // 訊息載入（/messages）已不再由 interceptor 導去 /error（Q2 白名單），呼叫端須自行
@@ -100,11 +113,22 @@ async function onListScroll() {
 function scrollToBottom(smooth = true) {
     const el = listEl.value
     if (!el) return
+    scrollCatchUpUntil = Date.now() + SCROLL_CATCH_UP_WINDOW_MS
     el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
 }
 
 function onScrollFabClick() {
     scrollToBottom(true)
+}
+
+// 自己送出的訊息要等伺服器廣播回來才進列表；送出當下先立旗標，
+// 下一次列表變動時強制捲底（不看 isAtBottom，消除 smooth 捲動進行中的 race）。
+let pendingOwnScroll = false
+
+// 圖片/貼圖載入完成時內容會變高；若使用者貼底（或捲底動畫進行中）則補捲到
+// 真正的底。用 auto（瞬間落底）避免多張圖陸續載完時 smooth 動畫互相打斷。
+function onMessageImageLoad() {
+    if (isAtBottom.value || isCatchingUpToBottom()) scrollToBottom(false)
 }
 
 // Preserve the visible bottom-edge content when the list resizes
@@ -131,6 +155,12 @@ function handleAutofillerKey(event: KeyboardEvent): boolean {
 
 async function onSend(value: string) {
     if (imageUpload.uploading.value) return
+    // 空送出是 no-op（sendChatMessage 同樣條件會拒發），不可立 pendingOwnScroll，
+    // 否則旗標殘留會在下一則他人訊息時把往上閱讀的使用者硬拉到底
+    if (!value.trim() && imageUpload.selectedFiles.value.length === 0) {
+        inputValue.value = ''
+        return
+    }
 
     let imageUrls: string[] = []
     if (imageUpload.selectedFiles.value.length > 0) {
@@ -143,6 +173,7 @@ async function onSend(value: string) {
     }
 
     sendChatMessage(value, imageUrls)
+    pendingOwnScroll = true
     inputValue.value = ''
     imageUpload.reset()
     await nextTick()
@@ -151,6 +182,7 @@ async function onSend(value: string) {
 
 async function onStickerSelect(url: string) {
     sendChatStickerMessage(url)
+    pendingOwnScroll = true
     await nextTick()
     scrollToBottom(true)
 }
@@ -168,6 +200,8 @@ function onFileChange(event: Event) {
     }
     if (input.files) imageUpload.addFiles(input.files)
     input.value = ''
+    // focus 回輸入框，讓使用者選完圖直接按 Enter 送出
+    bottomBarRef.value?.focusInput()
 }
 
 function onImagePaste(files: File[]) {
@@ -198,9 +232,12 @@ async function onReconnect() {
     scrollToBottom(true)
 }
 
-// Auto-scroll when new live messages arrive and user is at the bottom
+// Auto-scroll when new live messages arrive and user is at the bottom,
+// or when our own just-sent message comes back from the broadcast.
 watch(() => messages.value.length, async () => {
-    if (isAtBottom.value) {
+    const forceScroll = pendingOwnScroll
+    pendingOwnScroll = false
+    if (forceScroll || isAtBottom.value) {
         await nextTick()
         scrollToBottom(true)
     }
@@ -258,6 +295,7 @@ void currentProfile
                     :message="m"
                     @avatar-click="onAvatarClick"
                     @image-click="onImageClick"
+                    @image-load="onMessageImageLoad"
                 />
             </div>
 
@@ -306,6 +344,7 @@ void currentProfile
         </div>
 
         <BottomBar
+            ref="bottomBarRef"
             v-model:input-value="inputValue"
             :attach-disabled="imageUpload.isAtLimit() || imageUpload.uploading.value"
             :autofiller-open="autofiller.isOpen.value"
