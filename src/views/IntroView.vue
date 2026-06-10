@@ -16,7 +16,8 @@ import { useAuthStore } from '@/stores/auth.ts'
 import TagEditorPreview from '@/components/TagEditorPreview.vue'
 import TagEditorModal from '@/components/TagEditorModal.vue'
 import ToggleSwitch from '@/components/ToggleSwitch.vue'
-import { TAG_TYPE_ORDER, TagType, type GroupedTags, type Tag } from '@/types/user'
+import { TagType, type GroupedTags, type Tag } from '@/types/user'
+import { resolveDisplayTags } from '@/utils/tagDisplay'
 import { buildAvatarRingStyle } from '@/utils/avatarRing'
 import { resolveAvatarSrc } from '@/utils/avatarSource'
 import { type SocialPlatform } from '@/constants/platforms'
@@ -96,20 +97,14 @@ function closeZoom(): void {
 // 已選平台的社群連結（供護照 PassportCard 顯示）
 const reviewSocials = computed(() => selectedSocialLinks.value.filter(l => l.platform))
 
-// 給 TagEditorPreview 用:把 staged draft 攤回 Tag[](real tagId + new custom 用合成 id)
-const previewTags = computed<Tag[]>(() => {
-    const result: Tag[] = []
-    for (const type of TAG_TYPE_ORDER) {
-        const arr = selectable.value[type] ?? []
-        for (const tag of arr) {
-            if (tagEditorState.selectedTagIds.value.has(tag.tagId)) result.push(tag)
-        }
-        for (const content of tagEditorState.newCustomTags.value.get(type) ?? []) {
-            result.push({ tagId: `__new__${type}__${content}`, type, content, isCustom: true })
-        }
-    }
-    return result
-})
+// 給 TagEditorPreview 用:把 staged draft 攤回 Tag[](real tagId + new custom 用合成 id)。
+// held = profile.tags（onboarding 多為空；編輯既有 profile 時含未達標持有 custom，design D7）
+const previewTags = computed<Tag[]>(() => resolveDisplayTags({
+    selectedTagIds: tagEditorState.selectedTagIds.value,
+    newCustomTags: tagEditorState.newCustomTags.value,
+    selectable: selectable.value,
+    held: user.profile.value?.tags ?? [],
+}))
 
 let redirectTimer: ReturnType<typeof setTimeout> | null = null
 let countdownTimer: ReturnType<typeof setInterval> | null = null
@@ -784,6 +779,7 @@ onBeforeUnmount(() => {
             :selectable="selectable"
             :state="tagEditorState"
             :max-per-user="TAG_MAX"
+            :held="user.profile.value?.tags ?? []"
             @close="onTagModalClose"
         />
 

@@ -113,4 +113,31 @@ describe('TagEditorModal', () => {
         })
         expect(wrapper.find('.tag-editor-modal').exists()).toBe(false)
     })
+
+    // ---- 持有但未達標 TAG 顯示（B 延伸 / design D7）----
+
+    it('持有但不在 selectable 的未達標 custom 仍渲染為已選 chip', async () => {
+        const heldUnderThreshold = { tagId: 'c-held', type: TagType.CUSTOM, content: '私房菜', isCustom: true }
+        const state = useTagEditorState({ maxPerUser: 20 })
+        state.reset([heldUnderThreshold]) // 已持有 → selectedTagIds 含 c-held
+        const wrapper = mount(TagEditorModal, {
+            props: { open: true, selectable: mockGrouped, state, maxPerUser: 20, held: [heldUnderThreshold] },
+        })
+        await wrapper.find('[data-test="row-head-CUSTOM"]').trigger('click')
+        const chip = wrapper.find('[data-test="chip-c-held"]')
+        expect(chip.exists()).toBe(true)
+        expect(chip.classes()).toContain('tag-editor-modal__chip--selected')
+    })
+
+    it('持有但未達標的 custom chip 可點擊取消', async () => {
+        const heldUnderThreshold = { tagId: 'c-held', type: TagType.CUSTOM, content: '私房菜', isCustom: true }
+        const state = useTagEditorState({ maxPerUser: 20 })
+        state.reset([heldUnderThreshold])
+        const wrapper = mount(TagEditorModal, {
+            props: { open: true, selectable: mockGrouped, state, maxPerUser: 20, held: [heldUnderThreshold] },
+        })
+        await wrapper.find('[data-test="row-head-CUSTOM"]').trigger('click')
+        await wrapper.find('[data-test="chip-c-held"]').trigger('click')
+        expect(state.selectedTagIds.value.has('c-held')).toBe(false)
+    })
 })

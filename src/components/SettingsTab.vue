@@ -14,7 +14,8 @@ import { useAvatarUploadDraft } from '@/composables/useAvatarUploadDraft'
 import { fetchSelectableTags } from '@/api/userApi'
 import { uploadAvatar } from '@/api/avatarUploadApi'
 import { resolveAvatarSrc } from '@/utils/avatarSource'
-import { TagType, TAG_TYPE_ORDER, type GroupedTags, type Tag, type AddSocialLinkRequest } from '@/types/user'
+import { resolveDisplayTags } from '@/utils/tagDisplay'
+import { TagType, type GroupedTags, type Tag, type AddSocialLinkRequest } from '@/types/user'
 import { resolvePlatformMeta, type SocialPlatform } from '@/constants/platforms'
 import PlatformSelect from '@/components/PlatformSelect.vue'
 import SocialLinkInput from '@/components/SocialLinkInput.vue'
@@ -58,21 +59,13 @@ const avatarSrc = computed(() => avatarDraft.previewUrl.value ?? resolveAvatarSr
 const avatarPreviewStyle = computed(() =>
     buildAvatarRingStyle(displayAvatarColor.value, displayAvatarBorder.value, 'lg'))
 
-const previewTags = computed<Tag[]>(() => {
-    const result: Tag[] = []
-    for (const type of TAG_TYPE_ORDER) {
-        const arr = selectable.value[type] ?? []
-        for (const tag of arr) {
-            if (tagEditorState.selectedTagIds.value.has(tag.tagId)) result.push(tag)
-        }
-        for (const content of tagEditorState.newCustomTags.value.get(type) ?? []) {
-            // 自訂 tag 尚未存檔、後端還沒配發真 tagId，先用 __new__{type}__{content}
-            // 合成一個 client-only key（僅供預覽 v-for :key；存檔後由後端真 id 取代）。
-            result.push({ tagId: `__new__${type}__${content}`, type, content, isCustom: true })
-        }
-    }
-    return result
-})
+// held = 使用者實際持有清單（未過濾），讓「持有但未達 threshold」的 custom 仍顯示為已選（design D7）
+const previewTags = computed<Tag[]>(() => resolveDisplayTags({
+    selectedTagIds: tagEditorState.selectedTagIds.value,
+    newCustomTags: tagEditorState.newCustomTags.value,
+    selectable: selectable.value,
+    held: user.profile.value?.tags ?? [],
+}))
 
 const previewSocials = computed(() => {
     const existing = user.profile.value?.socials ?? []
@@ -407,6 +400,7 @@ defineExpose({ isDirty, saveAll, discardDrafts, avatarDraft })
             :selectable="selectable"
             :state="tagEditorState"
             :max-per-user="TAG_MAX"
+            :held="user.profile.value?.tags ?? []"
             @close="tagModalOpen = false"
         />
 

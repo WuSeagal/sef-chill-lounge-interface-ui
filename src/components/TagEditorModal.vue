@@ -7,12 +7,16 @@ import {
 } from '@/types/user'
 import type { UseTagEditorStateReturn } from '@/composables/useTagEditorState'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     open: boolean
     selectable: GroupedTags
     state: UseTagEditorStateReturn
     maxPerUser: number
-}>()
+    /** 使用者實際持有清單（profile.tags，未過濾）；含未達標但已持有的 custom，需顯示為已選可取消（design D7）。 */
+    held?: Tag[]
+}>(), {
+    held: () => [],
+})
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 const expanded = ref<TagType | null>(null)
@@ -29,9 +33,18 @@ function toggleExpand(type: TagType): void {
     expanded.value = expanded.value === type ? null : type
 }
 
+// 可選池 ∪ 持有但未達標（不在可選池）的同型別 TAG，去重。
+// 讓「已持有但未達 threshold」的 custom 仍以已選 chip 出現、可取消（design D7）。
+function chipsForType(type: TagType): Tag[] {
+    const selectable = props.selectable[type] ?? []
+    const ids = new Set(selectable.map(t => t.tagId))
+    const extraHeld = props.held.filter(t => t.type === type && !ids.has(t.tagId))
+    return [...selectable, ...extraHeld]
+}
+
 function filteredChips(type: TagType): Tag[] {
     const q = searchByType.value[type].trim().toLowerCase()
-    const all = props.selectable[type] ?? []
+    const all = chipsForType(type)
     if (!q) return all
     return all.filter(t => t.content.toLowerCase().includes(q))
 }
@@ -60,7 +73,7 @@ function onAddCustom(type: TagType): void {
 }
 
 function chipsInRowForHeader(type: TagType): string[] {
-    const selected: string[] = (props.selectable[type] ?? [])
+    const selected: string[] = chipsForType(type)
         .filter(t => isSelected(t.tagId))
         .map(t => t.content)
     const newCustoms = props.state.newCustomTags.value.get(type) ?? []
