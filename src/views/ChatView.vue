@@ -66,6 +66,12 @@ const listEl = ref<HTMLElement | null>(null)
 const isAtBottom = ref(true)
 const SCROLL_BOTTOM_THRESHOLD = 80
 
+// 非貼底期間到達的他人新訊息計數，顯示於 scroll-fab 右上角 badge；貼底即歸零。
+const unreadCount = ref(0)
+const unreadDisplay = computed(() => (unreadCount.value > 99 ? '99+' : String(unreadCount.value)))
+const scrollFabAriaLabel = computed(() =>
+    unreadCount.value > 0 ? `捲至底部，${unreadDisplay.value} 則新訊息` : '捲至底部')
+
 // 程式主動捲底的 smooth 動畫進行中也視為「應貼底」：圖片此時載入完成會讓
 // smooth 目標（舊 scrollHeight）落空，補捲條件須涵蓋這段期間。用時間上限
 // 自我過期＋落底時清除，避免動畫被使用者中斷後旗標殘留，之後歷史圖片
@@ -82,7 +88,10 @@ function updateAtBottom() {
     if (!el) return
     const distance = el.scrollHeight - el.scrollTop - el.clientHeight
     isAtBottom.value = distance <= SCROLL_BOTTOM_THRESHOLD
-    if (isAtBottom.value) scrollCatchUpUntil = 0
+    if (isAtBottom.value) {
+        scrollCatchUpUntil = 0
+        unreadCount.value = 0
+    }
 }
 
 // 訊息載入（/messages）已不再由 interceptor 導去 /error（Q2 白名單），呼叫端須自行
@@ -121,6 +130,8 @@ function scrollToBottom(smooth = true) {
 }
 
 function onScrollFabClick() {
+    // 點 fab 即明確「回到底部」意圖：立即歸零未讀（不依賴 smooth 捲動完成的非同步偵測）
+    unreadCount.value = 0
     scrollToBottom(true)
 }
 
@@ -304,19 +315,40 @@ async function onReconnect() {
     kicked.value = false
     if (!await runMessageLoad(reconnect)) return
     await nextTick()
+    // 重連 = 全量重載並回到底部；重載期間的列表變動不應殘留為未讀（等 watcher flush 後歸零）
+    unreadCount.value = 0
     scrollToBottom(true)
 }
 
+// 追蹤列表尾端 messageId，用來區分「尾端新增」（即時/WS 新訊息）與「頭部插入」
+// （往上捲載入歷史 loadMore）——後者不應累計未讀。
+let prevTailId: string | null = null
+
 // Auto-scroll when new live messages arrive and user is at the bottom,
 // or when our own just-sent message comes back from the broadcast.
-watch(() => messages.value.length, async () => {
+watch(() => messages.value.length, async (newLen, oldLen) => {
+    const newTailId = newLen > 0 ? messages.value[newLen - 1].messageId : null
+
+    // immediate 首次觸發（oldLen === undefined）僅作初始化，避免把初始訊息誤算為未讀。
+    if (oldLen === undefined) {
+        prevTailId = newTailId
+        return
+    }
+
     const forceScroll = pendingOwnScroll
     pendingOwnScroll = false
+    // 只有「尾端 id 改變」才算尾端新增；頭部插入歷史時 tail 不變 → tailAppended 為 false。
+    const tailAppended = newLen > oldLen && newTailId !== prevTailId
+    prevTailId = newTailId
+
     if (forceScroll || isAtBottom.value) {
         await nextTick()
         scrollToBottom(true)
+        return
     }
-})
+    // 非貼底、非自己送出的尾端新訊息 → 累計未讀計數
+    if (tailAppended) unreadCount.value += newLen - oldLen
+}, { immediate: true })
 
 onMounted(async () => {
     // /members 在 interceptor 白名單，呼叫端須自行呈現錯誤，否則 500 變靜默失敗。
@@ -390,12 +422,18 @@ void currentProfile
                 v-if="!isAtBottom"
                 class="chat-view__scroll-fab"
                 type="button"
-                aria-label="scroll to bottom"
+                :aria-label="scrollFabAriaLabel"
                 @click="onScrollFabClick"
             >
                 <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M6 9 L12 15 L18 9" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
+                <span
+                    v-if="unreadCount > 0"
+                    :key="unreadCount"
+                    class="chat-view__scroll-fab-badge"
+                    aria-hidden="true"
+                >{{ unreadDisplay }}</span>
             </button>
         </div>
 

@@ -23,6 +23,7 @@ function makeBubble(overrides: Partial<DashboardBubble> = {}): DashboardBubble {
         dy: -35,
         zIndex: 1,
         isExiting: false,
+        animateEntrance: true,
         ...overrides,
     }
 }
@@ -184,6 +185,15 @@ describe('FloatingBubble — position and animation classes', () => {
         expect(inner.classes()).not.toContain('floating-bubble__inner--exiting')
     })
 
+    it('animateEntrance 為 false 時不套入場動畫 class（進頁面已存在/重掛載的泡泡不後空翻）', () => {
+        const wrapper = mount(FloatingBubble, {
+            props: { bubble: makeBubble({ isExiting: false, animateEntrance: false }) },
+        })
+        const inner = wrapper.find('.floating-bubble__inner')
+        expect(inner.classes()).not.toContain('floating-bubble__inner--entering')
+        expect(inner.classes()).not.toContain('floating-bubble__inner--exiting')
+    })
+
     it('inner element has exiting class when isExiting is true', () => {
         const wrapper = mount(FloatingBubble, {
             props: { bubble: makeBubble({ isExiting: true }) },
@@ -191,5 +201,23 @@ describe('FloatingBubble — position and animation classes', () => {
         const inner = wrapper.find('.floating-bubble__inner')
         expect(inner.classes()).toContain('floating-bubble__inner--exiting')
         expect(inner.classes()).not.toContain('floating-bubble__inner--entering')
+    })
+
+    // 方案 1「全體後空翻」結構契約：入場動畫掛在整個 __inner（頭像＋泡泡同層一起翻），
+    // 頭像不單獨帶入場動畫 class（防止未來誤改成 avatar-only/方案 2）。
+    it('方案1：入場時頭像與泡泡同在 __inner--entering 之下，頭像不單獨帶入場動畫 class', () => {
+        const wrapper = mount(FloatingBubble, {
+            props: { bubble: makeBubble({ isExiting: false }) },
+        })
+        const inner = wrapper.find('.floating-bubble__inner')
+        expect(inner.classes()).toContain('floating-bubble__inner--entering')
+
+        const avatar = wrapper.find('.floating-bubble__avatar')
+        const speech = wrapper.findComponent({ name: 'SpeechBubble' })
+        // 頭像與泡泡都是 __inner 的後代（會一起被翻）
+        expect(inner.element.contains(avatar.element)).toBe(true)
+        expect(inner.element.contains(speech.element)).toBe(true)
+        // 頭像不帶自己的入場動畫 class（避免變成只翻頭像）
+        expect(avatar.classes()).not.toContain('floating-bubble__avatar--entering')
     })
 })

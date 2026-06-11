@@ -69,6 +69,41 @@
     height: 20px;
 }
 
+/* 未讀計數 badge：絕對定位疊在 fab 右上角，不改變 fab 佈局（附加原則）。
+   米色描邊讓 badge 與 fab 視覺分離。 */
+.chat-view__scroll-fab-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    box-sizing: content-box;
+    border-radius: 9px;
+    border: 1.5px solid var(--bubble-bg);
+    background: var(--notify-badge-bg);
+    color: var(--notify-badge-text);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 15px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* :key 綁定 unreadCount，數字變動時元件重建 → 重播 pop（180ms，僅 transform） */
+    animation: badge-pop 180ms ease-out;
+}
+
+@keyframes badge-pop {
+    from { transform: scale(0.6); }
+    to { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .chat-view__scroll-fab-badge {
+        animation: none;
+    }
+}
+
 .chat-view__previews {
     display: flex;
     flex-wrap: wrap;

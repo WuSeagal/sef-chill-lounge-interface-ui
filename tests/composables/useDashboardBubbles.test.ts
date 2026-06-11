@@ -69,6 +69,44 @@ describe('useDashboardBubbles — addBubble basics', () => {
         expect(['left', 'right']).toContain(bubbles.value[0].direction)
     })
 
+    it('addBubble 預設不播入場動畫（animateEntrance false）', () => {
+        const { bubbles, addBubble } = useDashboardBubbles()
+        addBubble(makeMsg('msg-001'))
+        expect(bubbles.value[0].animateEntrance).toBe(false)
+    })
+
+    it('addBubble(msg, true) 標記播入場動畫（animateEntrance true）', () => {
+        const { bubbles, addBubble } = useDashboardBubbles()
+        addBubble(makeMsg('msg-001'), true)
+        expect(bubbles.value[0].animateEntrance).toBe(true)
+    })
+
+    it('入場動畫播畢後自動清除 animateEntrance（避免重掛載重播後空翻）', () => {
+        vi.useFakeTimers()
+        try {
+            const { bubbles, addBubble } = useDashboardBubbles()
+            addBubble(makeMsg('msg-001'), true)
+            expect(bubbles.value[0].animateEntrance).toBe(true)
+            vi.advanceTimersByTime(1100) // > 動畫總時長（~950ms）
+            expect(bubbles.value[0].animateEntrance).toBe(false)
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
+    it('cleanup 在入場動畫窗內也要 flush animateEntrance（切頁回來不重播後空翻）', () => {
+        vi.useFakeTimers()
+        try {
+            const { bubbles, addBubble, cleanup } = useDashboardBubbles()
+            addBubble(makeMsg('msg-001'), true)
+            expect(bubbles.value[0].animateEntrance).toBe(true)
+            cleanup() // 動畫窗內切頁離開
+            expect(bubbles.value[0].animateEntrance).toBe(false)
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
     it('x is within viewport bounds', () => {
         const { bubbles, addBubble } = useDashboardBubbles()
         for (let i = 0; i < 20; i++) {

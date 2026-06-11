@@ -27,7 +27,8 @@ const wrapperStyle = computed(() => ({
 
 const innerClass = computed(() => ({
     'floating-bubble__inner': true,
-    'floating-bubble__inner--entering': !props.bubble.isExiting,
+    // 只有標記為新到達（animateEntrance）且未退場的泡泡才播後空翻入場動畫
+    'floating-bubble__inner--entering': props.bubble.animateEntrance && !props.bubble.isExiting,
     'floating-bubble__inner--exiting': props.bubble.isExiting,
 }))
 </script>

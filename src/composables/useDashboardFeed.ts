@@ -15,6 +15,10 @@ const onlineCount = ref(0)
 const connected = ref(false)
 
 let ws: WebSocket | null = null
+// 後端連線時先 replayRecentHistory 再 sendPresenceSnapshot；故「首個 PRESENCE_SNAPSHOT」
+// 標誌 replay 結束。在此之前到達的 CHAT_MESSAGE 視為既有訊息（不播後空翻），之後才是新訊息。
+// 每次 onopen 重置為 false，讓重連 replay 也不誤播。
+let liveSince = false
 let pingInterval: ReturnType<typeof setInterval> | null = null
 let pongTimeout: ReturnType<typeof setTimeout> | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -47,7 +51,8 @@ function scheduleReconnect() {
 
 function handleEnvelope(env: ChatEnvelope) {
     if (env.type === 'CHAT_MESSAGE' && env.data) {
-        addBubble(toDashboardMessage(env.data as ChatMessageBroadcastPayload))
+        // 只有 replay 邊界（首個 PRESENCE_SNAPSHOT）之後到達的訊息才播後空翻入場動畫
+        addBubble(toDashboardMessage(env.data as ChatMessageBroadcastPayload), liveSince)
         return
     }
     if (env.type === 'PROFILE_UPDATED' && env.data) {
@@ -57,6 +62,8 @@ function handleEnvelope(env: ChatEnvelope) {
     }
     if (env.type === 'PRESENCE_SNAPSHOT' && env.data) {
         onlineCount.value = (env.data as PresenceSnapshotPayload).onlineUserIds.length
+        // replay 已結束（snapshot 緊接 replay 之後送出）→ 之後的 CHAT_MESSAGE 才是新訊息
+        liveSince = true
     }
 }
 
@@ -68,6 +75,8 @@ function connect() {
     ws.onopen = () => {
         connected.value = true
         reconnectAttempts = 0
+        // 每次（含重連）連線都會重新 replay；重置 live 邊界，等首個 PRESENCE_SNAPSHOT 再開啟
+        liveSince = false
         schedulePing()
     }
     ws.onmessage = (event: MessageEvent) => {

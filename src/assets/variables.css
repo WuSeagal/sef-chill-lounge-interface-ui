@@ -14,6 +14,12 @@
     /* Chat */
     --chat-bg: #f9f5e5;
 
+    /* Notify（未讀 badge 等警示語意色，暖磚紅，白字對比 5.02:1） */
+    --notify-badge-bg: #c2452d;
+    --notify-badge-text: #ffffff;
+    /* #c2452d 的 RGB 分量，供 rgba() 光暈動畫使用 */
+    --notify-rgb: 194, 69, 45;
+
     /* Bottom bar */
     --bottom-bar-bg: #625945;
     --bottom-bar-icon: #eeebe2;

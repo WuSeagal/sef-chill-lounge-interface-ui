@@ -11,10 +11,16 @@ export type DashboardBubble = {
     dy: number
     zIndex: number
     isExiting: boolean
+    /** 是否播放後空翻入場動畫：僅「進頁面後新收到」的泡泡為 true；
+     *  連線 replay 的既有訊息與重掛載的舊泡泡為 false（見 useDashboardFeed liveSince）。 */
+    animateEntrance: boolean
 }
 
 const MAX_BUBBLES = 30
 const EXIT_DURATION = 500
+// 入場動畫總時長上限（後空翻 820ms + 光暈收斂 ~950ms），播畢即清除 animateEntrance，
+// 避免日後重掛載（如切頁回來）時 CSS 入場動畫重播。
+export const ENTRANCE_ANIM_MS = 1000
 // 反彈碰撞框 = 典型最大泡泡 footprint（含旁側頭像）：
 // 寬 = 泡泡 max 276 + 間距 8 + 頭像 36 ≈ 320；高取圖片泡泡常見最大 ≈ 290。
 // 採固定框（不做逐泡泡碰撞框）；超長文字/圖片+長 caption 的高泡泡反彈前底部可能略超出畫面，為已接受的取捨。
@@ -122,7 +128,7 @@ export function bounceVelocity(
 
 export type UseDashboardBubblesReturn = {
     bubbles: Ref<DashboardBubble[]>
-    addBubble: (message: DashboardMessage) => void
+    addBubble: (message: DashboardMessage, animateEntrance?: boolean) => void
     patchProfile: (userId: string, profile: { furName: string | null; avatar: string | null; avatarColor: string | null; avatarBorder: boolean }) => void
     startAnimation: () => void
     stopAnimation: () => void
@@ -142,10 +148,11 @@ export function useDashboardBubbles(options?: { random?: () => number }): UseDas
     const bubbles = ref<DashboardBubble[]>([])
     let zCounter = 0
     const exitTimers = new Map<string, ReturnType<typeof setTimeout>>()
+    const entranceTimers = new Map<string, ReturnType<typeof setTimeout>>()
     let animFrameId: number | null = null
     let lastTime: number | null = null
 
-    function addBubble(message: DashboardMessage) {
+    function addBubble(message: DashboardMessage, animateEntrance = false) {
         if (bubbles.value.some(b => b.message.id === message.id)) {
             return
         }
@@ -173,8 +180,19 @@ export function useDashboardBubbles(options?: { random?: () => number }): UseDas
             dy: speed * Math.sin(angle),
             zIndex: zCounter,
             isExiting: false,
+            animateEntrance,
         }
         bubbles.value.push(bubble)
+
+        // 入場動畫播畢後清除旗標：之後若元件重掛載（切頁回來）不會重播後空翻
+        if (animateEntrance) {
+            const timer = setTimeout(() => {
+                const b = bubbles.value.find(x => x.id === bubble.id)
+                if (b) b.animateEntrance = false
+                entranceTimers.delete(bubble.id)
+            }, ENTRANCE_ANIM_MS)
+            entranceTimers.set(bubble.id, timer)
+        }
     }
 
     function patchProfile(
@@ -257,6 +275,14 @@ export function useDashboardBubbles(options?: { random?: () => number }): UseDas
         stopAnimation()
         exitTimers.forEach(timer => clearTimeout(timer))
         exitTimers.clear()
+        // flush 而非單純取消：清除計時器的同時把 animateEntrance 收斂為 false，
+        // 否則動畫窗內切頁離開會留下 true，切回時（singleton 保留泡泡）重播後空翻。
+        entranceTimers.forEach((timer, id) => {
+            clearTimeout(timer)
+            const b = bubbles.value.find(x => x.id === id)
+            if (b) b.animateEntrance = false
+        })
+        entranceTimers.clear()
     }
 
     return { bubbles, addBubble, patchProfile, startAnimation, stopAnimation, cleanup }

@@ -125,6 +125,46 @@ describe('useDashboardFeed', () => {
         expect(feed.onlineCount.value).toBe(3)
     })
 
+    it('連線後 replay 期間（PRESENCE_SNAPSHOT 之前）的 CHAT_MESSAGE 不播入場動畫', () => {
+        const feed = useDashboardFeed()
+        feed.connect()
+        const socket = FakeWebSocket.instances[0]
+        socket.open()
+        socket.deliver(chatMsg('replay-1'))
+        socket.deliver(chatMsg('replay-2'))
+        expect(feed.bubbles.value.every(b => b.animateEntrance === false)).toBe(true)
+    })
+
+    it('PRESENCE_SNAPSHOT（replay 邊界）之後到達的 CHAT_MESSAGE 才播入場動畫', () => {
+        const feed = useDashboardFeed()
+        feed.connect()
+        const socket = FakeWebSocket.instances[0]
+        socket.open()
+        socket.deliver(chatMsg('replay-1'))
+        socket.deliver(JSON.stringify({ type: 'PRESENCE_SNAPSHOT', timestamp: 1, data: { onlineUserIds: ['u-1'] } }))
+        socket.deliver(chatMsg('live-1'))
+
+        const replayBubble = feed.bubbles.value.find(b => b.message.id === 'replay-1')
+        const liveBubble = feed.bubbles.value.find(b => b.message.id === 'live-1')
+        expect(replayBubble?.animateEntrance).toBe(false)
+        expect(liveBubble?.animateEntrance).toBe(true)
+    })
+
+    it('重連時重置 live 邊界：reconnect 後 replay（新 PRESENCE_SNAPSHOT 之前）的訊息不播動畫', () => {
+        const feed = useDashboardFeed()
+        feed.connect()
+        const s1 = FakeWebSocket.instances[0]
+        s1.open()
+        s1.deliver(JSON.stringify({ type: 'PRESENCE_SNAPSHOT', timestamp: 1, data: { onlineUserIds: ['u-1'] } }))
+        s1.close(1006)
+        vi.advanceTimersByTime(2_000)
+        const s2 = FakeWebSocket.instances[1]
+        s2.open()
+        s2.deliver(chatMsg('reconnect-replay'))
+        const b = feed.bubbles.value.find(x => x.message.id === 'reconnect-replay')
+        expect(b?.animateEntrance).toBe(false)
+    })
+
     it('connected is true after open and false after unexpected close', () => {
         const feed = useDashboardFeed()
         feed.connect()

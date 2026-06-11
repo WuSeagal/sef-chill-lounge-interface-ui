@@ -495,6 +495,189 @@ describe('ChatView', () => {
     })
 })
 
+describe('ChatView scroll-fab 未讀 badge', () => {
+    beforeEach(() => {
+        profileRef.value = {
+            userId: 'u-101', username: '小毛', furName: '毛毛',
+            avatar: '/mock-images/avatar-default.png', avatarColor: '#8c8672',
+        }
+        messagesRef.value = [
+            makeMessage({ cursorId: 11, messageId: 'msg-001', content: 'first' }),
+            makeMessage({ cursorId: 12, messageId: 'msg-002', content: 'second' }),
+        ]
+        loadingRef.value = false
+        hasMoreRef.value = false
+        kickedRef.value = false
+        initSpy.mockReset().mockResolvedValue(undefined)
+        loadMoreSpy.mockReset().mockResolvedValue(undefined)
+        sendChatMessageSpy.mockReset().mockReturnValue(true)
+        membersRef.value = []
+        membersErrorRef.value = null
+        refetchMembersSpy.mockReset().mockResolvedValue(undefined)
+    })
+
+    function defineListMetrics(
+        list: HTMLElement,
+        { scrollHeight, clientHeight, scrollTop }: { scrollHeight: number; clientHeight: number; scrollTop: number },
+    ) {
+        Object.defineProperty(list, 'scrollHeight', { value: scrollHeight, configurable: true })
+        Object.defineProperty(list, 'clientHeight', { value: clientHeight, configurable: true })
+        Object.defineProperty(list, 'scrollTop', { value: scrollTop, configurable: true, writable: true })
+    }
+
+    // 進入「非貼底」狀態（fab 顯示），回傳 list element 供後續調整 metrics
+    async function enterScrolledUp(wrapper: ReturnType<typeof mount>): Promise<HTMLElement> {
+        const list = wrapper.find('.chat-view__list').element as HTMLElement
+        defineListMetrics(list, { scrollHeight: 1200, clientHeight: 600, scrollTop: 200 })
+        ;(list as unknown as { scrollTo: () => void }).scrollTo = vi.fn()
+        await wrapper.find('.chat-view__list').trigger('scroll')
+        return list
+    }
+
+    it('非貼底時他人訊息到達，scroll-fab 顯示未讀計數 badge', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        await enterScrolledUp(wrapper)
+
+        for (let i = 0; i < 3; i++) {
+            messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 20 + i, messageId: `other-${i}`, userId: 'u-202', content: 'yo' })]
+            await nextTick()
+            await flushPromises()
+        }
+
+        const badge = wrapper.find('.chat-view__scroll-fab-badge')
+        expect(badge.exists()).toBe(true)
+        expect(badge.text()).toBe('3')
+        wrapper.unmount()
+    })
+
+    it('自己送出的訊息不計入未讀 badge', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        await enterScrolledUp(wrapper)
+
+        await wrapper.find('.bottom-bar__input').setValue('hello')
+        await wrapper.find('[data-btn="send"]').trigger('click')
+        await flushPromises()
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 30, messageId: 'own', content: 'hello' })]
+        await nextTick()
+        await flushPromises()
+
+        expect(wrapper.find('.chat-view__scroll-fab-badge').exists()).toBe(false)
+        wrapper.unmount()
+    })
+
+    it('未讀超過 99 顯示 99+', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        await enterScrolledUp(wrapper)
+
+        const batch = Array.from({ length: 100 }, (_, i) =>
+            makeMessage({ cursorId: 100 + i, messageId: `flood-${i}`, userId: 'u-202', content: 'x' }))
+        messagesRef.value = [...messagesRef.value, ...batch]
+        await nextTick()
+        await flushPromises()
+
+        expect(wrapper.find('.chat-view__scroll-fab-badge').text()).toBe('99+')
+        wrapper.unmount()
+    })
+
+    it('往上捲載入歷史（prepend）不增加未讀計數', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        await enterScrolledUp(wrapper)
+
+        // 先有 1 則未讀（tail append）
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 40, messageId: 'other-new', userId: 'u-202', content: 'yo' })]
+        await nextTick()
+        await flushPromises()
+        expect(wrapper.find('.chat-view__scroll-fab-badge').text()).toBe('1')
+
+        // 載入歷史：在「頭部」插入 5 則舊訊息，tail 不變 → 不應增加未讀
+        const history = Array.from({ length: 5 }, (_, i) =>
+            makeMessage({ cursorId: -i, messageId: `hist-${i}`, userId: 'u-303', content: 'old' }))
+        messagesRef.value = [...history, ...messagesRef.value]
+        await nextTick()
+        await flushPromises()
+
+        expect(wrapper.find('.chat-view__scroll-fab-badge').text()).toBe('1')
+        wrapper.unmount()
+    })
+
+    it('點 scroll-fab 捲底後未讀歸零、badge 消失', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        await enterScrolledUp(wrapper)
+
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 50, messageId: 'other-x', userId: 'u-202', content: 'yo' })]
+        await nextTick()
+        await flushPromises()
+        expect(wrapper.find('.chat-view__scroll-fab-badge').exists()).toBe(true)
+
+        await wrapper.find('.chat-view__scroll-fab').trigger('click')
+        await nextTick()
+
+        expect(wrapper.find('.chat-view__scroll-fab-badge').exists()).toBe(false)
+        wrapper.unmount()
+    })
+
+    it('手動捲到底（進入貼底）後未讀歸零、badge 消失', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        const list = await enterScrolledUp(wrapper)
+
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 60, messageId: 'other-y', userId: 'u-202', content: 'yo' })]
+        await nextTick()
+        await flushPromises()
+        expect(wrapper.find('.chat-view__scroll-fab-badge').exists()).toBe(true)
+
+        // 捲到底：distance = scrollHeight - scrollTop - clientHeight <= 80
+        defineListMetrics(list, { scrollHeight: 1200, clientHeight: 600, scrollTop: 600 })
+        await wrapper.find('.chat-view__list').trigger('scroll')
+        await nextTick()
+
+        expect(wrapper.find('.chat-view__scroll-fab-badge').exists()).toBe(false)
+        wrapper.unmount()
+    })
+
+    it('重連（reconnect）全量重載後未讀歸零，不殘留重載期間累計', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        await enterScrolledUp(wrapper) // 非貼底（scrollTo 已 mock，重連後不會真的捲底偵測歸零）
+
+        // 模擬 reconnect → loadInitial 全量重載：以更長的全新列表取代 messages
+        reconnectSpy.mockReset().mockImplementation(async () => {
+            messagesRef.value = Array.from({ length: 6 }, (_, i) =>
+                makeMessage({ cursorId: 200 + i, messageId: `re-${i}`, userId: 'u-202', content: 'reload' }))
+        })
+        kickedRef.value = true
+        await nextTick()
+
+        await wrapper.find('[data-test="kicked-modal-reconnect"]').trigger('click')
+        await flushPromises()
+
+        expect(reconnectSpy).toHaveBeenCalled()
+        expect(wrapper.find('.chat-view__scroll-fab-badge').exists()).toBe(false)
+        wrapper.unmount()
+    })
+
+    it('scroll-fab 的 aria-label 隨未讀計數更新', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        await enterScrolledUp(wrapper)
+
+        for (let i = 0; i < 2; i++) {
+            messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 70 + i, messageId: `aria-${i}`, userId: 'u-202', content: 'yo' })]
+            await nextTick()
+            await flushPromises()
+        }
+
+        const label = wrapper.find('.chat-view__scroll-fab').attributes('aria-label') ?? ''
+        expect(label).toContain('2 則新訊息')
+        wrapper.unmount()
+    })
+})
+
 describe('ChatView @mention 接線', () => {
     beforeEach(() => {
         messagesRef.value = []
