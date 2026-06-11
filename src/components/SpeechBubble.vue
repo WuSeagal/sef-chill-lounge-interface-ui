@@ -1,24 +1,52 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import './SpeechBubble.css'
 
 type Direction = 'left' | 'right'
 
 const props = defineProps<{
-    width: number
-    height: number
     direction: Direction
+    maxWidth?: number
+    maxHeight?: number
 }>()
 
 const MIN_W = 80
 const MIN_H = 40
 
-const safeW = computed(() => Math.max(MIN_W, props.width))
-const safeH = computed(() => Math.max(MIN_H, props.height))
+// 內容自適應：以 ResizeObserver 量測容器實際 box，再據此繪製 SVG 外框。
+const rootRef = ref<HTMLElement | null>(null)
+const measuredW = ref(MIN_W)
+const measuredH = ref(MIN_H)
+let ro: ResizeObserver | null = null
+
+function measure(): void {
+    const el = rootRef.value
+    if (!el) return
+    measuredW.value = Math.max(MIN_W, Math.round(el.clientWidth))
+    measuredH.value = Math.max(MIN_H, Math.round(el.clientHeight))
+}
+
+onMounted(() => {
+    if (typeof ResizeObserver !== 'undefined') {
+        ro = new ResizeObserver(() => measure())
+        if (rootRef.value) ro.observe(rootRef.value)
+    }
+    measure()
+})
+
+onBeforeUnmount(() => {
+    ro?.disconnect()
+    ro = null
+})
+
+const rootStyle = computed(() => ({
+    maxWidth: props.maxWidth ? `${props.maxWidth}px` : undefined,
+    maxHeight: props.maxHeight ? `${props.maxHeight}px` : undefined,
+}))
 
 const pathD = computed(() => {
-    const W = safeW.value
-    const H = safeH.value
+    const W = measuredW.value
+    const H = measuredH.value
     const hMid = H / 2
     if (props.direction === 'left') {
         return [
@@ -37,14 +65,13 @@ const pathD = computed(() => {
             `Z`,
         ].join(' ')
     }
-    const hMidR = H / 2
     return [
         `M6 0`,
         `L${W - 18} 0`,
         `Q${W - 12} 0 ${W - 12} 6`,
-        `L${W - 12} ${hMidR - 10}`,
-        `L${W} ${hMidR}`,
-        `L${W - 12} ${hMidR + 10}`,
+        `L${W - 12} ${hMid - 10}`,
+        `L${W} ${hMid}`,
+        `L${W - 12} ${hMid + 10}`,
         `L${W - 12} ${H - 6}`,
         `Q${W - 12} ${H} ${W - 18} ${H}`,
         `L6 ${H}`,
@@ -57,25 +84,20 @@ const pathD = computed(() => {
 
 const contentStyle = computed(() => {
     if (props.direction === 'left') {
-        return {
-            paddingTop: '12px',
-            paddingRight: '12px',
-            paddingBottom: '12px',
-            paddingLeft: '24px',
-        }
+        return { paddingTop: '12px', paddingRight: '12px', paddingBottom: '12px', paddingLeft: '24px' }
     }
-    return {
-        paddingTop: '12px',
-        paddingRight: '24px',
-        paddingBottom: '12px',
-        paddingLeft: '12px',
-    }
+    return { paddingTop: '12px', paddingRight: '24px', paddingBottom: '12px', paddingLeft: '12px' }
 })
 </script>
 
 <template>
-    <div class="speech-bubble" :style="{ width: safeW + 'px', height: safeH + 'px' }">
-        <svg :width="safeW" :height="safeH" :viewBox="`0 0 ${safeW} ${safeH}`">
+    <div ref="rootRef" class="speech-bubble" :style="rootStyle">
+        <svg
+            class="speech-bubble__bg"
+            :width="measuredW"
+            :height="measuredH"
+            :viewBox="`0 0 ${measuredW} ${measuredH}`"
+        >
             <path
                 :d="pathD"
                 fill="var(--bubble-bg)"

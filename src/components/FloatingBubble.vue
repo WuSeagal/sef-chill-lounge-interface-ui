@@ -13,12 +13,12 @@ const props = defineProps<{
 const avatarRingStyle = computed(() =>
     buildAvatarRingStyle(props.bubble.message.avatarColor, props.bubble.message.avatarBorder ?? false, 'lg'))
 
-const BUBBLE_WIDTH = 200
-const BUBBLE_HEIGHT_TEXT = 60
-const BUBBLE_HEIGHT_IMAGE = 130
+// 圖片泡泡尺寸上限（內容自適應，SpeechBubble 依量測尺寸繪製外框）
+// 寬 276 = 圖片最長邊 240 + 內距(尾側24 + 另側12 = 36)，確保 240 的圖片完整放進泡泡不溢出
+const BUBBLE_MAX_W = 276
+const BUBBLE_MAX_H = 520
 
 const hasImage = computed(() => !!props.bubble.message.imageUrl)
-const bubbleHeight = computed(() => hasImage.value ? BUBBLE_HEIGHT_IMAGE : BUBBLE_HEIGHT_TEXT)
 
 const wrapperStyle = computed(() => ({
     transform: `translate(${props.bubble.x}px, ${props.bubble.y}px)`,
@@ -43,11 +43,11 @@ const innerClass = computed(() => ({
                 alt=""
             />
             <SpeechBubble
-                :width="BUBBLE_WIDTH"
-                :height="bubbleHeight"
                 :direction="bubble.direction"
+                :max-width="hasImage ? BUBBLE_MAX_W : undefined"
+                :max-height="BUBBLE_MAX_H"
             >
-                <span v-if="!hasImage" class="floating-bubble__text">{{ bubble.message.content }}</span>
+                <div v-if="!hasImage" class="floating-bubble__text">{{ bubble.message.content }}</div>
                 <div v-else class="floating-bubble__image-wrap">
                     <img
                         class="floating-bubble__image"

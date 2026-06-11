@@ -3,16 +3,16 @@
     display: inline-block;
 }
 
-.speech-bubble svg {
+.speech-bubble__bg {
     position: absolute;
     inset: 0;
     pointer-events: none;
+    display: block;
 }
 
+/* content 以自身內距 + slot 內容撐出尺寸，.speech-bubble 收縮貼合，SVG 絕對鋪底 */
 .speech-bubble .content {
     position: relative;
-    width: 100%;
-    height: 100%;
     box-sizing: border-box;
     display: flex;
     align-items: center;

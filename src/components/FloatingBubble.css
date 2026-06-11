@@ -53,38 +53,52 @@
 }
 
 .floating-bubble__text {
-    font-size: 13px;
-    line-height: 1.3;
+    /* 純文字泡泡固定寬 240：內容寬 = 240 − 內距(尾側24 + 另側12 = 36) = 204 */
+    width: 204px;
+    font-size: 16px;
+    line-height: 1.4;
     overflow: hidden;
-    text-overflow: ellipsis;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    /* 真正逐行 wrap，直到約 520px 泡泡高度才省略：
+       可用文字高 = 520 − 內距(上下 24) = 496；行高 = 16 × 1.4 = 22.4 → 22 行 */
+    -webkit-line-clamp: 22;
     -webkit-box-orient: vertical;
-    word-break: break-all;
+    /* 比照 /chat：保留使用者輸入的換行（\n）並自動 wrap 長行 */
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 .floating-bubble__image-wrap {
     display: flex;
     flex-direction: column;
     gap: 4px;
-    overflow: hidden;
-    width: 100%;
-    height: 100%;
+    /* 釘住圖片原始尺寸、靠左對齊：避免長 caption 把 wrap 撐寬後，
+       width:auto 的圖片被 stretch + object-fit:contain 放大（違反不放大） */
+    align-items: flex-start;
 }
 
 .floating-bubble__image {
-    width: 100%;
-    flex: 1 1 auto;
-    min-height: 0;
-    object-fit: cover;
+    /* 比照 /chat：保持原比例、最長邊 ≤240、不裁切不放大 */
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 240px;
+    max-height: 240px;
+    object-fit: contain;
     border-radius: var(--radius-sm);
 }
 
 .floating-bubble__caption {
-    font-size: 11px;
-    line-height: 1.2;
+    font-size: 16px;
+    line-height: 1.4;
+    max-width: 240px;
     overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: -webkit-box;
+    /* 圖片附帶文字也多行 wrap（比照內文與 /chat），保留換行；
+       與圖片共用 520 上限，故 clamp 10 行（圖片 240 + 10 行 ≈ 488 ≤ 520） */
+    -webkit-line-clamp: 10;
+    -webkit-box-orient: vertical;
+    white-space: pre-wrap;
+    word-break: break-word;
     flex-shrink: 0;
 }
