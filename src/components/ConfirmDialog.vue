@@ -10,9 +10,12 @@ import './ConfirmDialog.css'
 const props = withDefaults(defineProps<{
     open: boolean
     message: string
+    /** 選用：在訊息下方以等寬框完整顯示的細節文字（如離站連結的完整 URL），不截斷、可換行。 */
+    detail?: string
     confirmText?: string
     cancelText?: string
 }>(), {
+    detail: '',
     confirmText: '確定',
     cancelText: '取消',
 })
@@ -72,6 +75,7 @@ onBeforeUnmount(() => {
                 @click.stop
             >
                 <p class="confirm-dialog__message">{{ message }}</p>
+                <p v-if="detail" class="confirm-dialog__detail">{{ detail }}</p>
                 <div class="confirm-dialog__actions">
                     <button
                         ref="cancelRef"

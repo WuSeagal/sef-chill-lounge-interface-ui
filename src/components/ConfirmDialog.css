@@ -29,6 +29,21 @@
     text-align: center;
 }
 
+/* 選用細節框：等寬、完整顯示不截斷（離站連結的完整 URL，看穿偽裝連結用）。 */
+.confirm-dialog__detail {
+    margin: 0 var(--space-md) var(--space-sm);
+    padding: 10px 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--bubble-border);
+    border-radius: var(--radius-sm);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.82rem;
+    color: #4a4433;
+    word-break: break-all;
+    line-height: 1.5;
+    text-align: left;
+}
+
 .confirm-dialog__actions {
     display: flex;
     justify-content: center;

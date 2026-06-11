@@ -40,3 +40,16 @@
 .autofiller-popup__content {
     color: var(--input-text);
 }
+.autofiller-popup__avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background-color: var(--avatar-default-bg);
+    background-size: cover;
+    background-position: center;
+}
+.autofiller-popup__mention {
+    color: var(--bottom-bar-bg);
+    font-weight: 600;
+}

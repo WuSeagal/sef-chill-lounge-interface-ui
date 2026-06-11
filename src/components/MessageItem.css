@@ -73,6 +73,24 @@
     word-break: break-word;
 }
 
+/* 訊息內連結：底線可點，點擊走離站確認窗（@click.prevent emit link-click）。 */
+.message-item__link {
+    color: #7a5a2e;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    word-break: break-all;
+}
+
+/* @mention 渲染（demo 方案 C — 實心 pill，2026-06-11 定案）。 */
+.message-item__mention {
+    background: var(--bottom-bar-bg);
+    color: var(--input-bg);
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 1px 8px;
+}
+
 .message-item__images {
     display: flex;
     flex-wrap: wrap;

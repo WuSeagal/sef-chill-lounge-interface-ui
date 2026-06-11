@@ -232,3 +232,45 @@ describe('BottomBar sticker picker', () => {
         wrapper.unmount()
     })
 })
+
+describe('BottomBar caret channel', () => {
+    it('emits caret-change with selectionStart on keyup', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '哈囉 @' } })
+        const ta = wrapper.find('.bottom-bar__input').element as HTMLTextAreaElement
+        ta.selectionStart = 4
+        await wrapper.find('.bottom-bar__input').trigger('keyup')
+        const evts = wrapper.emitted('caret-change')
+        expect(evts).toBeTruthy()
+        expect(evts![evts!.length - 1]).toEqual([4])
+    })
+
+    it('emits caret-change on click', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: 'abcdef' } })
+        const ta = wrapper.find('.bottom-bar__input').element as HTMLTextAreaElement
+        ta.selectionStart = 2
+        await wrapper.find('.bottom-bar__input').trigger('click')
+        const evts = wrapper.emitted('caret-change')
+        expect(evts).toBeTruthy()
+        expect(evts![evts!.length - 1]).toEqual([2])
+    })
+
+    it('emits caret-change on input', async () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '' } })
+        const input = wrapper.find('.bottom-bar__input')
+        ;(input.element as HTMLTextAreaElement).selectionStart = 5
+        await input.trigger('input')
+        expect(wrapper.emitted('caret-change')).toBeTruthy()
+    })
+
+    it('exposes setCaret(pos) that sets selectionRange and focuses', () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: 'hello world' }, attachTo: document.body })
+        const vm = wrapper.vm as unknown as { setCaret?: (pos: number) => void }
+        expect(typeof vm.setCaret).toBe('function')
+        vm.setCaret!(3)
+        const ta = wrapper.find('.bottom-bar__input').element as HTMLTextAreaElement
+        expect(document.activeElement).toBe(ta)
+        expect(ta.selectionStart).toBe(3)
+        expect(ta.selectionEnd).toBe(3)
+        wrapper.unmount()
+    })
+})

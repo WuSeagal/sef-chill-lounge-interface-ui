@@ -8,12 +8,15 @@ import ImageLightbox from '@/components/ImageLightbox.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
 import KickedModal from '@/components/KickedModal.vue'
 import AutofillerPopup from '@/components/AutofillerPopup.vue'
+import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { push } from 'notivue'
 import { useChatMessages } from '@/composables/useChatMessages'
 import { useChatWebSocket } from '@/composables/useChatWebSocket'
 import { useChatImageUpload } from '@/composables/useChatImageUpload'
 import { useChatAutofiller, type AutofillerOption } from '@/composables/useChatAutofiller'
 import { useUser } from '@/composables/useUser'
+import { useMembers } from '@/composables/useMembers'
+import type { ChatEnvelope, PresenceSnapshotPayload, ProfileUpdatedPayload } from '@/types/chat'
 
 // 對應後端 error code 翻譯為使用者訊息；未知 code 直接照原文（addFiles 設的 limit
 // 訊息已是中文）。避免依賴特定 prefix 字串判斷來源。
@@ -135,18 +138,81 @@ function onMessageImageLoad() {
 let listResizeObserver: ResizeObserver | null = null
 let previousListHeight: number | null = null
 
+// 離站確認窗：點訊息內連結先彈窗顯示完整 URL，確認才開新分頁。
+const pendingLinkUrl = ref<string | null>(null)
+const linkConfirmOpen = computed(() => pendingLinkUrl.value !== null)
+
+function onLinkClick(url: string) {
+    pendingLinkUrl.value = url
+}
+
+function onLinkConfirm() {
+    // confirm 按鈕點擊是 user gesture，同步呼叫 window.open 避免被 popup blocker 擋。
+    if (pendingLinkUrl.value) window.open(pendingLinkUrl.value, '_blank', 'noopener,noreferrer')
+    pendingLinkUrl.value = null
+}
+
+function onLinkCancel() {
+    pendingLinkUrl.value = null
+}
+
 // SettingsModal state
 const settingsOpen = ref(false)
 
 // BottomBar input
 const inputValue = ref('')
 
-// Autofiller: 「我」/「我X」 浮現 popup
+// Autofiller: 「我」/「我X」 TAG + caret-aware @mention 浮現 popup
 const userTags = computed(() => user.profile.value?.tags ?? [])
-const autofiller = useChatAutofiller(inputValue, userTags)
+// @mention 候選名單（全部使用者）；caretIndex 由 BottomBar 的 textarea selection 餵入。
+const { members, error: membersError, refetch: refetchMembers } = useMembers()
+// MessageItem 渲染 @mention 高亮所需的名單（furName，過濾 null）。
+const memberNames = computed(() => members.value.map(m => m.furName).filter((n): n is string => Boolean(n)))
+const caretIndex = ref(0)
 
-function onAutofillerSelect(option: AutofillerOption): void {
-    inputValue.value = autofiller.select(option)
+// 新使用者（剛辦帳號 / 上線）要能立即被 @：收到帶「未知 userId」的 WS 事件就刷新名單。
+// 以「已嘗試過的未知 id」去重：每個未知 userId 一生最多觸發一次 refetch——避免
+// PRESENCE_SNAPSHOT 廣播風暴，以及某 online id 永不進 /members（兩邊收錄不一）時永不收斂。
+let wsMemberUnsub: (() => void) | null = null
+const attemptedUnknownMemberIds = new Set<string>()
+function onWsMemberEvent(envelope: ChatEnvelope) {
+    let candidateIds: string[] = []
+    if (envelope.type === 'PROFILE_UPDATED') {
+        const uid = (envelope.data as ProfileUpdatedPayload | undefined)?.userId
+        candidateIds = uid ? [uid] : []
+    } else if (envelope.type === 'PRESENCE_SNAPSHOT') {
+        candidateIds = (envelope.data as PresenceSnapshotPayload | undefined)?.onlineUserIds ?? []
+    } else {
+        return
+    }
+
+    const known = new Set(members.value.map(m => m.userId))
+    const fresh = candidateIds.filter(id => !known.has(id) && !attemptedUnknownMemberIds.has(id))
+    if (fresh.length === 0) return
+    fresh.forEach(id => attemptedUnknownMemberIds.add(id))
+    void refetchMembers()
+}
+const autofiller = useChatAutofiller(inputValue, userTags, members, caretIndex)
+
+function onCaretChange(pos: number): void {
+    caretIndex.value = pos
+}
+
+// 點 popup 與 textarea 以外的任何地方 → 關閉 autofiller（Discord 式行為）。
+// popup 選項用 mousedown.prevent 自行處理選取，故排除 .autofiller-popup 內的點擊。
+function onDocumentPointerDown(e: MouseEvent): void {
+    if (!autofiller.isOpen.value) return
+    const target = e.target as HTMLElement | null
+    if (target?.closest('.autofiller-popup') || target?.closest('.bottom-bar__input')) return
+    autofiller.dismiss()
+}
+
+async function onAutofillerSelect(option: AutofillerOption): Promise<void> {
+    const { value, caret } = autofiller.select(option)
+    inputValue.value = value
+    caretIndex.value = caret
+    await nextTick()
+    bottomBarRef.value?.setCaret(caret)
 }
 
 function handleAutofillerKey(event: KeyboardEvent): boolean {
@@ -253,6 +319,13 @@ watch(() => messages.value.length, async () => {
 })
 
 onMounted(async () => {
+    // /members 在 interceptor 白名單，呼叫端須自行呈現錯誤，否則 500 變靜默失敗。
+    await refetchMembers()
+    if (membersError.value) push.warning('載入成員列表失敗，@提及功能可能無法使用')
+
+    wsMemberUnsub = wsClient.onMessage(onWsMemberEvent)
+    document.addEventListener('mousedown', onDocumentPointerDown)
+
     await runMessageLoad(init)
     await nextTick()
     scrollToBottom(false)
@@ -279,6 +352,9 @@ onMounted(async () => {
 onBeforeUnmount(() => {
     listResizeObserver?.disconnect()
     listResizeObserver = null
+    wsMemberUnsub?.()
+    wsMemberUnsub = null
+    document.removeEventListener('mousedown', onDocumentPointerDown)
     dispose()
     wsClient.disconnect()
 })
@@ -302,9 +378,11 @@ void currentProfile
                     v-for="m in messages"
                     :key="m.messageId"
                     :message="m"
+                    :member-names="memberNames"
                     @avatar-click="onAvatarClick"
                     @image-click="onImageClick"
                     @image-load="onMessageImageLoad"
+                    @link-click="onLinkClick"
                 />
             </div>
 
@@ -365,6 +443,7 @@ void currentProfile
             @attach-click="onAttachClick"
             @image-paste="onImagePaste"
             @sticker-select="onStickerSelect"
+            @caret-change="onCaretChange"
             @send="onSend"
         >
             <template #popup>
@@ -392,6 +471,16 @@ void currentProfile
         <SettingsModal
             :open="settingsOpen"
             @close="onSettingsClose"
+        />
+
+        <ConfirmDialog
+            :open="linkConfirmOpen"
+            message="即將離開 SEF Chill Lounge，前往外部網站"
+            :detail="pendingLinkUrl ?? ''"
+            confirm-text="前往外部"
+            cancel-text="取消"
+            @confirm="onLinkConfirm"
+            @cancel="onLinkCancel"
         />
 
         <KickedModal

@@ -5,16 +5,26 @@ import type { MessageResponse } from '@/types/message'
 import { assetUrl } from '@/utils/assetUrl'
 import { buildAvatarRingStyle } from '@/utils/avatarRing'
 import { resolveAvatarSrc } from '@/utils/avatarSource'
+import { parseMessageSegments } from '@/utils/messageLinks'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     message: MessageResponse
-}>()
+    memberNames?: string[]
+}>(), {
+    memberNames: () => [],
+})
 
 const emit = defineEmits<{
     (e: 'avatar-click', userId: string): void
     (e: 'image-click', imageUrl: string): void
     (e: 'image-load'): void
+    (e: 'link-click', url: string): void
 }>()
+
+// content 一律經純函式拆成 segment 序列，以 Vue 文字插值渲染（嚴禁 v-html）。
+const contentSegments = computed(() =>
+    props.message.content ? parseMessageSegments(props.message.content, props.memberNames) : [],
+)
 
 const displayNickname = computed(() => props.message.furName || '')
 
@@ -51,7 +61,20 @@ const avatarStyle = computed(() => ({
             </div>
             <div v-if="message.content" class="message-item__line">
                 <span class="message-item__prompt" aria-hidden="true">&gt;</span>
-                <span class="message-item__content">{{ message.content }}</span>
+                <span class="message-item__content"><template
+                    v-for="(seg, idx) in contentSegments"
+                    :key="idx"
+                ><a
+                        v-if="seg.kind === 'link'"
+                        class="message-item__link"
+                        :href="seg.url"
+                        @click.prevent="emit('link-click', seg.url)"
+                    >{{ seg.display }}</a><span
+                        v-else-if="seg.kind === 'mention'"
+                        class="message-item__mention"
+                    >{{ seg.display }}</span><span
+                        v-else-if="seg.kind === 'blocked'"
+                    >***</span><template v-else>{{ seg.text }}</template></template></span>
             </div>
             <div
                 v-if="message.messageType === 'TEXT' && message.imageUrls.length"

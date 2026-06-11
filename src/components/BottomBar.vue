@@ -48,6 +48,7 @@ const emit = defineEmits<{
     (e: 'sticker-select', url: string): void
     (e: 'send', v: string): void
     (e: 'image-paste', files: File[]): void
+    (e: 'caret-change', pos: number): void
 }>()
 
 function onPaste(event: ClipboardEvent) {
@@ -98,9 +99,16 @@ function autoResize() {
     }
 }
 
+// 把 textarea 當下 caret（selectionStart）回報給父層，供 @mention autofiller 做 caret-aware 觸發。
+function emitCaret(event: Event) {
+    const target = event.target as HTMLTextAreaElement
+    emit('caret-change', target.selectionStart ?? 0)
+}
+
 function onInput(event: Event) {
     const target = event.target as HTMLTextAreaElement
     emit('update:inputValue', target.value)
+    emitCaret(event)
     autoResize()
 }
 
@@ -154,7 +162,15 @@ function focusInput() {
     textareaEl.value?.focus()
 }
 
-defineExpose({ focusInput })
+// mention 插入後讓父層把游標還原到插入文字之後（與 focusInput 同一暴露介面）。
+function setCaret(pos: number) {
+    const ta = textareaEl.value
+    if (!ta) return
+    ta.focus()
+    ta.setSelectionRange(pos, pos)
+}
+
+defineExpose({ focusInput, setCaret })
 
 // @click.stop on the sticker button prevents the click from bubbling to
 // StickerPicker's window-level outside-click listener (same pattern as emoji).
@@ -194,6 +210,8 @@ function onStickerSelect(url: string) {
             :disabled="rateLimited"
             @input="onInput"
             @keydown="onKeydown"
+            @keyup="emitCaret"
+            @click="emitCaret"
             @paste="onPaste"
         ></textarea>
         <button

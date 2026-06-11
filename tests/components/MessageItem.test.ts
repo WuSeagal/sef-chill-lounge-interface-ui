@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import MessageItem from '@/components/MessageItem.vue'
 import type { MessageResponse } from '@/types/message'
@@ -213,5 +213,75 @@ describe('MessageItem', () => {
 
         await wrapper.find('.message-item__sticker').trigger('load')
         expect(wrapper.emitted('image-load')).toBeTruthy()
+    })
+})
+
+describe('MessageItem 安全渲染（URL / mention）', () => {
+    it('純文字訊息整行文字維持原樣', () => {
+        const wrapper = mount(MessageItem, { props: { message: makeMessage({ content: '今天天氣真好' }) } })
+        expect(wrapper.find('.message-item__content').text()).toBe('今天天氣真好')
+        expect(wrapper.find('.message-item__link').exists()).toBe(false)
+    })
+
+    it('URL 渲染為連結元素，display 為原文', () => {
+        const wrapper = mount(MessageItem, {
+            props: { message: makeMessage({ content: '看這個 https://example.com/a 很讚' }) },
+        })
+        const link = wrapper.find('.message-item__link')
+        expect(link.exists()).toBe(true)
+        expect(link.text()).toBe('https://example.com/a')
+        expect(link.attributes('href')).toBe('https://example.com/a')
+    })
+
+    it('裸網域連結 href 補 https://、display 原文', () => {
+        const wrapper = mount(MessageItem, {
+            props: { message: makeMessage({ content: '上 www.example.com 看看' }) },
+        })
+        const link = wrapper.find('.message-item__link')
+        expect(link.text()).toBe('www.example.com')
+        expect(link.attributes('href')).toBe('https://www.example.com')
+    })
+
+    it('點擊連結 emit link-click(url) 且不直接開窗', async () => {
+        const openSpy = vi.fn()
+        const origOpen = window.open
+        window.open = openSpy as typeof window.open
+        try {
+            const wrapper = mount(MessageItem, {
+                props: { message: makeMessage({ content: 'go https://example.com' }) },
+            })
+            await wrapper.find('.message-item__link').trigger('click')
+            expect(wrapper.emitted('link-click')?.[0]).toEqual(['https://example.com'])
+            expect(openSpy).not.toHaveBeenCalled()
+        } finally {
+            window.open = origOpen
+        }
+    })
+
+    it('blocked 危險連結渲染 *** 不可點', () => {
+        const wrapper = mount(MessageItem, {
+            props: { message: makeMessage({ content: '點 javascript:alert(1) 拿好康' }) },
+        })
+        expect(wrapper.find('.message-item__link').exists()).toBe(false)
+        expect(wrapper.find('.message-item__content').text()).toContain('***')
+    })
+
+    it('mention segment 帶區別樣式 class', () => {
+        const wrapper = mount(MessageItem, {
+            props: { message: makeMessage({ content: '@小蜥蜴 你好' }), memberNames: ['小蜥蜴'] },
+        })
+        const mention = wrapper.find('.message-item__mention')
+        expect(mention.exists()).toBe(true)
+        expect(mention.text()).toBe('@小蜥蜴')
+    })
+
+    it('含 HTML 字串的 content 不產生對應 DOM 元素（無 v-html）', () => {
+        const wrapper = mount(MessageItem, {
+            props: { message: makeMessage({ content: '<img src=x onerror=alert(1)> https://example.com' }) },
+        })
+        // 此訊息無圖片/貼圖 → 不應有任何 <img>（注入的 <img> 必須是字面文字）
+        expect(wrapper.findAll('img')).toHaveLength(0)
+        expect(wrapper.find('.message-item__content').text()).toContain('<img src=x onerror=alert(1)>')
+        expect(wrapper.find('.message-item__link').exists()).toBe(true)
     })
 })

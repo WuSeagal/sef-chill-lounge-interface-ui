@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import ChatView from '@/views/ChatView.vue'
 import BottomBar from '@/components/BottomBar.vue'
 import type { MessageResponse } from '@/types/message'
+import type { Member } from '@/types/user'
 
 vi.mock('vue-i18n', () => ({
     useI18n: () => ({ t: (key: string) => key }),
@@ -55,6 +56,16 @@ const sendStickerMessageSpy = vi.fn(() => true)
 const disconnectSpy = vi.fn()
 const connectSpy = vi.fn()
 
+const membersRef = ref<Member[]>([])
+const membersErrorRef = ref<string | null>(null)
+const refetchMembersSpy = vi.fn(async () => {})
+
+// 捕捉透過 useChatWebSocket.onMessage 註冊的 subscriber，讓測試能 emit WS 事件。
+const wsSubscribers: Array<(e: unknown) => void> = []
+function emitWs(envelope: unknown) {
+    wsSubscribers.forEach((cb) => cb(envelope))
+}
+
 vi.mock('@/composables/useUser', () => ({
     useUser: () => ({ profile: profileRef }),
 }))
@@ -96,11 +107,26 @@ vi.mock('@/composables/useChatWebSocket', () => ({
         connect: connectSpy,
         disconnect: disconnectSpy,
         send: vi.fn(),
-        onMessage: vi.fn(() => () => {}),
+        onMessage: vi.fn((cb: (e: unknown) => void) => {
+            wsSubscribers.push(cb)
+            return () => {
+                const i = wsSubscribers.indexOf(cb)
+                if (i >= 0) wsSubscribers.splice(i, 1)
+            }
+        }),
         kicked: kickedRef,
         wsReconnecting: ref(false),
         wsFailed: ref(false),
         connectTime: ref<number | null>(null),
+    }),
+}))
+
+vi.mock('@/composables/useMembers', () => ({
+    useMembers: () => ({
+        members: membersRef,
+        loading: ref(false),
+        error: membersErrorRef,
+        refetch: refetchMembersSpy,
     }),
 }))
 
@@ -129,6 +155,9 @@ describe('ChatView', () => {
         connectSpy.mockReset()
         disconnectSpy.mockReset()
         pushWarningSpy.mockReset()
+        membersRef.value = []
+        membersErrorRef.value = null
+        refetchMembersSpy.mockReset().mockResolvedValue(undefined)
     })
 
     it('初次載入訊息失敗時顯示 toast，不靜默也不導頁（Q2 白名單後的呼叫端保護）', async () => {
@@ -463,5 +492,275 @@ describe('ChatView', () => {
         } finally {
             URL.createObjectURL = origCreateObjectURL
         }
+    })
+})
+
+describe('ChatView @mention 接線', () => {
+    beforeEach(() => {
+        messagesRef.value = []
+        membersRef.value = []
+        membersErrorRef.value = null
+        refetchMembersSpy.mockReset().mockResolvedValue(undefined)
+        pushWarningSpy.mockReset()
+        initSpy.mockReset().mockResolvedValue(undefined)
+    })
+
+    it('mount 時呼叫 useMembers.refetch', async () => {
+        mount(ChatView)
+        await flushPromises()
+        expect(refetchMembersSpy).toHaveBeenCalled()
+    })
+
+    it('refetch 後 error 有值 → 顯示 toast', async () => {
+        refetchMembersSpy.mockReset().mockImplementation(async () => {
+            membersErrorRef.value = '載入成員列表失敗'
+        })
+        mount(ChatView)
+        await flushPromises()
+        expect(pushWarningSpy).toHaveBeenCalled()
+    })
+
+    it('選取 mention 後 inputValue 為 token 取代結果，並呼叫 BottomBar setCaret', async () => {
+        membersRef.value = [
+            { userId: 'u-1', username: 'liz', furName: '小蜥蜴', avatar: null, avatarColor: null },
+        ]
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        const input = wrapper.find('.bottom-bar__input')
+        const ta = input.element as HTMLTextAreaElement
+        ta.value = '哈囉 @小'
+        ta.selectionStart = 5
+        await input.trigger('input')
+        await nextTick()
+
+        // popup 應出現 mention 選項
+        const option = wrapper.find('[data-test=af-option-u-1]')
+        expect(option.exists()).toBe(true)
+        await option.trigger('mousedown')
+        await flushPromises()
+        await nextTick()
+
+        // 取代結果 + 游標經 BottomBar.setCaret 落在插入文字之後（observable effect）
+        expect(ta.value).toBe('哈囉 @小蜥蜴 ')
+        expect(ta.selectionStart).toBe('哈囉 @小蜥蜴 '.length)
+        expect(document.activeElement).toBe(ta)
+        wrapper.unmount()
+    })
+})
+
+describe('ChatView 離站確認窗', () => {
+    beforeEach(() => {
+        membersRef.value = []
+        membersErrorRef.value = null
+        refetchMembersSpy.mockReset().mockResolvedValue(undefined)
+        initSpy.mockReset().mockResolvedValue(undefined)
+    })
+
+    it('點訊息內連結 → 開啟 ConfirmDialog 且顯示完整 URL（punycode 照原樣）', async () => {
+        messagesRef.value = [makeMessage({ messageId: 'm-link', content: '看 https://xn--80ak6aa92e.com/a' })]
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        expect(document.body.querySelector('.confirm-dialog')).toBeNull()
+        await wrapper.find('.message-item__link').trigger('click')
+        await nextTick()
+
+        const dialog = document.body.querySelector('.confirm-dialog')
+        expect(dialog).not.toBeNull()
+        expect(dialog!.textContent).toContain('https://xn--80ak6aa92e.com/a')
+        wrapper.unmount()
+    })
+
+    it('確認 → window.open(url, _blank, noopener,noreferrer) 並關窗', async () => {
+        const openSpy = vi.fn()
+        const origOpen = window.open
+        window.open = openSpy as typeof window.open
+        try {
+            messagesRef.value = [makeMessage({ messageId: 'm-link', content: 'go https://example.com/x' })]
+            const wrapper = mount(ChatView, { attachTo: document.body })
+            await flushPromises()
+
+            await wrapper.find('.message-item__link').trigger('click')
+            await nextTick()
+            const confirmBtn = document.body.querySelector('.confirm-dialog__confirm') as HTMLButtonElement
+            confirmBtn.click()
+            await nextTick()
+
+            expect(openSpy).toHaveBeenCalledWith('https://example.com/x', '_blank', 'noopener,noreferrer')
+            expect(document.body.querySelector('.confirm-dialog')).toBeNull()
+            wrapper.unmount()
+        } finally {
+            window.open = origOpen
+        }
+    })
+
+    it('取消 → 不呼叫 window.open，關窗', async () => {
+        const openSpy = vi.fn()
+        const origOpen = window.open
+        window.open = openSpy as typeof window.open
+        try {
+            messagesRef.value = [makeMessage({ messageId: 'm-link', content: 'go https://example.com/x' })]
+            const wrapper = mount(ChatView, { attachTo: document.body })
+            await flushPromises()
+
+            await wrapper.find('.message-item__link').trigger('click')
+            await nextTick()
+            const cancelBtn = document.body.querySelector('.confirm-dialog__cancel') as HTMLButtonElement
+            cancelBtn.click()
+            await nextTick()
+
+            expect(openSpy).not.toHaveBeenCalled()
+            expect(document.body.querySelector('.confirm-dialog')).toBeNull()
+            wrapper.unmount()
+        } finally {
+            window.open = origOpen
+        }
+    })
+})
+
+describe('ChatView mention 名單即時刷新', () => {
+    beforeEach(() => {
+        wsSubscribers.length = 0
+        messagesRef.value = [makeMessage({ messageId: 'seed', content: 'seed' })]
+        membersRef.value = [{ userId: 'u-known', username: 'k', furName: '已知', avatar: null, avatarColor: null }]
+        membersErrorRef.value = null
+        refetchMembersSpy.mockReset().mockResolvedValue(undefined)
+        initSpy.mockReset().mockResolvedValue(undefined)
+    })
+
+    it('PROFILE_UPDATED 帶不在名單的 userId → refetch members', async () => {
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        refetchMembersSpy.mockClear() // 排除 mount 時那次
+
+        emitWs({ type: 'PROFILE_UPDATED', timestamp: 1, data: { userId: 'u-new', furName: '新人', avatar: null, avatarColor: null, avatarBorder: false } })
+        await flushPromises()
+
+        expect(refetchMembersSpy).toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('PRESENCE_SNAPSHOT 含未知 online id → refetch members', async () => {
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        refetchMembersSpy.mockClear()
+
+        emitWs({ type: 'PRESENCE_SNAPSHOT', timestamp: 1, data: { onlineUserIds: ['u-known', 'u-brandnew'] } })
+        await flushPromises()
+
+        expect(refetchMembersSpy).toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('同一未知 id 重複事件 → 只 refetch 一次（避免廣播風暴/不收斂）', async () => {
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        refetchMembersSpy.mockClear()
+
+        // 第一次未知 id → refetch
+        emitWs({ type: 'PRESENCE_SNAPSHOT', timestamp: 1, data: { onlineUserIds: ['u-known', 'u-ghost'] } })
+        await flushPromises()
+        expect(refetchMembersSpy).toHaveBeenCalledTimes(1)
+
+        // refetch 後該 id 仍未進名單（divergent / 失敗）；同 id 再來不應再 refetch
+        emitWs({ type: 'PRESENCE_SNAPSHOT', timestamp: 2, data: { onlineUserIds: ['u-known', 'u-ghost'] } })
+        await flushPromises()
+        expect(refetchMembersSpy).toHaveBeenCalledTimes(1)
+
+        wrapper.unmount()
+    })
+
+    it('PRESENCE_SNAPSHOT 全部已知 id → 不 refetch', async () => {
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        refetchMembersSpy.mockClear()
+
+        emitWs({ type: 'PRESENCE_SNAPSHOT', timestamp: 1, data: { onlineUserIds: ['u-known'] } })
+        await flushPromises()
+
+        expect(refetchMembersSpy).not.toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('unmount 後不再接收 WS 事件（已 unsub）', async () => {
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        wrapper.unmount()
+        refetchMembersSpy.mockClear()
+
+        emitWs({ type: 'PROFILE_UPDATED', timestamp: 1, data: { userId: 'u-new2', furName: 'x', avatar: null, avatarColor: null, avatarBorder: false } })
+        await flushPromises()
+
+        expect(refetchMembersSpy).not.toHaveBeenCalled()
+    })
+})
+
+describe('ChatView autofiller 點外部關閉', () => {
+    beforeEach(() => {
+        messagesRef.value = []
+        membersRef.value = [{ userId: 'u-1', username: 'liz', furName: '小蜥蜴', avatar: null, avatarColor: null }]
+        membersErrorRef.value = null
+        refetchMembersSpy.mockReset().mockResolvedValue(undefined)
+        initSpy.mockReset().mockResolvedValue(undefined)
+    })
+
+    async function openMentionPopup(wrapper: ReturnType<typeof mount>) {
+        const input = wrapper.find('.bottom-bar__input')
+        ;(input.element as HTMLTextAreaElement).value = '@'
+        ;(input.element as HTMLTextAreaElement).selectionStart = 1
+        await input.trigger('input')
+        await nextTick()
+        return input
+    }
+
+    it('點 popup / textarea 以外的地方 → 關閉 autofiller', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        await openMentionPopup(wrapper)
+        expect(wrapper.find('.autofiller-popup').exists()).toBe(true)
+
+        document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+        await nextTick()
+
+        expect(wrapper.find('.autofiller-popup').exists()).toBe(false)
+        wrapper.unmount()
+    })
+
+    it('點 textarea 內不關閉', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        const input = await openMentionPopup(wrapper)
+        expect(wrapper.find('.autofiller-popup').exists()).toBe(true)
+
+        input.element.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+        await nextTick()
+
+        expect(wrapper.find('.autofiller-popup').exists()).toBe(true)
+        wrapper.unmount()
+    })
+
+    it('點 popup 內的選項仍正常選取（outside 監聽不攔截）', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        const input = await openMentionPopup(wrapper)
+        const option = wrapper.find('[data-test=af-option-u-1]')
+        expect(option.exists()).toBe(true)
+
+        await option.trigger('mousedown')
+        await flushPromises()
+        await nextTick()
+
+        // 選取成功插入 @小蜥蜴（證明 outside 監聽沒有把點選項誤判為關閉）
+        expect((input.element as HTMLTextAreaElement).value).toBe('@小蜥蜴 ')
+        wrapper.unmount()
+    })
+
+    it('unmount 後移除 document 監聽（不殘留）', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        wrapper.unmount()
+        // 不應拋錯（監聽已移除）
+        expect(() => document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))).not.toThrow()
     })
 })
