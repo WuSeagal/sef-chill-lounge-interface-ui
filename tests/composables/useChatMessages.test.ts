@@ -10,8 +10,8 @@ vi.mock('@/composables/useChatWebSocket', () => ({
     useChatWebSocket: vi.fn(),
 }))
 
-const { mockPushWarning } = vi.hoisted(() => ({ mockPushWarning: vi.fn() }))
-vi.mock('notivue', () => ({ push: { warning: mockPushWarning } }))
+const { mockPushWarning, mockPushError } = vi.hoisted(() => ({ mockPushWarning: vi.fn(), mockPushError: vi.fn() }))
+vi.mock('notivue', () => ({ push: { warning: mockPushWarning, error: mockPushError } }))
 
 import { useChatHistory } from '@/composables/useChatHistory'
 import { useChatWebSocket } from '@/composables/useChatWebSocket'
@@ -51,7 +51,7 @@ describe('useChatMessages', () => {
         connect = vi.fn(() => {
             connectTime.value = new Date(2026, 4, 26, 10, 0, 0).getTime()
         })
-        send = vi.fn()
+        send = vi.fn(() => true)
         onMessage = vi.fn((cb) => {
             messageHandlers.push(cb)
             const unsub = vi.fn(() => {
@@ -111,6 +111,38 @@ describe('useChatMessages', () => {
 
         expect(mockPushWarning).toHaveBeenCalledTimes(1)
         expect(mockPushWarning.mock.calls[0][0]).toBe('訊息發送太快了，請稍後再試！')
+    })
+
+    it('shows a specific error toast on ERROR envelope with code message_content_too_long', async () => {
+        const { init } = useChatMessages()
+        await init()
+        mockPushError.mockClear()
+
+        messageHandlers.forEach((h) => h({ type: 'ERROR', data: { code: 'message_content_too_long', message: 'message_content_too_long' } }))
+
+        expect(mockPushError).toHaveBeenCalledTimes(1)
+        expect(mockPushError.mock.calls[0][0]).toContain('訊息太長')
+    })
+
+    it('shows a generic error toast on ERROR envelope with an unmapped code', async () => {
+        const { init } = useChatMessages()
+        await init()
+        mockPushError.mockClear()
+
+        messageHandlers.forEach((h) => h({ type: 'ERROR', data: { code: 'something_unexpected' } }))
+
+        expect(mockPushError).toHaveBeenCalledTimes(1)
+        expect(mockPushError.mock.calls[0][0]).toBe('訊息發送失敗，請稍後再試')
+    })
+
+    it('shows an error toast even when ERROR envelope has no data', async () => {
+        const { init } = useChatMessages()
+        await init()
+        mockPushError.mockClear()
+
+        messageHandlers.forEach((h) => h({ type: 'ERROR', data: undefined }))
+
+        expect(mockPushError).toHaveBeenCalledTimes(1)
     })
 
     it('sets rateLimited state with a per-second countdown that clears on expiry', async () => {
@@ -177,6 +209,43 @@ describe('useChatMessages', () => {
         sendChatMessage('   ')
 
         expect(send).not.toHaveBeenCalled()
+    })
+
+    it('sendChatMessage returns true and shows no error toast when the socket send succeeds', async () => {
+        send.mockReturnValue(true)
+        const { init, sendChatMessage } = useChatMessages()
+        await init()
+        mockPushError.mockClear()
+
+        const result = sendChatMessage('hello')
+
+        expect(result).toBe(true)
+        expect(mockPushError).not.toHaveBeenCalled()
+    })
+
+    it('sendChatMessage shows an error toast and returns false when the socket send is dropped (disconnected)', async () => {
+        send.mockReturnValue(false)
+        const { init, sendChatMessage } = useChatMessages()
+        await init()
+        mockPushError.mockClear()
+
+        const result = sendChatMessage('hello')
+
+        expect(result).toBe(false)
+        expect(mockPushError).toHaveBeenCalledTimes(1)
+        expect(mockPushError.mock.calls[0][0]).toContain('連線中斷')
+    })
+
+    it('sendStickerMessage shows an error toast and returns false when the socket send is dropped', async () => {
+        send.mockReturnValue(false)
+        const { init, sendStickerMessage } = useChatMessages()
+        await init()
+        mockPushError.mockClear()
+
+        const result = sendStickerMessage('/sticker/u-1/1.png')
+
+        expect(result).toBe(false)
+        expect(mockPushError).toHaveBeenCalledTimes(1)
     })
 
     it('reconnect connects WS and reloads history with the new connectTime', async () => {

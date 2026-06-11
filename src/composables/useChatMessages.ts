@@ -4,6 +4,7 @@ import type {
     ChatEnvelope,
     ChatMessageBroadcastPayload,
     ChatMessageSendPayload,
+    ErrorPayload,
     ProfileUpdatedPayload,
     RateLimitedPayload,
 } from '@/types/chat'
@@ -48,6 +49,24 @@ function isValidProfileUpdate(data: unknown): data is ProfileUpdatedPayload {
     return !!data
         && typeof data === 'object'
         && typeof (data as ProfileUpdatedPayload).userId === 'string'
+}
+
+// 將後端 ERROR envelope 的 code 對應為使用者可讀的失敗提示。
+// 後端來源：ChatWebSocketHandler.sendError / MessageService.persistText（IllegalArgumentException code）。
+function errorMessageFor(code: string | undefined): string {
+    switch (code) {
+        case 'message_content_too_long':
+            return '訊息太長（上限 500 字），請縮短後再發送'
+        case 'message_images_limit_exceeded':
+            return '圖片數量超過上限（最多 5 張），訊息未送出'
+        case 'message_content_required':
+            return '訊息內容不可為空'
+        case 'message_image_url_invalid_prefix':
+        case 'sticker_image_url_invalid_prefix':
+            return '圖片來源無效，訊息未送出'
+        default:
+            return '訊息發送失敗，請稍後再試'
+    }
 }
 
 export function useChatMessages() {
@@ -127,6 +146,13 @@ export function useChatMessages() {
                 startRateLimit(data?.retryAfterMs ?? 0)
                 return
             }
+            if (envelope.type === 'ERROR') {
+                // 後端拒絕訊息（過長 / 圖片超量 / 來源無效…）會送 ERROR envelope；
+                // 過去前端未處理 → 變成靜默失敗，使用者以為有送出。改以 toast 明確告知未送出。
+                const data = envelope.data as ErrorPayload | undefined
+                push.error(errorMessageFor(data?.code))
+                return
+            }
         })
     }
 
@@ -172,9 +198,10 @@ export function useChatMessages() {
         rateLimitRemaining.value = 0
     }
 
-    function sendChatMessage(content: string, imageUrls: string[] = []) {
+    // 回傳是否真的送出（WS 斷線時為 false），讓呼叫端可保留輸入內容供重送。
+    function sendChatMessage(content: string, imageUrls: string[] = []): boolean {
         const trimmed = content.trim()
-        if (!trimmed && imageUrls.length === 0) return
+        if (!trimmed && imageUrls.length === 0) return false
         const payload: ChatMessageSendPayload = {
             messageType: 'TEXT',
             content: trimmed,
@@ -185,12 +212,16 @@ export function useChatMessages() {
             timestamp: Date.now(),
             data: payload,
         }
-        socket.send(envelope)
+        if (!socket.send(envelope)) {
+            push.error('連線中斷，訊息未送出，請稍後再試')
+            return false
+        }
+        return true
     }
 
-    function sendStickerMessage(stickerImageUrl: string) {
+    function sendStickerMessage(stickerImageUrl: string): boolean {
         const trimmed = stickerImageUrl.trim()
-        if (!trimmed) return
+        if (!trimmed) return false
         const payload: ChatMessageSendPayload = {
             messageType: 'STICKER',
             stickerImageUrl: trimmed,
@@ -200,7 +231,11 @@ export function useChatMessages() {
             timestamp: Date.now(),
             data: payload,
         }
-        socket.send(envelope)
+        if (!socket.send(envelope)) {
+            push.error('連線中斷，貼圖未送出，請稍後再試')
+            return false
+        }
+        return true
     }
 
     return {

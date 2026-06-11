@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { push } from 'notivue'
 import LizardLoading from '@/components/LizardLoading.vue'
 
 const router = useRouter()
@@ -26,10 +27,12 @@ onMounted(async () => {
             router.replace('/chat')
         } else {
             console.error('googleAuth failed, status:', res.status)
+            push.error('Google 登入失敗，請再試一次')
             router.replace('/')
         }
     } catch (e) {
         console.error('googleAuth error:', e)
+        push.error('Google 登入失敗，請稍後再試')
         router.replace('/')
     }
 })

@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.ts'
 import { useUser } from '@/composables/useUser'
+import { isDynamicImportError, reloadForStaleChunk } from '@/utils/staleChunk'
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.VITE_BASE_URL),
@@ -63,6 +64,13 @@ router.beforeEach(async (to, _from, next) => {
     }
 
     return to.path === '/' ? next('/chat') : next()
+})
+
+// 路由導航時 lazy 載入 view chunk 失敗（部署後 stale chunk）→ reload 抓新版，避免卡在轉圈。
+router.onError((error) => {
+    if (isDynamicImportError(error)) {
+        reloadForStaleChunk()
+    }
 })
 
 export default router

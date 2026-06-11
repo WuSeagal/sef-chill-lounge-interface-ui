@@ -122,12 +122,14 @@ function disconnect() {
     reconnectAttempts = 0
 }
 
-function send(envelope: ChatEnvelope) {
+/** 送出 envelope。WS 非 OPEN 時不送並回傳 false，讓呼叫端可提示使用者「訊息未送出」。 */
+function send(envelope: ChatEnvelope): boolean {
     if (ws?.readyState !== WebSocket.OPEN) {
         console.warn('[useChatWebSocket] send before OPEN — dropped envelope', envelope)
-        return
+        return false
     }
     ws.send(JSON.stringify(envelope))
+    return true
 }
 
 function onMessage(cb: Subscriber): () => void {

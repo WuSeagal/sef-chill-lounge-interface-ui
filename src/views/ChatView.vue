@@ -172,7 +172,11 @@ async function onSend(value: string) {
         }
     }
 
-    sendChatMessage(value, imageUrls)
+    const sent = sendChatMessage(value, imageUrls)
+    if (!sent) {
+        // 連線中斷未送出：sendChatMessage 已 toast，保留輸入與已選圖片讓使用者重送
+        return
+    }
     pendingOwnScroll = true
     inputValue.value = ''
     imageUpload.reset()
@@ -181,7 +185,12 @@ async function onSend(value: string) {
 }
 
 async function onStickerSelect(url: string) {
-    sendChatStickerMessage(url)
+    const sent = sendChatStickerMessage(url)
+    if (!sent) {
+        // 連線中斷未送出：sendStickerMessage 已 toast，不可殘留 pendingOwnScroll
+        // 否則旗標會在下一則他人訊息時把往上閱讀的使用者硬拉到底
+        return
+    }
     pendingOwnScroll = true
     await nextTick()
     scrollToBottom(true)
