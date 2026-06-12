@@ -90,6 +90,26 @@ describe('useChatHistory', () => {
         })
     })
 
+    it('initialized 初始為 false，loadInitial 完成後為 true', async () => {
+        vi.mocked(messageApi.fetchMessageHistory).mockResolvedValueOnce([])
+
+        const { initialized, loadInitial } = useChatHistory()
+        expect(initialized.value).toBe(false)
+
+        await loadInitial()
+
+        expect(initialized.value).toBe(true)
+    })
+
+    it('loadInitial 失敗時 initialized 仍翻為 true（不會永遠卡在載入中）', async () => {
+        vi.mocked(messageApi.fetchMessageHistory).mockRejectedValueOnce(new Error('boom'))
+
+        const { initialized, loadInitial } = useChatHistory()
+
+        await expect(loadInitial()).rejects.toThrow('boom')
+        expect(initialized.value).toBe(true)
+    })
+
     it('appendLive pushes message to tail', () => {
         const { messages, appendLive } = useChatHistory()
 

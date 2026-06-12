@@ -45,6 +45,7 @@ const profileRef = ref<any>({
 
 const messagesRef = ref<MessageResponse[]>([])
 const loadingRef = ref(false)
+const initializedRef = ref(true)
 const hasMoreRef = ref(false)
 const kickedRef = ref(false)
 const initSpy = vi.fn()
@@ -89,6 +90,7 @@ vi.mock('@/composables/useChatMessages', () => ({
     useChatMessages: () => ({
         messages: messagesRef,
         loading: loadingRef,
+        initialized: initializedRef,
         hasMore: hasMoreRef,
         loadMore: loadMoreSpy,
         init: initSpy,
@@ -144,6 +146,7 @@ describe('ChatView', () => {
             makeMessage({ cursorId: 12, messageId: 'msg-002', content: 'second', createdDate: '2026-05-25T10:01:00' }),
         ]
         loadingRef.value = false
+        initializedRef.value = true
         hasMoreRef.value = false
         kickedRef.value = false
         initSpy.mockReset().mockResolvedValue(undefined)
@@ -201,6 +204,16 @@ describe('ChatView', () => {
         await flushPromises()
 
         expect(wrapper.text()).toContain('目前沒有訊息')
+    })
+
+    it('首次載入未完成（initialized=false）時顯示載入動畫而非「目前沒有訊息」', async () => {
+        messagesRef.value = []
+        initializedRef.value = false
+        const wrapper = mount(ChatView)
+        await flushPromises()
+
+        expect(wrapper.find('.chat-view__loading').exists()).toBe(true)
+        expect(wrapper.text()).not.toContain('目前沒有訊息')
     })
 
     it('opens the passport profile overlay with the correct user when an avatar is clicked', async () => {
@@ -506,6 +519,7 @@ describe('ChatView scroll-fab 未讀 badge', () => {
             makeMessage({ cursorId: 12, messageId: 'msg-002', content: 'second' }),
         ]
         loadingRef.value = false
+        initializedRef.value = true
         hasMoreRef.value = false
         kickedRef.value = false
         initSpy.mockReset().mockResolvedValue(undefined)

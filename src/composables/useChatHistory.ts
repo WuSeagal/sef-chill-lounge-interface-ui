@@ -15,6 +15,10 @@ export function useChatHistory() {
     const messages = ref<MessageResponse[]>([])
     const loading = ref(false)
     const hasMore = ref(true)
+    // 「首次載入是否完成過」的單向旗標：初始 false，首次 loadInitial 結束（成功或失敗）
+    // 後翻 true。與 loading 不同——loading 會在 loadMore（捲動載入歷史）反覆切換；
+    // initialized 只關心首次載入，供畫面區分「載入中」與「載入完成但無訊息」。
+    const initialized = ref(false)
 
     async function loadInitial(options: { before?: string } = {}) {
         loading.value = true
@@ -28,6 +32,7 @@ export function useChatHistory() {
             hasMore.value = result.length === 50
         } finally {
             loading.value = false
+            initialized.value = true
         }
     }
 
@@ -58,6 +63,7 @@ export function useChatHistory() {
     return {
         messages,
         loading,
+        initialized,
         hasMore,
         loadInitial,
         loadMore,

@@ -241,6 +241,7 @@ export function useChatMessages() {
     return {
         messages: history.messages,
         loading: history.loading,
+        initialized: history.initialized,
         hasMore: history.hasMore,
         loadMore: history.loadMore,
         init,

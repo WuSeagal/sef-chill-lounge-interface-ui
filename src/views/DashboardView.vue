@@ -4,9 +4,10 @@ import './DashboardView.css'
 import '@/assets/grid-paper.css'
 import FloatingBubble from '@/components/FloatingBubble.vue'
 import DashboardOnlineCounter from '@/components/DashboardOnlineCounter.vue'
+import LizardLoading from '@/components/LizardLoading.vue'
 import { useDashboardFeed } from '@/composables/useDashboardFeed'
 
-const { bubbles, onlineCount, connected, connect, disconnect, startAnimation, cleanup } = useDashboardFeed()
+const { bubbles, onlineCount, connected, ready, connect, disconnect, startAnimation, cleanup } = useDashboardFeed()
 
 const isFullscreen = ref(false)
 
@@ -38,6 +39,10 @@ function onFullscreenClick() {
 <template>
     <div class="dashboard-view grid-paper">
         <DashboardOnlineCounter :count="onlineCount" :connected="connected" />
+
+        <div v-if="!ready" class="dashboard-view__loading">
+            <LizardLoading variant="inline" message="連線中" />
+        </div>
 
         <FloatingBubble
             v-for="b in bubbles"

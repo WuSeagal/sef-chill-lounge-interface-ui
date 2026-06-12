@@ -13,6 +13,12 @@ const { bubbles, addBubble, patchProfile, startAnimation, stopAnimation, cleanup
 // 線上人數（由 PRESENCE_SNAPSHOT 即時更新）與 WS 連線狀態（驅動紅點閃爍 / 轉灰）。
 const onlineCount = ref(0)
 const connected = ref(false)
+// 「初次 replay 是否完成」的單向旗標：收到首個 PRESENCE_SNAPSHOT（replay 結束標誌）
+// 後翻 true，之後不再 reset（重連不重新以載入動畫覆蓋既有 bubbles）。供 DashboardView
+// 在 replay 完成前顯示載入動畫，避免空白 grid 先出現再跳出 bubbles。
+// 註：與 bubbles/connected 同為 module-singleton，故「載入動畫」只在真正整頁載入（F5）出現；
+// SPA 內離開再回到 /dashboard 時 ready 已為 true（既有 bubbles 也還在畫面上，此時蓋 loading 反而不對）。
+const ready = ref(false)
 
 let ws: WebSocket | null = null
 // 後端連線時先 replayRecentHistory 再 sendPresenceSnapshot；故「首個 PRESENCE_SNAPSHOT」
@@ -64,6 +70,8 @@ function handleEnvelope(env: ChatEnvelope) {
         onlineCount.value = (env.data as PresenceSnapshotPayload).onlineUserIds.length
         // replay 已結束（snapshot 緊接 replay 之後送出）→ 之後的 CHAT_MESSAGE 才是新訊息
         liveSince = true
+        // 初次 replay 完成 → 收掉載入動畫；之後重連 replay 不再重置（bubbles 已在畫面上）
+        ready.value = true
     }
 }
 
@@ -106,5 +114,5 @@ function disconnect() {
 }
 
 export function useDashboardFeed() {
-    return { bubbles, onlineCount, connected, connect, disconnect, startAnimation, stopAnimation, cleanup }
+    return { bubbles, onlineCount, connected, ready, connect, disconnect, startAnimation, stopAnimation, cleanup }
 }

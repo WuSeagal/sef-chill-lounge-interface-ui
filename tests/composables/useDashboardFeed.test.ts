@@ -165,6 +165,35 @@ describe('useDashboardFeed', () => {
         expect(b?.animateEntrance).toBe(false)
     })
 
+    it('ready 初始為 false，收到首個 PRESENCE_SNAPSHOT 後為 true', () => {
+        const feed = useDashboardFeed()
+        expect(feed.ready.value).toBe(false)
+
+        feed.connect()
+        const socket = FakeWebSocket.instances[0]
+        socket.open()
+        socket.deliver(JSON.stringify({ type: 'PRESENCE_SNAPSHOT', timestamp: 1, data: { onlineUserIds: ['u-1'] } }))
+
+        expect(feed.ready.value).toBe(true)
+    })
+
+    it('ready 一旦為 true，重連再 replay 不會被 reset 回 false', () => {
+        const feed = useDashboardFeed()
+        feed.connect()
+        const s1 = FakeWebSocket.instances[0]
+        s1.open()
+        s1.deliver(JSON.stringify({ type: 'PRESENCE_SNAPSHOT', timestamp: 1, data: { onlineUserIds: ['u-1'] } }))
+        expect(feed.ready.value).toBe(true)
+
+        s1.close(1006)
+        vi.advanceTimersByTime(2_000)
+        const s2 = FakeWebSocket.instances[1]
+        s2.open()
+        s2.deliver(chatMsg('reconnect-replay'))
+
+        expect(feed.ready.value).toBe(true)
+    })
+
     it('connected is true after open and false after unexpected close', () => {
         const feed = useDashboardFeed()
         feed.connect()

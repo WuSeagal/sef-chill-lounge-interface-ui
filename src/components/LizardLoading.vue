@@ -9,9 +9,16 @@ const props = withDefaults(defineProps<{
     brand?: string
     /** 設定後，畫面停留超過這個毫秒數會出現「重新整理」按鈕；不設定則永遠不出現 */
     refreshAfterMs?: number
+    /**
+     * 呈現變體：
+     * - 'fullscreen'（預設）：全螢幕方格紙底 + 牛皮紙卡片（App 啟動 / 登入頁）
+     * - 'inline'：填滿父容器、無卡片、透明底（頁面內容載入中，如 chat 訊息區、dashboard grid）
+     */
+    variant?: 'fullscreen' | 'inline'
 }>(), {
     brand: 'SEF·CLI',
     refreshAfterMs: undefined,
+    variant: 'fullscreen',
 })
 
 const lizardRef = ref<HTMLImageElement | null>(null)
@@ -62,9 +69,9 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="lz-stage">
-        <div class="lz-card">
-            <p class="lz-brand">{{ brand }}</p>
+    <div class="lz-stage" :class="{ 'lz-stage--inline': variant === 'inline' }">
+        <div :class="variant === 'inline' ? 'lz-inline' : 'lz-card'">
+            <p v-if="variant !== 'inline'" class="lz-brand">{{ brand }}</p>
             <div class="lz-arena">
                 <img
                     ref="lizardRef"
@@ -111,6 +118,33 @@ onBeforeUnmount(() => {
     padding: 40px 56px 34px;
     text-align: center;
     width: 340px;
+}
+
+/* inline 變體：填滿父容器、透明底（繼承父層背景：chat 牛皮紙 / dashboard grid），不鎖視窗高寬 */
+.lz-stage--inline {
+    background: none;
+    width: 100%;
+    min-height: 100%;
+    height: 100%;
+    padding: 24px;
+}
+
+/* inline 內容面板：無卡片外殼，蜥蜴 + 文字置中，尺寸較小 */
+.lz-inline {
+    text-align: center;
+}
+
+.lz-stage--inline .lz-arena {
+    height: 120px;
+    transform: scale(1);
+}
+
+.lz-stage--inline .lz-lizard {
+    width: 92px;
+}
+
+.lz-stage--inline .lz-text {
+    margin-top: 18px;
 }
 
 .lz-brand {

@@ -5,6 +5,14 @@
     overflow: hidden;
 }
 
+/* 初次 replay 完成前的載入遮罩：覆蓋 grid，內部 inline LizardLoading 自行置中 */
+.dashboard-view__loading {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: flex;
+}
+
 .dashboard-view__fullscreen-btn {
     position: fixed;
     right: 16px;

@@ -39,6 +39,13 @@
     font-size: 0.95rem;
 }
 
+/* 首次載入：佔滿訊息區，內部的 inline LizardLoading 自行置中 */
+.chat-view__loading {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+}
+
 .chat-view__scroll-fab {
     position: absolute;
     left: 50%;

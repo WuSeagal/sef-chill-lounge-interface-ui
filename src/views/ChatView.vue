@@ -9,6 +9,7 @@ import SettingsModal from '@/components/SettingsModal.vue'
 import KickedModal from '@/components/KickedModal.vue'
 import AutofillerPopup from '@/components/AutofillerPopup.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
+import LizardLoading from '@/components/LizardLoading.vue'
 import { push } from 'notivue'
 import { useChatMessages } from '@/composables/useChatMessages'
 import { useChatWebSocket } from '@/composables/useChatWebSocket'
@@ -28,7 +29,7 @@ function uploadErrorToMessage(code: string): string {
     return ERROR_CODE_TO_MESSAGE[code] ?? code
 }
 
-const { messages, loading, hasMore, loadMore, init, reconnect, dispose, sendChatMessage, sendStickerMessage: sendChatStickerMessage, rateLimited, rateLimitRemaining, kicked } = useChatMessages()
+const { messages, loading, initialized, hasMore, loadMore, init, reconnect, dispose, sendChatMessage, sendStickerMessage: sendChatStickerMessage, rateLimited, rateLimitRemaining, kicked } = useChatMessages()
 const wsClient = useChatWebSocket()
 const imageUpload = useChatImageUpload()
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -403,7 +404,10 @@ void currentProfile
                 class="chat-view__list"
                 @scroll="onListScroll"
             >
-                <div v-if="!messages.length" class="chat-view__empty">
+                <div v-if="!initialized" class="chat-view__loading">
+                    <LizardLoading variant="inline" message="載入訊息中" :refresh-after-ms="8000" />
+                </div>
+                <div v-else-if="!messages.length" class="chat-view__empty">
                     目前沒有訊息
                 </div>
                 <MessageItem
