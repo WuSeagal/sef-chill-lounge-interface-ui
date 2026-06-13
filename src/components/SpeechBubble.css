@@ -8,6 +8,10 @@
     inset: 0;
     pointer-events: none;
     display: block;
+    /* 讓光暈外緣（stroke 6，外溢 ~3px）與描邊不被 SVG viewport 預設裁切 */
+    overflow: visible;
+    /* 陰影貼合泡泡（含尾巴）實際形狀；不可用 box-shadow（僅矩形 box） */
+    filter: drop-shadow(0 3px 4px rgba(74, 68, 51, 0.30));
 }
 
 /* content 以自身內距 + slot 內容撐出尺寸，.speech-bubble 收縮貼合，SVG 絕對鋪底 */

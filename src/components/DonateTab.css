@@ -18,15 +18,9 @@
     transform: scale(1.02);
 }
 
-.donate-tab__placeholder {
+.donate-tab__img {
     width: min(320px, 80vw);
-    aspect-ratio: 4 / 3;
-    background: var(--bubble-bg);
-    border: 2px dashed var(--bubble-border);
-    border-radius: var(--radius-md);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.1rem;
-    color: var(--input-text);
+    height: auto;
+    display: block;
+    border-radius: var(--radius-sm);
 }

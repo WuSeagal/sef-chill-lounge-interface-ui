@@ -4,11 +4,15 @@ import './SpeechBubble.css'
 
 type Direction = 'left' | 'right'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
     direction: Direction
     maxWidth?: number
     maxHeight?: number
-}>()
+    /** 主體泡泡描邊顏色；未傳時維持站內預設 --bubble-border */
+    strokeColor?: string
+}>(), {
+    strokeColor: 'var(--bubble-border)',
+})
 
 const MIN_W = 80
 const MIN_H = 40
@@ -98,11 +102,20 @@ const contentStyle = computed(() => {
             :height="measuredH"
             :viewBox="`0 0 ${measuredW} ${measuredH}`"
         >
+            <!-- 重疊分隔光暈：同形 path 畫在主體下層，僅露出外緣白邊作為相鄰泡泡分界 -->
             <path
+                class="speech-bubble__halo"
+                :d="pathD"
+                fill="none"
+                stroke="#ffffff"
+                stroke-width="6"
+            />
+            <path
+                class="speech-bubble__path"
                 :d="pathD"
                 fill="var(--bubble-bg)"
-                stroke="var(--bubble-border)"
-                stroke-width="1.5"
+                :stroke="strokeColor"
+                stroke-width="2"
             />
         </svg>
         <div class="content" :style="contentStyle">

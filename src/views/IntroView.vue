@@ -438,13 +438,16 @@ onBeforeUnmount(() => {
 
     <div v-else class="intro-view" :class="{ 'intro-view--focus': !showOnboarding }">
         <div class="intro-view__stage" :class="{ 'intro-view__stage--focus': !showOnboarding, 'intro-view__stage--review': showOnboarding && currentStep.key === 'review' }">
-            <img
+            <a
                 v-if="!showOnboarding"
                 class="intro-view__easter-egg"
-                :src="lizardchiEgg"
-                alt=""
-                aria-hidden="true"
-            />
+                href="https://lizardchi.lindebot.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="前往 Lizardchi 官網"
+            >
+                <img class="intro-view__easter-egg-img" :src="lizardchiEgg" alt="" />
+            </a>
             <div class="intro-view__panel" :class="{ 'intro-view__panel--focus': !showOnboarding }">
             <div v-if="!auth.isLogin" class="intro-view__login-card">
                 <h1 class="intro-view__title">{{ t('intro.login.brand') }}</h1>
@@ -684,7 +687,7 @@ onBeforeUnmount(() => {
 
                 <!-- Stickers step (v-show to keep ref alive) -->
                 <section v-show="currentStep.key === 'stickers'" class="intro-view__step-card">
-                    <StickerManager ref="stickerManagerRef" :initial="[]" />
+                    <StickerManager ref="stickerManagerRef" :initial="[]" :hint="null" />
                 </section>
 
                 <!-- Footer action bar -->

@@ -97,6 +97,47 @@ describe('SpeechBubble — content padding', () => {
     })
 })
 
+describe('SpeechBubble — stroke / shadow / halo (dashboard distinction)', () => {
+    it('applies strokeColor to the main path with stroke-width 2', () => {
+        const wrapper = mount(SpeechBubble, {
+            props: { direction: 'left', strokeColor: '#c2452d' },
+        })
+        const main = wrapper.find('.speech-bubble__path')
+        expect(main.exists()).toBe(true)
+        expect(main.attributes('stroke')).toBe('#c2452d')
+        expect(main.attributes('stroke-width')).toBe('2')
+    })
+
+    it('defaults main path stroke to var(--bubble-border) when strokeColor not provided', () => {
+        const wrapper = mount(SpeechBubble, { props: { direction: 'left' } })
+        const main = wrapper.find('.speech-bubble__path')
+        expect(main.attributes('stroke')).toBe('var(--bubble-border)')
+        expect(main.attributes('stroke-width')).toBe('2')
+    })
+
+    it('renders a white halo path (width 6, no fill) beneath the main path', () => {
+        const wrapper = mount(SpeechBubble, { props: { direction: 'left' } })
+        const paths = wrapper.findAll('path')
+        expect(paths.length).toBe(2)
+        const halo = wrapper.find('.speech-bubble__halo')
+        expect(halo.exists()).toBe(true)
+        expect(halo.attributes('fill')).toBe('none')
+        expect(halo.attributes('stroke')).toBe('#ffffff')
+        expect(halo.attributes('stroke-width')).toBe('6')
+        // halo drawn first (beneath), main second
+        const svgChildren = wrapper.find('svg').element.children
+        expect(svgChildren[0].classList.contains('speech-bubble__halo')).toBe(true)
+        expect(svgChildren[1].classList.contains('speech-bubble__path')).toBe(true)
+    })
+
+    it('halo and main share the same path d (same shape)', () => {
+        const wrapper = mount(SpeechBubble, { props: { direction: 'right' } })
+        const halo = wrapper.find('.speech-bubble__halo')
+        const main = wrapper.find('.speech-bubble__path')
+        expect(halo.attributes('d')).toBe(main.attributes('d'))
+    })
+})
+
 describe('SpeechBubble — max size props', () => {
     it('applies maxWidth/maxHeight to the root container style', () => {
         const wrapper = mount(SpeechBubble, {

@@ -36,7 +36,7 @@ async function onSubmit() {
 <template>
     <div class="feedback-tab">
         <div class="feedback-tab__form">
-            <p class="feedback-tab__hint">不論系統使用上有問題要反應，或是想要回饋心得，都可以使用此處。</p>
+            <p class="feedback-tab__hint">不論是使用中有問題需反應，或是想要回饋心得，都歡迎在此回報。</p>
             <div class="feedback-tab__field">
                 <label class="feedback-tab__label">回報者</label>
                 <input

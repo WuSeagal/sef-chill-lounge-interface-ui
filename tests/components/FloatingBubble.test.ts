@@ -139,6 +139,44 @@ describe('FloatingBubble — avatar ring', () => {
     })
 })
 
+describe('FloatingBubble — speaker-colored bubble stroke', () => {
+    it('passes avatarColor as SpeechBubble strokeColor when avatarBorder on with color', () => {
+        const wrapper = mount(FloatingBubble, {
+            props: {
+                bubble: makeBubble({
+                    message: { ...makeBubble().message, avatarColor: '#3b82c4', avatarBorder: true },
+                }),
+            },
+        })
+        const sb = wrapper.findComponent({ name: 'SpeechBubble' })
+        expect(sb.props('strokeColor')).toBe('#3b82c4')
+    })
+
+    it('falls back to #9c8f68 when avatarBorder is off', () => {
+        const wrapper = mount(FloatingBubble, {
+            props: {
+                bubble: makeBubble({
+                    message: { ...makeBubble().message, avatarColor: '#3b82c4', avatarBorder: false },
+                }),
+            },
+        })
+        const sb = wrapper.findComponent({ name: 'SpeechBubble' })
+        expect(sb.props('strokeColor')).toBe('#9c8f68')
+    })
+
+    it('falls back to #9c8f68 when avatarColor is null even if avatarBorder on', () => {
+        const wrapper = mount(FloatingBubble, {
+            props: {
+                bubble: makeBubble({
+                    message: { ...makeBubble().message, avatarColor: null, avatarBorder: true },
+                }),
+            },
+        })
+        const sb = wrapper.findComponent({ name: 'SpeechBubble' })
+        expect(sb.props('strokeColor')).toBe('#9c8f68')
+    })
+})
+
 describe('FloatingBubble — avatar position', () => {
     it('direction "left": avatar comes before SpeechBubble in DOM', () => {
         const wrapper = mount(FloatingBubble, {

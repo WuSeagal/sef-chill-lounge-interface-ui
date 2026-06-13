@@ -54,10 +54,10 @@ describe('FeedbackTab', () => {
         expect(wrapper.find('.feedback-tab__body').attributes('placeholder')).toBe('請輸入回報內容')
     })
 
-    it('keeps the explanatory hint unchanged', () => {
+    it('shows the explanatory hint', () => {
         const wrapper = mount(FeedbackTab)
         expect(wrapper.find('.feedback-tab__hint').text()).toBe(
-            '不論系統使用上有問題要反應，或是想要回饋心得，都可以使用此處。',
+            '不論是使用中有問題需反應，或是想要回饋心得，都歡迎在此回報。',
         )
     })
 

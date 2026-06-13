@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import './DonateTab.css'
+import donateBoba from '@/assets/images/donate_boba.png'
 
-// 捐款資訊全站共用，寫死在前端（依 openspec/backlog.md 待辦：
-//   - 之後申請正式捐款帳號後更新此 URL）
-const DONATE_URL = 'https://example.com/donate-placeholder'
+// 斗內連結（比照 Lizardchi-UI GameDonateModal）
+const DONATE_URL = 'https://wuseagal.bobaboba.me'
 </script>
 
 <template>
@@ -14,9 +14,7 @@ const DONATE_URL = 'https://example.com/donate-placeholder'
             rel="noopener noreferrer"
             class="donate-tab__link"
         >
-            <div class="donate-tab__placeholder">
-                Donate
-            </div>
+            <img class="donate-tab__img" :src="donateBoba" alt="贊助斗內" />
         </a>
     </div>
 </template>

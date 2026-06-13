@@ -42,7 +42,12 @@ defineExpose({ isDirty, saveAll, discardDrafts })
     <div class="sticker-tab" data-test="sticker-tab">
         <div class="sticker-tab__stage">
             <h3 class="sticker-tab__title">自訂貼圖</h3>
-            <StickerManager ref="managerRef" :initial="initial" :key="initial.length" />
+            <StickerManager
+                ref="managerRef"
+                :initial="initial"
+                :key="initial.length"
+                hint="最多可儲存5個貼圖，支援PNG/JPG/GIF/WEBP，檔案最大10MB。"
+            />
             <button
                 class="sticker-tab__save"
                 type="button"

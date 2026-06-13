@@ -41,13 +41,23 @@
     top: -52px;
     right: 12px;
     width: 140px;
-    height: auto;
+    /* 維持在面板下層（z-index:-1）：露出部分可點，被面板蓋住處由面板攔截點擊。
+       此策略依賴 .intro-view__panel 為不透明（見其 background）；若面板改透明，重疊區點擊會穿透。 */
     z-index: -1;
-    image-rendering: pixelated;
-    pointer-events: none;
+    /* 露出部分可點擊（連向 Lizardchi）；img 自身設 none，命中交給此 <a> */
+    pointer-events: auto;
     user-select: none;
+    display: block;
     transform: rotate(-54deg);
     filter: drop-shadow(0 6px 10px rgba(98, 89, 69, 0.18));
+}
+
+.intro-view__easter-egg-img {
+    display: block;
+    width: 100%;
+    height: auto;
+    image-rendering: pixelated;
+    pointer-events: none;
 }
 
 .intro-view__login-card,
@@ -145,6 +155,11 @@
     border: 1px solid rgba(116, 105, 85, 0.16);
     border-radius: 24px;
     background: rgba(255, 255, 255, 0.86);
+}
+
+/* onboarding 貼圖步驟：sticker-manager（max-width 480）於 step-card 內水平置中 */
+.intro-view__step-card .sticker-manager {
+    margin-inline: auto;
 }
 
 /* === Footer action bar (wz-foot) === */

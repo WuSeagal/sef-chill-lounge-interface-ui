@@ -20,7 +20,14 @@ interface StagedItem {
     previewUrl: string
 }
 
-const props = defineProps<{ initial: Sticker[] }>()
+const props = withDefaults(
+    defineProps<{
+        initial: Sticker[]
+        /** 提示文字；傳 null 不顯示（如 onboarding）。未傳時維持預設文案 */
+        hint?: string | null
+    }>(),
+    { hint: 'PNG / JPG / GIF / WEBP，≤10MB' },
+)
 
 const error = ref<string | null>(null)
 
@@ -117,7 +124,7 @@ defineExpose({ isDirty, saveAll, clearStaging, previews })
 
 <template>
     <div class="sticker-manager" data-test="sticker-manager">
-        <p class="sticker-manager__hint">PNG / JPG / GIF / WEBP，≤10MB</p>
+        <p v-if="hint" class="sticker-manager__hint">{{ hint }}</p>
         <div class="sticker-manager__list">
             <!-- Existing stickers (not staged for deletion) -->
             <div

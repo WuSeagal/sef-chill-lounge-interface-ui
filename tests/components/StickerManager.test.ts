@@ -45,6 +45,24 @@ describe('StickerManager', () => {
         expect(wrapper.find('[data-test="sticker-add"]').exists()).toBe(true)
     })
 
+    // 1b. hint prop: custom text shown
+    it('renders custom hint text when hint prop is provided', () => {
+        const wrapper = mount(StickerManager, {
+            props: { initial: [], hint: '最多可儲存5個貼圖，支援PNG/JPG/GIF/WEBP，檔案最大10MB。' },
+        })
+        const hint = wrapper.find('.sticker-manager__hint')
+        expect(hint.exists()).toBe(true)
+        expect(hint.text()).toBe('最多可儲存5個貼圖，支援PNG/JPG/GIF/WEBP，檔案最大10MB。')
+    })
+
+    // 1c. hint prop: null hides the hint entirely (onboarding)
+    it('hides hint when hint prop is null', () => {
+        const wrapper = mount(StickerManager, {
+            props: { initial: [], hint: null },
+        })
+        expect(wrapper.find('.sticker-manager__hint').exists()).toBe(false)
+    })
+
     // 2. hides add tile when 5 active
     it('hides add tile when 5 active', () => {
         const wrapper = mount(StickerManager, {

@@ -13,6 +13,12 @@ const props = defineProps<{
 const avatarRingStyle = computed(() =>
     buildAvatarRingStyle(props.bubble.message.avatarColor, props.bubble.message.avatarBorder ?? false, 'lg'))
 
+// 泡泡外框色：啟用頭像外框且有代表色 → 用該色（與色環同色）；否則 fallback #9c8f68
+const bubbleStrokeColor = computed(() => {
+    const { avatarColor, avatarBorder } = props.bubble.message
+    return (avatarBorder && avatarColor) ? avatarColor : '#9c8f68'
+})
+
 // 圖片泡泡尺寸上限（內容自適應，SpeechBubble 依量測尺寸繪製外框）
 // 寬 276 = 圖片最長邊 240 + 內距(尾側24 + 另側12 = 36)，確保 240 的圖片完整放進泡泡不溢出
 const BUBBLE_MAX_W = 276
@@ -47,6 +53,7 @@ const innerClass = computed(() => ({
                 :direction="bubble.direction"
                 :max-width="hasImage ? BUBBLE_MAX_W : undefined"
                 :max-height="BUBBLE_MAX_H"
+                :stroke-color="bubbleStrokeColor"
             >
                 <div v-if="!hasImage" class="floating-bubble__text">{{ bubble.message.content }}</div>
                 <div v-else class="floating-bubble__image-wrap">

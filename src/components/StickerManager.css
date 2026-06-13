@@ -12,12 +12,12 @@
     margin: 0;
 }
 
-/* Dynamic tile list — wraps from left to right */
+/* Dynamic tile list — wraps and centers tiles (設定與 onboarding 兩處皆置中) */
 .sticker-manager__list {
     display: flex;
     flex-wrap: wrap;
     gap: 14px;
-    justify-content: flex-start;
+    justify-content: center;
 }
 
 /* Each tile (existing or staged-new) — ~96px, position:relative for corner X */
