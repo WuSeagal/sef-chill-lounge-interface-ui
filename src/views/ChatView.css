@@ -20,6 +20,17 @@
     flex-direction: column;
 }
 
+/* 主持人公告浮層：覆蓋於訊息列頂端、不攔截事件（捲動/捲軸穿透）；
+   訊息列改以動態 inline padding-top（= banner 高）讓內容落在其下、不被遮、不縮列高。 */
+.chat-view__announcement {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    pointer-events: none;
+}
+
 .chat-view__list {
     flex: 1 1 auto;
     min-height: 0;

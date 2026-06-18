@@ -1,0 +1,62 @@
+/* 主持人公告 banner（demo 定案變體 C）：白卡 + 紅頂條 + 喇叭 SVG，沿用專案 token。
+   置頂浮層由 ChatView 以 .chat-view__announcement 定位（absolute + pointer-events:none）。 */
+.announcement-banner {
+    padding: 10px var(--space-md) 0;
+}
+
+.announcement-banner__card {
+    /* 外層浮層 .chat-view__announcement 是 pointer-events:none（讓側邊/捲軸穿透到訊息列）；
+       這張可見卡片改回 auto：連結可點，且點在卡片上會被「吸收」、不會穿透點到被它蓋住的訊息。 */
+    pointer-events: auto;
+    display: flex;
+    gap: 9px;
+    align-items: flex-start;
+    background: var(--surface-raised);
+    border: 1px solid var(--bubble-border);
+    border-top: 3px solid var(--notify-badge-bg);
+    border-radius: 10px;
+    padding: 10px 12px;
+    box-shadow: var(--shadow-popup);
+}
+
+.announcement-banner__icon {
+    color: var(--notify-badge-bg);
+    flex: 0 0 auto;
+    width: 17px;
+    height: 17px;
+    margin-top: 1px;
+}
+
+/* ?raw 內嵌的 svg 無固定尺寸，由容器撐滿 */
+.announcement-banner__icon svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.announcement-banner__text {
+    color: var(--input-text);
+    font-size: 0.88rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    min-width: 0;
+}
+
+/* 公告內超連結：比照訊息連結（底線可點，點擊走 ChatView 離站確認窗）。 */
+.announcement-banner__link {
+    color: #7a5a2e;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+    word-break: break-all;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .announcement-banner { animation: announcement-banner-in 0.28s ease-out both; }
+}
+
+@keyframes announcement-banner-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: none; }
+}

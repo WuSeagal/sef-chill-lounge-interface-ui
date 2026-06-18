@@ -10,6 +10,7 @@ export type ChatEventType =
     | 'ERROR'
     | 'RATE_LIMITED'
     | 'MESSAGE_DELETED'
+    | 'ANNOUNCEMENT'
 
 export interface ChatEnvelope<T = unknown> {
     type: ChatEventType
@@ -46,4 +47,8 @@ export interface RateLimitedPayload {
 
 export interface MessageDeletedPayload {
     messageId: string
+}
+
+export interface AnnouncementPayload {
+    text: string | null
 }

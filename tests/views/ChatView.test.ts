@@ -975,6 +975,69 @@ describe('ChatView autofiller 點外部關閉', () => {
     })
 })
 
+describe('ChatView 主持人公告 banner', () => {
+    beforeEach(() => {
+        wsSubscribers.length = 0
+        profileRef.value = { userId: 'u-101', username: '小毛', furName: '毛毛', avatar: '/mock-images/avatar-default.png', avatarColor: '#8c8672' }
+        messagesRef.value = [makeMessage({ cursorId: 11, messageId: 'm1', content: 'a' })]
+        loadingRef.value = false
+        initializedRef.value = true
+        hasMoreRef.value = false
+        kickedRef.value = false
+        membersRef.value = []
+        membersErrorRef.value = null
+        refetchMembersSpy.mockReset().mockResolvedValue(undefined)
+        initSpy.mockReset().mockResolvedValue(undefined)
+        authUserHolder.value = null
+    })
+
+    function mockListScroll(wrapper: ReturnType<typeof mount>) {
+        ;(wrapper.find('.chat-view__list').element as unknown as { scrollTo: () => void }).scrollTo = vi.fn()
+    }
+
+    it('收到 ANNOUNCEMENT 顯示頂端 banner 純文字', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        mockListScroll(wrapper)
+
+        emitWs({ type: 'ANNOUNCEMENT', timestamp: 1, data: { text: '18:00 抽獎' } })
+        await nextTick()
+
+        expect(wrapper.find('.announcement-banner').exists()).toBe(true)
+        expect(wrapper.find('.announcement-banner__text').text()).toBe('18:00 抽獎')
+        wrapper.unmount()
+    })
+
+    it('收到空 ANNOUNCEMENT 移除 banner', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        mockListScroll(wrapper)
+
+        emitWs({ type: 'ANNOUNCEMENT', timestamp: 1, data: { text: 'x' } })
+        await nextTick()
+        expect(wrapper.find('.announcement-banner').exists()).toBe(true)
+
+        emitWs({ type: 'ANNOUNCEMENT', timestamp: 2, data: { text: null } })
+        await nextTick()
+        expect(wrapper.find('.announcement-banner').exists()).toBe(false)
+        wrapper.unmount()
+    })
+
+    it('banner 為浮層（.chat-view__announcement，位於訊息列之外）', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        mockListScroll(wrapper)
+
+        emitWs({ type: 'ANNOUNCEMENT', timestamp: 1, data: { text: 'x' } })
+        await nextTick()
+
+        expect(wrapper.find('.chat-view__announcement').exists()).toBe(true)
+        // 浮層是 list 的兄弟、不在 .chat-view__list 內（不佔列內空間）
+        expect(wrapper.find('.chat-view__list .chat-view__announcement').exists()).toBe(false)
+        wrapper.unmount()
+    })
+})
+
 describe('ChatView 未讀分隔線', () => {
     beforeEach(() => {
         profileRef.value = { userId: 'u-101', username: '小毛', furName: '毛毛', avatar: '/mock-images/avatar-default.png', avatarColor: '#8c8672' }

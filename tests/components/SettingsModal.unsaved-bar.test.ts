@@ -2,6 +2,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
+// SettingsModal 用 useAuthStore 判定 host 公告分頁；此檔測未存檔浮層，非 host 即可。
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ user: null }) }))
+
 const { saveAllMock, discardMock, ctrl } = vi.hoisted(() => ({
     saveAllMock: vi.fn(), discardMock: vi.fn(), ctrl: { dirty: true },
 }))

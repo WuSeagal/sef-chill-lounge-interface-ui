@@ -3,6 +3,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import './ChatView.css'
 import MessageItem from '@/components/MessageItem.vue'
 import UnreadDivider from '@/components/UnreadDivider.vue'
+import AnnouncementBanner from '@/components/AnnouncementBanner.vue'
 import BottomBar from '@/components/BottomBar.vue'
 import UserPopup from '@/components/UserPopup.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
@@ -21,7 +22,7 @@ import { useMembers } from '@/composables/useMembers'
 import { useAuthStore } from '@/stores/auth'
 import { isHost } from '@/utils/host'
 import { deleteMessage } from '@/api/messageApi'
-import type { ChatEnvelope, PresenceSnapshotPayload, ProfileUpdatedPayload } from '@/types/chat'
+import type { AnnouncementPayload, ChatEnvelope, PresenceSnapshotPayload, ProfileUpdatedPayload } from '@/types/chat'
 
 // 對應後端 error code 翻譯為使用者訊息；未知 code 直接照原文（addFiles 設的 limit
 // 訊息已是中文）。避免依賴特定 prefix 字串判斷來源。
@@ -150,6 +151,33 @@ function clearUnreadDivider() {
     dividerCountdownStarted = false
 }
 
+// ── 主持人公告 banner：overlay 覆蓋 /chat 頂端；list 維持滿高、依 banner 高設動態 top padding
+// （不縮可捲範圍、不擋捲軸）。公告經 WS ANNOUNCEMENT 事件（含連線補送）更新。
+const announcementText = ref<string | null>(null)
+const announcementWrapRef = ref<HTMLElement | null>(null)
+const bannerHeight = ref(0)
+let announcementResizeObserver: ResizeObserver | null = null
+
+function measureBanner() {
+    bannerHeight.value = announcementWrapRef.value?.offsetHeight ?? 0
+    // 公告高度變動造成內容位移時，貼底者保持貼底
+    if (isAtBottom.value) scrollToBottom(false)
+}
+
+// 公告出現/消失時掛/卸 ResizeObserver（RWD 換行致高度變動也即時更新 padding）
+watch(announcementText, async () => {
+    await nextTick()
+    announcementResizeObserver?.disconnect()
+    announcementResizeObserver = null
+    if (announcementText.value && announcementWrapRef.value) {
+        measureBanner()
+        announcementResizeObserver = new ResizeObserver(() => measureBanner())
+        announcementResizeObserver.observe(announcementWrapRef.value)
+    } else {
+        bannerHeight.value = 0
+    }
+})
+
 // 程式主動捲底的 smooth 動畫進行中也視為「應貼底」：圖片此時載入完成會讓
 // smooth 目標（舊 scrollHeight）落空，補捲條件須涵蓋這段期間。用時間上限
 // 自我過期＋落底時清除，避免動畫被使用者中斷後旗標殘留，之後歷史圖片
@@ -269,6 +297,10 @@ const caretIndex = ref(0)
 let wsMemberUnsub: (() => void) | null = null
 const attemptedUnknownMemberIds = new Set<string>()
 function onWsMemberEvent(envelope: ChatEnvelope) {
+    if (envelope.type === 'ANNOUNCEMENT') {
+        announcementText.value = (envelope.data as AnnouncementPayload | undefined)?.text ?? null
+        return
+    }
     let candidateIds: string[] = []
     if (envelope.type === 'PROFILE_UPDATED') {
         const uid = (envelope.data as ProfileUpdatedPayload | undefined)?.userId
@@ -480,6 +512,8 @@ onBeforeUnmount(() => {
     wsMemberUnsub = null
     document.removeEventListener('mousedown', onDocumentPointerDown)
     clearUnreadDivider()
+    announcementResizeObserver?.disconnect()
+    announcementResizeObserver = null
     dispose()
     wsClient.disconnect()
 })
@@ -494,6 +528,7 @@ void currentProfile
             <div
                 ref="listEl"
                 class="chat-view__list"
+                :style="announcementText ? { paddingTop: bannerHeight + 'px' } : undefined"
                 @scroll="onListScroll"
             >
                 <div v-if="!initialized" class="chat-view__loading">
@@ -518,6 +553,14 @@ void currentProfile
                         @delete-click="onDeleteClick"
                     />
                 </template>
+            </div>
+
+            <div
+                v-if="announcementText"
+                ref="announcementWrapRef"
+                class="chat-view__announcement"
+            >
+                <AnnouncementBanner :text="announcementText" @link-click="onLinkClick" />
             </div>
 
             <button

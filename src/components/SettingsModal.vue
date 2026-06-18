@@ -7,9 +7,12 @@ import TopicCardTab from './TopicCardTab.vue'
 import FeedbackTab from './FeedbackTab.vue'
 import DonateTab from './DonateTab.vue'
 import ExportPassportTab from './ExportPassportTab.vue'
+import AnnouncementTab from './AnnouncementTab.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
+import { useAuthStore } from '@/stores/auth'
+import { isHost } from '@/utils/host'
 
-type TabId = 'settings' | 'export' | 'sticker' | 'topic' | 'feedback' | 'donate'
+type TabId = 'settings' | 'export' | 'sticker' | 'topic' | 'feedback' | 'donate' | 'announcement'
 
 const TABS: { id: TabId; label: string }[] = [
     { id: 'settings', label: '個人資料' },
@@ -19,6 +22,12 @@ const TABS: { id: TabId; label: string }[] = [
     { id: 'feedback', label: '意見回饋' },
     { id: 'donate', label: '斗內連結' },
 ]
+
+// 公告分頁僅 host 可見（重用 ① 的 isHost；非 host 不顯示）
+const authStore = useAuthStore()
+const visibleTabs = computed<{ id: TabId; label: string }[]>(() =>
+    isHost(authStore.user?.providerUserId) ? [...TABS, { id: 'announcement', label: '公告' }] : TABS,
+)
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
@@ -130,7 +139,7 @@ onBeforeUnmount(() => {
                 <div class="settings-modal__layout">
                     <nav class="settings-modal__rail" role="tablist" aria-label="設定分頁">
                         <button
-                            v-for="tab in TABS"
+                            v-for="tab in visibleTabs"
                             :key="tab.id"
                             class="settings-modal__tab"
                             :class="{ 'settings-modal__tab--active': tab.id === activeTab }"
@@ -150,6 +159,7 @@ onBeforeUnmount(() => {
                         <TopicCardTab v-if="activeTab === 'topic'" />
                         <FeedbackTab v-if="activeTab === 'feedback'" />
                         <DonateTab v-if="activeTab === 'donate'" />
+                        <AnnouncementTab v-if="activeTab === 'announcement'" />
                     </div>
                 </div>
                 <!-- #12 未儲存浮層：附在 panel 底、從下滑出；個人資料/貼圖設定 dirty 時顯示，原頁面與原儲存鈕不變 -->

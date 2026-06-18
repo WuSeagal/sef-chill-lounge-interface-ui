@@ -2,6 +2,9 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
+// SettingsModal 用 useAuthStore 判定 host 公告分頁；此檔測未存檔守則，非 host 即可。
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ user: null }) }))
+
 vi.mock('@/components/SettingsTab.vue', () => ({
     default: { name: 'SettingsTab', setup(_: unknown, { expose }: { expose: (e: unknown) => void }) {
         expose({ isDirty: true, saveAll: vi.fn(), discardDrafts: vi.fn() }); return () => null } },

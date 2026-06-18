@@ -7,7 +7,29 @@ vi.mock('vue-i18n', () => ({
     useI18n: () => ({ t: (key: string) => key }),
 }))
 
+// SettingsModal 用 useAuthStore 判定是否顯示 host 公告分頁；預設非 host（null）→ 6 分頁。
+const authUserHolder: { value: null | { providerUserId: string } } = { value: null }
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => ({ get user() { return authUserHolder.value } }),
+}))
+
 describe('SettingsModal', () => {
+    afterEach(() => { authUserHolder.value = null })
+
+    it('host 帳號多顯示「公告」分頁（共 7）', () => {
+        authUserHolder.value = { providerUserId: '111427449810799428954' }
+        const wrapper = mount(SettingsModal, { props: { open: true } })
+        const labels = wrapper.findAll('.settings-modal__tab').map(t => t.text())
+        expect(labels).toContain('公告')
+        expect(wrapper.findAll('.settings-modal__tab').length).toBe(7)
+    })
+
+    it('非 host 不顯示「公告」分頁', () => {
+        authUserHolder.value = null
+        const wrapper = mount(SettingsModal, { props: { open: true } })
+        expect(wrapper.findAll('.settings-modal__tab').map(t => t.text())).not.toContain('公告')
+    })
+
     it('renders nothing when open=false', () => {
         const wrapper = mount(SettingsModal, { props: { open: false } })
         expect(wrapper.find('.settings-modal').exists()).toBe(false)

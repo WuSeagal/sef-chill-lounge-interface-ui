@@ -1,0 +1,72 @@
+.announcement-tab {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+}
+
+.announcement-tab__title {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--input-text);
+}
+
+.announcement-tab__hint {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--input-text);
+    opacity: 0.75;
+    line-height: 1.5;
+}
+
+.announcement-tab__input {
+    width: 100%;
+    resize: vertical;
+    border: 1px solid var(--bubble-border);
+    border-radius: var(--radius-sm);
+    padding: var(--space-sm);
+    font-family: var(--font-family-base);
+    font-size: 0.9rem;
+    color: var(--input-text);
+    background: var(--input-bg);
+    resize: none;
+}
+
+.announcement-tab__count {
+    align-self: flex-end;
+    font-size: 0.72rem;
+    color: var(--input-text);
+    opacity: 0.7;
+    font-variant-numeric: tabular-nums;
+}
+
+.announcement-tab__actions {
+    display: flex;
+    gap: var(--space-sm);
+    justify-content: flex-end;
+}
+
+.announcement-tab__btn {
+    padding: 8px 18px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border: 1px solid var(--bubble-border);
+}
+
+.announcement-tab__btn--unpin {
+    background: var(--input-bg);
+    color: var(--input-text);
+}
+
+.announcement-tab__btn--pin {
+    background: var(--notify-badge-bg);
+    color: var(--notify-badge-text);
+    border-color: var(--notify-badge-bg);
+}
+
+.announcement-tab__btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

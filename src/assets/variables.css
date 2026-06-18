@@ -14,6 +14,9 @@
     /* Chat */
     --chat-bg: #f9f5e5;
 
+    /* 抬升表面（浮貼卡/公告 banner）：專案無比 chat 底色更白的色，故定義純白卡片色 */
+    --surface-raised: #ffffff;
+
     /* Notify（未讀 badge 等警示語意色，暖磚紅，白字對比 5.02:1） */
     --notify-badge-bg: #c2452d;
     --notify-badge-text: #ffffff;
