@@ -2,11 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('@/utils/request', () => {
     const get = vi.fn()
-    return { default: { get } }
+    const post = vi.fn()
+    return { default: { get, post } }
 })
 
 import service from '@/utils/request'
-import { fetchMessageHistory } from '@/api/messageApi'
+import { fetchMessageHistory, deleteMessage } from '@/api/messageApi'
 
 describe('messageApi', () => {
     beforeEach(() => {
@@ -41,5 +42,13 @@ describe('messageApi', () => {
                 limit: 20,
             },
         })
+    })
+
+    it('deleteMessage POSTs to /messages/remove with the messageId in the body', async () => {
+        ;(service.post as any).mockResolvedValue({})
+
+        await deleteMessage('msg-001')
+
+        expect(service.post).toHaveBeenCalledWith('/messages/remove', { messageId: 'msg-001' })
     })
 })

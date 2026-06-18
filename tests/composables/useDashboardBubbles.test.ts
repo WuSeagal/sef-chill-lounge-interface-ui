@@ -81,6 +81,21 @@ describe('useDashboardBubbles — addBubble basics', () => {
         expect(bubbles.value[0].animateEntrance).toBe(true)
     })
 
+    it('removeBubble 依 messageId 移除對應 bubble', () => {
+        const { bubbles, addBubble, removeBubble } = useDashboardBubbles()
+        addBubble(makeMsg('m-1'))
+        addBubble(makeMsg('m-2'))
+        removeBubble('m-1')
+        expect(bubbles.value.map(b => b.message.id)).toEqual(['m-2'])
+    })
+
+    it('removeBubble 對不存在的 messageId 為 graceful no-op', () => {
+        const { bubbles, addBubble, removeBubble } = useDashboardBubbles()
+        addBubble(makeMsg('m-1'))
+        expect(() => removeBubble('ghost')).not.toThrow()
+        expect(bubbles.value).toHaveLength(1)
+    })
+
     it('入場動畫播畢後自動清除 animateEntrance（避免重掛載重播後空翻）', () => {
         vi.useFakeTimers()
         try {

@@ -216,6 +216,24 @@ describe('MessageItem', () => {
     })
 })
 
+describe('MessageItem — host 刪除鈕', () => {
+    it('canDelete=true 顯示刪除 X 鈕', () => {
+        const wrapper = mount(MessageItem, { props: { message: makeMessage({}), canDelete: true } })
+        expect(wrapper.find('.message-item__delete').exists()).toBe(true)
+    })
+
+    it('canDelete 預設 false 不顯示刪除鈕', () => {
+        const wrapper = mount(MessageItem, { props: { message: makeMessage({}) } })
+        expect(wrapper.find('.message-item__delete').exists()).toBe(false)
+    })
+
+    it('點擊刪除鈕 emit delete-click(messageId)', async () => {
+        const wrapper = mount(MessageItem, { props: { message: makeMessage({ messageId: 'm-9' }), canDelete: true } })
+        await wrapper.find('.message-item__delete').trigger('click')
+        expect(wrapper.emitted('delete-click')?.[0]).toEqual(['m-9'])
+    })
+})
+
 describe('MessageItem 安全渲染（URL / mention）', () => {
     it('純文字訊息整行文字維持原樣', () => {
         const wrapper = mount(MessageItem, { props: { message: makeMessage({ content: '今天天氣真好' }) } })

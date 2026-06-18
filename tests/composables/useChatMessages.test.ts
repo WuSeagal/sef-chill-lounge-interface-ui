@@ -433,6 +433,51 @@ describe('useChatMessages', () => {
         sendStickerMessage('   ')
         expect(send).not.toHaveBeenCalled()
     })
+
+    it('MESSAGE_DELETED removes the matching message from the visible list', async () => {
+        const { init } = useChatMessages()
+        await init()
+        historyMessages.value = [fakeMessage({ messageId: 'm1' }), fakeMessage({ messageId: 'm2' })]
+
+        messageHandlers[0]({ type: 'MESSAGE_DELETED', data: { messageId: 'm1' } })
+
+        expect(historyMessages.value.map((m) => m.messageId)).toEqual(['m2'])
+    })
+
+    it('MESSAGE_DELETED purges a buffered pending-live message so it does not reappear after flush', async () => {
+        let resolveLoad!: () => void
+        loadInitial.mockImplementationOnce(() => new Promise<void>((res) => { resolveLoad = res }))
+
+        const live = fakeMessage({ messageId: 'to-delete', content: 'will be deleted' })
+
+        const { init } = useChatMessages()
+        const initPromise = init()
+        await Promise.resolve()
+        await Promise.resolve()
+
+        // 緩衝期間到達後又被刪除
+        messageHandlers[0]({ type: 'CHAT_MESSAGE', data: live })
+        messageHandlers[0]({ type: 'MESSAGE_DELETED', data: { messageId: 'to-delete' } })
+
+        historyMessages.value = []
+        resolveLoad()
+        await initPromise
+
+        // 已從 pendingLive 清除 → flush 後不復活
+        expect(appendLiveMock).not.toHaveBeenCalled()
+    })
+
+    it('MESSAGE_DELETED ignores envelope with no messageId (shape guard)', async () => {
+        const { init } = useChatMessages()
+        await init()
+        historyMessages.value = [fakeMessage({ messageId: 'm1' })]
+        const before = historyMessages.value
+
+        messageHandlers[0]({ type: 'MESSAGE_DELETED', data: {} })
+        messageHandlers[0]({ type: 'MESSAGE_DELETED', data: undefined })
+
+        expect(historyMessages.value).toBe(before)
+    })
 })
 
 describe('useChatMessages waitForConnectTime timeout', () => {

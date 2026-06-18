@@ -203,4 +203,29 @@ describe('useDashboardFeed', () => {
         socket.close(1006)
         expect(feed.connected.value).toBe(false)
     })
+
+    it('MESSAGE_DELETED removes the matching bubble', () => {
+        const feed = useDashboardFeed()
+        feed.connect()
+        const socket = FakeWebSocket.instances[0]
+        socket.open()
+        socket.deliver(chatMsg('msg-del'))
+        socket.deliver(chatMsg('msg-keep'))
+        expect(feed.bubbles.value).toHaveLength(2)
+
+        socket.deliver(JSON.stringify({ type: 'MESSAGE_DELETED', timestamp: 3, data: { messageId: 'msg-del' } }))
+
+        expect(feed.bubbles.value.map(b => b.message.id)).toEqual(['msg-keep'])
+    })
+
+    it('MESSAGE_DELETED for an unknown id is a no-op', () => {
+        const feed = useDashboardFeed()
+        feed.connect()
+        const socket = FakeWebSocket.instances[0]
+        socket.open()
+        socket.deliver(chatMsg('msg-1'))
+
+        expect(() => socket.deliver(JSON.stringify({ type: 'MESSAGE_DELETED', timestamp: 3, data: { messageId: 'ghost' } }))).not.toThrow()
+        expect(feed.bubbles.value).toHaveLength(1)
+    })
 })

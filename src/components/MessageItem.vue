@@ -6,12 +6,15 @@ import { assetUrl } from '@/utils/assetUrl'
 import { buildAvatarRingStyle } from '@/utils/avatarRing'
 import { resolveAvatarSrc } from '@/utils/avatarSource'
 import { parseMessageSegments } from '@/utils/messageLinks'
+import CircleCloseButton from '@/components/CircleCloseButton.vue'
 
 const props = withDefaults(defineProps<{
     message: MessageResponse
     memberNames?: string[]
+    canDelete?: boolean
 }>(), {
     memberNames: () => [],
+    canDelete: false,
 })
 
 const emit = defineEmits<{
@@ -19,6 +22,7 @@ const emit = defineEmits<{
     (e: 'image-click', imageUrl: string): void
     (e: 'image-load'): void
     (e: 'link-click', url: string): void
+    (e: 'delete-click', messageId: string): void
 }>()
 
 // content 一律經純函式拆成 segment 序列，以 Vue 文字插值渲染（嚴禁 v-html）。
@@ -110,5 +114,11 @@ const avatarStyle = computed(() => ({
                 @load="emit('image-load')"
             />
         </div>
+        <CircleCloseButton
+            v-if="canDelete"
+            class="message-item__delete"
+            :ariaLabel="'刪除訊息'"
+            @remove="emit('delete-click', message.messageId)"
+        />
     </div>
 </template>

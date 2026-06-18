@@ -129,6 +129,7 @@ export function bounceVelocity(
 export type UseDashboardBubblesReturn = {
     bubbles: Ref<DashboardBubble[]>
     addBubble: (message: DashboardMessage, animateEntrance?: boolean) => void
+    removeBubble: (messageId: string) => void
     patchProfile: (userId: string, profile: { furName: string | null; avatar: string | null; avatarColor: string | null; avatarBorder: boolean }) => void
     startAnimation: () => void
     stopAnimation: () => void
@@ -193,6 +194,18 @@ export function useDashboardBubbles(options?: { random?: () => number }): UseDas
             }, ENTRANCE_ANIM_MS)
             entranceTimers.set(bubble.id, timer)
         }
+    }
+
+    // 被 host 刪除的訊息：依 messageId 立即移除對應 bubble；已飄離（不存在）則 graceful no-op。
+    function removeBubble(messageId: string) {
+        const idx = bubbles.value.findIndex(b => b.message.id === messageId)
+        if (idx === -1) return
+        const { id } = bubbles.value[idx]
+        bubbles.value.splice(idx, 1)
+        const exitTimer = exitTimers.get(id)
+        if (exitTimer) { clearTimeout(exitTimer); exitTimers.delete(id) }
+        const entranceTimer = entranceTimers.get(id)
+        if (entranceTimer) { clearTimeout(entranceTimer); entranceTimers.delete(id) }
     }
 
     function patchProfile(
@@ -285,5 +298,5 @@ export function useDashboardBubbles(options?: { random?: () => number }): UseDas
         entranceTimers.clear()
     }
 
-    return { bubbles, addBubble, patchProfile, startAnimation, stopAnimation, cleanup }
+    return { bubbles, addBubble, removeBubble, patchProfile, startAnimation, stopAnimation, cleanup }
 }

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref, nextTick } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import ChatView from '@/views/ChatView.vue'
@@ -11,12 +11,25 @@ vi.mock('vue-i18n', () => ({
 }))
 
 const pushWarningSpy = vi.fn()
+const pushErrorSpy = vi.fn()
 vi.mock('notivue', () => ({
     push: {
         warning: (...args: unknown[]) => pushWarningSpy(...args),
         success: vi.fn(),
-        error: vi.fn(),
+        error: (...args: unknown[]) => pushErrorSpy(...args),
     },
+}))
+
+// host 判定來源：可控的假 auth store user（預設非 host）。
+const authUserHolder: { value: null | { providerUserId: string } } = { value: null }
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => ({ get user() { return authUserHolder.value } }),
+}))
+
+const deleteMessageSpy = vi.fn()
+vi.mock('@/api/messageApi', () => ({
+    deleteMessage: (...args: unknown[]) => deleteMessageSpy(...args),
+    fetchMessageHistory: vi.fn(),
 }))
 
 function makeMessage(overrides: Partial<MessageResponse>): MessageResponse {
@@ -959,5 +972,91 @@ describe('ChatView autofiller 點外部關閉', () => {
         wrapper.unmount()
         // 不應拋錯（監聽已移除）
         expect(() => document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))).not.toThrow()
+    })
+})
+
+describe('ChatView host 刪除訊息', () => {
+    beforeEach(() => {
+        messagesRef.value = [
+            makeMessage({ cursorId: 11, messageId: 'msg-001', content: 'first' }),
+            makeMessage({ cursorId: 12, messageId: 'msg-002', content: 'second' }),
+        ]
+        initializedRef.value = true
+        hasMoreRef.value = false
+        kickedRef.value = false
+        membersRef.value = []
+        membersErrorRef.value = null
+        refetchMembersSpy.mockReset().mockResolvedValue(undefined)
+        initSpy.mockReset().mockResolvedValue(undefined)
+        deleteMessageSpy.mockReset().mockResolvedValue(undefined)
+        pushErrorSpy.mockReset()
+        authUserHolder.value = { providerUserId: '111427449810799428954' } // host
+    })
+
+    afterEach(() => {
+        authUserHolder.value = null
+    })
+
+    it('host 每則訊息顯示刪除鈕', async () => {
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        expect(wrapper.findAll('.message-item__delete').length).toBe(2)
+        wrapper.unmount()
+    })
+
+    it('非 host 不顯示刪除鈕', async () => {
+        authUserHolder.value = { providerUserId: 'not-host' }
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        expect(wrapper.find('.message-item__delete').exists()).toBe(false)
+        wrapper.unmount()
+    })
+
+    it('點刪除鈕開確認框；確認後呼叫 deleteMessage 並關窗，畫面不做樂觀移除', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        const before = wrapper.findAll('.message-item').length
+
+        await wrapper.findAll('.message-item__delete')[0].trigger('click')
+        await nextTick()
+        const dialog = document.body.querySelector('.confirm-dialog')
+        expect(dialog).not.toBeNull()
+        expect(dialog!.textContent).toContain('確定刪除這則訊息')
+
+        ;(document.body.querySelector('.confirm-dialog__confirm') as HTMLButtonElement).click()
+        await flushPromises()
+
+        expect(deleteMessageSpy).toHaveBeenCalledWith('msg-001')
+        expect(document.body.querySelector('.confirm-dialog')).toBeNull()
+        expect(wrapper.findAll('.message-item').length).toBe(before)
+        wrapper.unmount()
+    })
+
+    it('取消確認框不呼叫 deleteMessage', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        await wrapper.findAll('.message-item__delete')[0].trigger('click')
+        await nextTick()
+        ;(document.body.querySelector('.confirm-dialog__cancel') as HTMLButtonElement).click()
+        await nextTick()
+
+        expect(deleteMessageSpy).not.toHaveBeenCalled()
+        expect(document.body.querySelector('.confirm-dialog')).toBeNull()
+        wrapper.unmount()
+    })
+
+    it('deleteMessage 失敗時顯示錯誤 toast', async () => {
+        deleteMessageSpy.mockReset().mockRejectedValue(new Error('500'))
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        await wrapper.findAll('.message-item__delete')[0].trigger('click')
+        await nextTick()
+        ;(document.body.querySelector('.confirm-dialog__confirm') as HTMLButtonElement).click()
+        await flushPromises()
+
+        expect(pushErrorSpy).toHaveBeenCalled()
+        wrapper.unmount()
     })
 })

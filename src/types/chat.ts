@@ -9,6 +9,7 @@ export type ChatEventType =
     | 'KICKED'
     | 'ERROR'
     | 'RATE_LIMITED'
+    | 'MESSAGE_DELETED'
 
 export interface ChatEnvelope<T = unknown> {
     type: ChatEventType
@@ -41,4 +42,8 @@ export interface ProfileUpdatedPayload {
 
 export interface RateLimitedPayload {
     retryAfterMs: number
+}
+
+export interface MessageDeletedPayload {
+    messageId: string
 }

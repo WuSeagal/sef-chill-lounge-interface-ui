@@ -17,6 +17,9 @@ import { useChatImageUpload } from '@/composables/useChatImageUpload'
 import { useChatAutofiller, type AutofillerOption } from '@/composables/useChatAutofiller'
 import { useUser } from '@/composables/useUser'
 import { useMembers } from '@/composables/useMembers'
+import { useAuthStore } from '@/stores/auth'
+import { isHost } from '@/utils/host'
+import { deleteMessage } from '@/api/messageApi'
 import type { ChatEnvelope, PresenceSnapshotPayload, ProfileUpdatedPayload } from '@/types/chat'
 
 // 對應後端 error code 翻譯為使用者訊息；未知 code 直接照原文（addFiles 設的 limit
@@ -60,6 +63,33 @@ function onImageClick(imageUrl: string) {
 
 function onLightboxClose() {
     lightboxImageUrl.value = null
+}
+
+// Host 刪除訊息：僅寫死 host 帳號可見刪除鈕；後端為唯一授權邊界，此處僅控制顯隱。
+const authStore = useAuthStore()
+const canDelete = computed(() => isHost(authStore.user?.providerUserId))
+
+// 刪除確認框狀態。不做樂觀本地移除——確認後呼叫 API，實際移除等 MESSAGE_DELETED 廣播。
+const pendingDeleteId = ref<string | null>(null)
+const deleteConfirmOpen = computed(() => pendingDeleteId.value !== null)
+
+function onDeleteClick(messageId: string) {
+    pendingDeleteId.value = messageId
+}
+
+function onDeleteCancel() {
+    pendingDeleteId.value = null
+}
+
+async function onDeleteConfirm() {
+    const id = pendingDeleteId.value
+    pendingDeleteId.value = null
+    if (!id) return
+    try {
+        await deleteMessage(id)
+    } catch {
+        push.error('刪除訊息失敗，請稍後再試')
+    }
 }
 
 // Scroll handling for the message list
@@ -415,10 +445,12 @@ void currentProfile
                     :key="m.messageId"
                     :message="m"
                     :member-names="memberNames"
+                    :can-delete="canDelete"
                     @avatar-click="onAvatarClick"
                     @image-click="onImageClick"
                     @image-load="onMessageImageLoad"
                     @link-click="onLinkClick"
+                    @delete-click="onDeleteClick"
                 />
             </div>
 
@@ -523,6 +555,15 @@ void currentProfile
             cancel-text="取消"
             @confirm="onLinkConfirm"
             @cancel="onLinkCancel"
+        />
+
+        <ConfirmDialog
+            :open="deleteConfirmOpen"
+            message="確定刪除這則訊息？"
+            confirm-text="刪除"
+            cancel-text="取消"
+            @confirm="onDeleteConfirm"
+            @cancel="onDeleteCancel"
         />
 
         <KickedModal

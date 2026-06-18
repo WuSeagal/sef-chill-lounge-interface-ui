@@ -1,14 +1,14 @@
 import { ref } from 'vue'
 import { useDashboardBubbles } from '@/composables/useDashboardBubbles'
 import { toDashboardMessage } from '@/utils/toDashboardMessage'
-import type { ChatEnvelope, ChatMessageBroadcastPayload, ProfileUpdatedPayload, PresenceSnapshotPayload } from '@/types/chat'
+import type { ChatEnvelope, ChatMessageBroadcastPayload, ProfileUpdatedPayload, PresenceSnapshotPayload, MessageDeletedPayload } from '@/types/chat'
 
 const PING_INTERVAL_MS = 30_000
 const PONG_TIMEOUT_MS = 60_000
 const MAX_RECONNECT = 5
 const BACKOFFS_MS = [2_000, 4_000, 6_000, 8_000, 10_000]
 
-const { bubbles, addBubble, patchProfile, startAnimation, stopAnimation, cleanup } = useDashboardBubbles()
+const { bubbles, addBubble, removeBubble, patchProfile, startAnimation, stopAnimation, cleanup } = useDashboardBubbles()
 
 // 線上人數（由 PRESENCE_SNAPSHOT 即時更新）與 WS 連線狀態（驅動紅點閃爍 / 轉灰）。
 const onlineCount = ref(0)
@@ -64,6 +64,10 @@ function handleEnvelope(env: ChatEnvelope) {
     if (env.type === 'PROFILE_UPDATED' && env.data) {
         const p = env.data as ProfileUpdatedPayload
         patchProfile(p.userId, { furName: p.furName, avatar: p.avatar, avatarColor: p.avatarColor, avatarBorder: p.avatarBorder })
+        return
+    }
+    if (env.type === 'MESSAGE_DELETED' && env.data) {
+        removeBubble((env.data as MessageDeletedPayload).messageId)
         return
     }
     if (env.type === 'PRESENCE_SNAPSHOT' && env.data) {

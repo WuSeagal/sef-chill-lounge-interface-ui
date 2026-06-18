@@ -5,6 +5,7 @@ import type {
     ChatMessageBroadcastPayload,
     ChatMessageSendPayload,
     ErrorPayload,
+    MessageDeletedPayload,
     ProfileUpdatedPayload,
     RateLimitedPayload,
 } from '@/types/chat'
@@ -138,6 +139,18 @@ export function useChatMessages() {
                         ? { ...m, furName: data.furName, avatar: data.avatar, avatarColor: data.avatarColor, avatarBorder: data.avatarBorder }
                         : m
                 )
+                return
+            }
+            if (envelope.type === 'MESSAGE_DELETED') {
+                const data = envelope.data as MessageDeletedPayload | undefined
+                if (!data?.messageId) return
+                const deletedId = data.messageId
+                // 從畫面移除
+                history.messages.value = history.messages.value.filter((m) => m.messageId !== deletedId)
+                // 同時清掉待倒入緩衝，否則 flushPendingLive 後會復活
+                for (let i = pendingLive.length - 1; i >= 0; i--) {
+                    if (pendingLive[i].messageId === deletedId) pendingLive.splice(i, 1)
+                }
                 return
             }
             if (envelope.type === 'RATE_LIMITED') {

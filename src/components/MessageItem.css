@@ -130,3 +130,16 @@
     object-fit: contain;
     cursor: zoom-in;
 }
+
+/* host 限定刪除鈕（重用 CircleCloseButton）：垂直置中於訊息列尾端，
+   預設稍降透明度、hover 提高，避免在每列都過於搶眼。 */
+.message-item__delete {
+    flex: 0 0 auto;
+    align-self: center;
+    opacity: 0.55;
+    transition: opacity 0.15s ease;
+}
+
+.message-item__delete:hover {
+    opacity: 1;
+}

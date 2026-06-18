@@ -5,3 +5,7 @@ export async function fetchMessageHistory(params: FetchMessageHistoryParams): Pr
     const response = await request.get('/messages', { params })
     return response.data
 }
+
+export async function deleteMessage(messageId: string): Promise<void> {
+    await request.post('/messages/remove', { messageId })
+}
