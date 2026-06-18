@@ -11,6 +11,7 @@ export type ChatEventType =
     | 'RATE_LIMITED'
     | 'MESSAGE_DELETED'
     | 'ANNOUNCEMENT'
+    | 'TYPING'
 
 export interface ChatEnvelope<T = unknown> {
     type: ChatEventType
@@ -51,4 +52,11 @@ export interface MessageDeletedPayload {
 
 export interface AnnouncementPayload {
     text: string | null
+}
+
+export interface TypingPayload {
+    userId: string
+    furName: string | null
+    avatar: string | null
+    avatarColor: string | null
 }

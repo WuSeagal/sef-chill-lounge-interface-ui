@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>未讀分隔線 — 設計方案 demo</title>
+<style>
+  /* ---- 專案實際 token（src/assets/variables.css）---- */
+  :root {
+    --chat-bg: #f9f5e5;
+    --bubble-border: #d7d0b8;
+    --grid-thin: #dfd6be;
+    --avatar-default-bg: #8c8672;
+    --notify-badge-bg: #c2452d;     /* 未讀語意色，白字對比 5.02:1 */
+    --notify-rgb: 194, 69, 45;
+    --input-text: #746955;
+    --bottom-bar-bg: #625945;
+    --space-sm: 8px; --space-md: 16px;
+    --radius-sm: 4px;
+    --font-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #ece4cf; color: #4a4433;
+    font-family: var(--font-base);
+    display: flex; gap: 24px; padding: 24px; align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  h1 { font-size: 1.1rem; margin: 0 0 4px; }
+  .sub { font-size: .8rem; color: #6f664f; margin: 0 0 16px; }
+
+  /* ---- 控制面板 ---- */
+  .panel {
+    background: #fff; border: 1px solid var(--bubble-border); border-radius: 10px;
+    padding: 18px; width: 340px; box-shadow: 0 4px 16px rgba(0,0,0,.08);
+    position: sticky; top: 24px;
+  }
+  .panel h2 { font-size: .85rem; margin: 18px 0 8px; color: var(--bottom-bar-bg); text-transform: uppercase; letter-spacing: .05em; }
+  .panel h2:first-of-type { margin-top: 0; }
+  .seg { display: flex; gap: 6px; }
+  .seg button {
+    flex: 1; padding: 8px 6px; border: 1px solid var(--bubble-border); background: #faf7ee;
+    border-radius: var(--radius-sm); cursor: pointer; font-size: .8rem; color: var(--input-text);
+  }
+  .seg button.active { background: var(--notify-badge-bg); color: #fff; border-color: var(--notify-badge-bg); font-weight: 700; }
+  .ctl { display: flex; align-items: center; gap: 8px; margin: 8px 0; font-size: .82rem; }
+  .ctl label { cursor: pointer; }
+  .btn {
+    width: 100%; padding: 10px; border: none; border-radius: var(--radius-sm); cursor: pointer;
+    background: var(--bottom-bar-bg); color: #fff; font-size: .85rem; font-weight: 600; margin-top: 6px;
+  }
+  .btn.secondary { background: #faf7ee; color: var(--input-text); border: 1px solid var(--bubble-border); }
+  .countdown { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--notify-badge-bg); }
+  .note { font-size: .74rem; color: #6f664f; line-height: 1.5; margin-top: 10px; }
+  .rec { background: #f4ecd6; border-left: 3px solid var(--notify-badge-bg); padding: 8px 10px; border-radius: 4px; font-size: .76rem; line-height: 1.55; }
+
+  /* ---- 模擬 /chat 視窗 ---- */
+  .phone { width: 380px; }
+  .chat {
+    background: var(--chat-bg); border: 1px solid var(--bubble-border); border-radius: 14px;
+    overflow: hidden; box-shadow: 0 6px 22px rgba(0,0,0,.10);
+  }
+  .chat__top { background: var(--bottom-bar-bg); color: #eeebe2; font-size: .82rem; padding: 10px 16px; font-weight: 600; }
+  .list { padding: 8px 0 14px; min-height: 420px; }
+
+  .row { display: flex; gap: var(--space-sm); padding: var(--space-sm) var(--space-md); }
+  .avatar { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; background: var(--avatar-default-bg); }
+  .body { min-width: 0; }
+  .meta { display: flex; gap: var(--space-sm); align-items: baseline; }
+  .nick { font-size: .9rem; font-weight: 600; color: var(--input-text); }
+  .time { font-size: .72rem; opacity: .65; color: var(--input-text); }
+  .line { display: flex; gap: 6px; font-size: .95rem; color: var(--input-text); line-height: 1.45; margin-top: 1px; }
+  .prompt { font-family: var(--font-mono); font-weight: 700; color: var(--avatar-default-bg); }
+
+  /* ===== 分隔線：共用 ===== */
+  .divider { will-change: opacity, transform; }
+  @media (prefers-reduced-motion: no-preference) {
+    .divider.enter { animation: divEnter .26s ease-out both; }
+    .divider.leave { animation: divLeave .55s ease-in both; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .divider.leave { opacity: 0; }
+  }
+  @keyframes divEnter { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
+  @keyframes divLeave { from { opacity: 1; } to { opacity: 0; } }
+
+  /* ===== Variant A — CLI 虛線標記（推薦）===== */
+  .divider--a {
+    display: flex; align-items: center; gap: 10px; padding: 6px var(--space-md); margin: 2px 0;
+    font-family: var(--font-mono); color: var(--notify-badge-bg);
+  }
+  .divider--a::before, .divider--a::after {
+    content: ""; flex: 1; border-top: 1px dashed rgba(var(--notify-rgb), .5);
+  }
+  .divider--a .label { font-size: .78rem; font-weight: 700; letter-spacing: .06em; white-space: nowrap; }
+
+  /* ===== Variant B — 暖磚紅 pill（呼應未讀 badge）===== */
+  .divider--b { display: flex; align-items: center; padding: 8px var(--space-md); margin: 2px 0; }
+  .divider--b::before, .divider--b::after { content: ""; flex: 1; height: 1px; background: var(--bubble-border); }
+  .divider--b .pill {
+    display: inline-flex; align-items: center; gap: 3px; line-height: 1;
+    margin: 0 10px; background: var(--notify-badge-bg); color: #fff; font-size: .72rem; font-weight: 700;
+    padding: 3px 11px; border-radius: 999px; white-space: nowrap; box-shadow: 0 1px 3px rgba(74,68,51,.22);
+  }
+  .divider--b .pill svg { width: 11px; height: 11px; flex: 0 0 auto; display: block; }
+
+  /* ===== Variant C — 極簡左側細線 ===== */
+  .divider--c { padding: 4px var(--space-md); margin: 2px 0; }
+  .divider--c .inner {
+    display: flex; align-items: center; gap: 7px; border-top: 1.5px solid rgba(var(--notify-rgb), .55); padding-top: 5px;
+  }
+  .divider--c .label { font-size: .72rem; font-weight: 600; color: var(--notify-badge-bg); letter-spacing: .02em; }
+</style>
+</head>
+<body>
+  <div class="panel">
+    <h1>未讀分隔線</h1>
+    <p class="sub">三種樣式套用在真實 /chat 主題上，挑一個。</p>
+
+    <h2>樣式方案</h2>
+    <div class="seg" id="variantSeg">
+      <button data-v="a">A · CLI 虛線</button>
+      <button data-v="b" class="active">B · 磚紅 pill（定案）</button>
+      <button data-v="c">C · 極簡細線</button>
+    </div>
+
+    <h2>文字</h2>
+    <div class="ctl">
+      <input type="checkbox" id="showCount" />
+      <label for="showCount">顯示未讀則數（如「3 則新訊息」）</label>
+    </div>
+    <div class="ctl">
+      <input type="checkbox" id="showArrow" checked />
+      <label for="showArrow">帶向下箭頭 ↓</label>
+    </div>
+
+    <h2>20 秒自動消失</h2>
+    <div class="ctl">
+      <span>停留秒數</span>
+      <input type="range" id="secs" min="3" max="30" value="20" style="flex:1" />
+      <span class="countdown" id="secsLabel">20s</span>
+    </div>
+    <button class="btn" id="replay">▶ 重新顯示（播放入場動畫）</button>
+    <button class="btn secondary" id="fadeNow">⏩ 立刻預覽「消失」動畫</button>
+    <p class="note">狀態：<span id="status" class="countdown">—</span></p>
+
+    <h2>我的建議</h2>
+    <div class="rec"><b>選 A（CLI 虛線）</b>。等寬字體 + 虛線最貼合專案既有的 <code>&gt;</code> 終端機調性、磚紅色語意一致、不搶戲；B 適合想要更「圓潤 lounge」且與未讀 badge 同形語言；C 最低調。</div>
+
+    <p class="note">無障礙：分隔線用「文字+線」非純色（color-not-only）；實作時掛 <code>aria-live="polite"</code> 唸出「新訊息」；磚紅 #c2452d 對 parchment 已達 AA；尊重 <code>prefers-reduced-motion</code>（關動畫時直接淡出、不位移）。</p>
+  </div>
+
+  <div class="phone">
+    <div class="chat">
+      <div class="chat__top">SEF Chill Lounge · /chat</div>
+      <div class="list" id="list">
+        <div class="row"><div class="avatar"></div><div class="body"><div class="meta"><span class="nick">小狐狸</span><span class="time">14:02</span></div><div class="line"><span class="prompt">&gt;</span><span>大家午安～攤位在 B12 喔</span></div></div></div>
+        <div class="row"><div class="avatar"></div><div class="body"><div class="meta"><span class="nick">阿貓</span><span class="time">14:03</span></div><div class="line"><span class="prompt">&gt;</span><span>收到！等等過去</span></div></div></div>
+        <!-- 分隔線插入點 -->
+        <div id="dividerSlot"></div>
+        <div class="row"><div class="avatar"></div><div class="body"><div class="meta"><span class="nick">小蜥蜴</span><span class="time">14:21</span></div><div class="line"><span class="prompt">&gt;</span><span>剛剛的限定貼圖也太可愛</span></div></div></div>
+        <div class="row"><div class="avatar"></div><div class="body"><div class="meta"><span class="nick">Toby</span><span class="time">14:22</span></div><div class="line"><span class="prompt">&gt;</span><span>+1 已收藏</span></div></div></div>
+        <div class="row"><div class="avatar"></div><div class="body"><div class="meta"><span class="nick">水豚</span><span class="time">14:22</span></div><div class="line"><span class="prompt">&gt;</span><span>有人要一起去拿飲料嗎</span></div></div></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  let variant = 'b';
+  let timer = null, countdownTimer = null;
+  const slot = document.getElementById('dividerSlot');
+  const statusEl = document.getElementById('status');
+  const secsRange = document.getElementById('secs');
+  const secsLabel = document.getElementById('secsLabel');
+
+  function labelText() {
+    const count = document.getElementById('showCount').checked;
+    const arrow = document.getElementById('showArrow').checked;
+    const base = count ? '3 則新訊息' : '新訊息';
+    return base + (arrow ? ' ↓' : '');
+  }
+
+  function buildDivider() {
+    const txt = labelText();
+    if (variant === 'a') {
+      return `<div class="divider divider--a enter" role="separator" aria-label="${txt}"><span class="label">${txt}</span></div>`;
+    }
+    if (variant === 'b') {
+      // 變體 B（定案）：箭頭改用 SVG + inline-flex 真正垂直置中（取代文字 ↓ 字元的偏移問題）
+      const count = document.getElementById('showCount').checked;
+      const arrow = document.getElementById('showArrow').checked;
+      const base = count ? '3 則新訊息' : '新訊息';
+      const arrowSvg = arrow ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4 V20 M5 13 L12 20 L19 13" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>' : '';
+      return `<div class="divider divider--b enter" role="separator" aria-label="${txt}"><span class="pill"><span>${base}</span>${arrowSvg}</span></div>`;
+    }
+    return `<div class="divider divider--c enter" role="separator" aria-label="${txt}"><span class="inner"><span class="label">${txt}</span></span></div>`;
+  }
+
+  function clearTimers() { clearTimeout(timer); clearInterval(countdownTimer); }
+
+  function show() {
+    clearTimers();
+    slot.innerHTML = buildDivider();
+    const total = parseInt(secsRange.value, 10);
+    let remaining = total;
+    statusEl.textContent = remaining + 's 後消失';
+    countdownTimer = setInterval(() => {
+      remaining -= 1;
+      statusEl.textContent = remaining > 0 ? remaining + 's 後消失' : '消失中…';
+      if (remaining <= 0) clearInterval(countdownTimer);
+    }, 1000);
+    timer = setTimeout(fadeOut, total * 1000);
+  }
+
+  function fadeOut() {
+    clearTimers();
+    const el = slot.firstElementChild;
+    if (!el) return;
+    statusEl.textContent = '消失中…';
+    el.classList.remove('enter');
+    el.classList.add('leave');
+    el.addEventListener('animationend', () => { slot.innerHTML = ''; statusEl.textContent = '已消失（貼底/回到底部時也會清除）'; }, { once: true });
+    // reduced-motion fallback (no animationend fires)
+    setTimeout(() => { if (slot.firstElementChild === el) { slot.innerHTML=''; statusEl.textContent='已消失'; } }, 700);
+  }
+
+  document.getElementById('variantSeg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.querySelectorAll('#variantSeg button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); variant = b.dataset.v; show();
+  });
+  document.getElementById('showCount').addEventListener('change', show);
+  document.getElementById('showArrow').addEventListener('change', show);
+  secsRange.addEventListener('input', () => { secsLabel.textContent = secsRange.value + 's'; });
+  document.getElementById('replay').addEventListener('click', show);
+  document.getElementById('fadeNow').addEventListener('click', fadeOut);
+
+  show();
+</script>
+</body>
+</html>

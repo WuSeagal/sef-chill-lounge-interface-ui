@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>④ 連線中斷重連提示 — 呈現方案 demo</title>
+<style>
+  :root {
+    --chat-bg: #f9f5e5;
+    --page-bg: #ebe3ce;
+    --bubble-border: #d7d0b8;
+    --avatar-default-bg: #8c8672;
+    --notify-badge-bg: #c2452d;
+    --input-text: #746955;
+    --bottom-bar-bg: #625945;
+    --surface-raised: #fff;
+    --shadow-popup: 0 4px 16px rgba(0,0,0,.15);
+    --space-md: 16px;
+    --radius-sm: 4px;
+    --font-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#ece4cf; color:#4a4433; font-family:var(--font-base); display:flex; gap:24px; padding:24px; align-items:flex-start; flex-wrap:wrap; }
+  h1 { font-size:1.1rem; margin:0 0 4px; }
+  .sub { font-size:.8rem; color:#6f664f; margin:0 0 16px; line-height:1.5; }
+
+  .panel { background:#fff; border:1px solid var(--bubble-border); border-radius:10px; padding:18px; width:360px; box-shadow:0 4px 16px rgba(0,0,0,.08); position:sticky; top:24px; }
+  .panel h2 { font-size:.85rem; margin:18px 0 8px; color:var(--bottom-bar-bg); text-transform:uppercase; letter-spacing:.05em; }
+  .panel h2:first-of-type { margin-top:0; }
+  .seg { display:flex; gap:6px; }
+  .seg button { flex:1; padding:8px 6px; border:1px solid var(--bubble-border); background:#faf7ee; border-radius:var(--radius-sm); cursor:pointer; font-size:.76rem; color:var(--input-text); }
+  .seg button.active { background:var(--notify-badge-bg); color:#fff; border-color:var(--notify-badge-bg); font-weight:700; }
+  .note { font-size:.74rem; color:#6f664f; line-height:1.6; margin-top:10px; }
+  .rec { background:#f4ecd6; border-left:3px solid var(--notify-badge-bg); padding:8px 10px; border-radius:4px; font-size:.76rem; line-height:1.6; margin-top:6px; }
+  code { background:#efe7d3; padding:1px 4px; border-radius:3px; font-size:.92em; }
+
+  /* ── mock /chat ── */
+  .phone { width:380px; }
+  .chat { position:relative; background:var(--chat-bg); border:1px solid var(--bubble-border); border-radius:14px; overflow:hidden; box-shadow:0 6px 22px rgba(0,0,0,.10); display:flex; flex-direction:column; height:560px; }
+  .chat__top { background:var(--bottom-bar-bg); color:#eeebe2; font-size:.82rem; padding:10px 16px; font-weight:600; flex:0 0 auto; }
+  .main { position:relative; flex:1 1 auto; min-height:0; }
+  .list { position:absolute; inset:0; overflow:auto; padding:8px 0 14px; }
+  .msg { display:flex; gap:8px; padding:8px var(--space-md); }
+  .avatar { flex:0 0 auto; width:36px; height:36px; border-radius:50%; background:var(--avatar-default-bg); }
+  .nick { font-size:.9rem; font-weight:600; color:var(--input-text); }
+  .time { font-size:.72rem; opacity:.65; color:var(--input-text); margin-left:8px; }
+  .line { font-size:.95rem; color:var(--input-text); margin-top:1px; }
+  .chat__input { flex:0 0 auto; border-top:1px solid var(--bubble-border); background:#f6f2eb; padding:10px 14px; }
+  .chat__input input { width:100%; border:1px solid var(--bubble-border); border-radius:999px; padding:9px 14px; font:inherit; font-size:.9rem; color:var(--input-text); background:#fff; }
+
+  /* 蜥蜴跳動動畫（取自 LizardLoading） */
+  .lizard { image-rendering:pixelated; display:block; transform-origin:50% 70%; animation:lz-hop .6s infinite alternate; }
+  @keyframes lz-hop { from{transform:translateY(0);} to{transform:translateY(-7px);} }
+  .lz-shadow { margin:5px auto 0; background:radial-gradient(ellipse at center, rgba(98,89,69,.28), transparent 70%); border-radius:50%; animation:lz-sh .6s infinite alternate; }
+  @keyframes lz-sh { from{transform:scaleX(1);opacity:.8;} to{transform:scaleX(.82);opacity:.5;} }
+  .lz-text { font-family:var(--font-base); color:#8c8672; font-weight:600; }
+  .lz-dots::after { content:''; animation:lz-d 1.4s steps(4,end) infinite; }
+  @keyframes lz-d { 0%{content:'';}25%{content:'·';}50%{content:'··';}75%{content:'···';}100%{content:'';} }
+  .lz-refresh { font-family:var(--font-base); font-weight:700; color:#4a4433; background:#ebe3ce; border:1px solid #d7cdaf; border-radius:10px; cursor:pointer; }
+  .lz-refresh:hover { background:#e2d8bc; border-color:#8c8672; }
+
+  /* ===== A — 全螢幕遮罩（阻斷，KickedModal 風格）===== */
+  .ov-a { position:absolute; inset:0; z-index:30; display:flex; align-items:center; justify-content:center; background:rgba(74,68,51,.45); backdrop-filter:blur(1.5px); }
+  .ov-a .card { background:var(--chat-bg); border:1px solid var(--bubble-border); border-radius:18px; box-shadow:0 14px 30px rgba(98,89,69,.28); padding:30px 40px 26px; text-align:center; width:250px; }
+  .ov-a .lizard { width:84px; margin:0 auto; }
+  .ov-a .lz-shadow { width:62px; height:9px; }
+  .ov-a .lz-text { margin-top:16px; font-size:.95rem; }
+  .ov-a .lz-refresh { margin-top:18px; padding:9px 22px; font-size:.92rem; }
+
+  /* ===== B — 非阻斷浮貼 mini-card（頂端置中，背景仍可讀）===== */
+  .ov-b { position:absolute; top:12px; left:50%; transform:translateX(-50%); z-index:30; }
+  .ov-b .card { display:flex; align-items:center; gap:12px; background:var(--surface-raised); border:1px solid var(--bubble-border); border-top:3px solid var(--notify-badge-bg); border-radius:12px; box-shadow:var(--shadow-popup); padding:10px 16px 10px 12px; }
+  .ov-b .lizard { width:40px; }
+  .ov-b .lz-shadow { width:30px; height:6px; }
+  .ov-b .lz-text { font-size:.86rem; }
+  .ov-b .lz-refresh { padding:6px 14px; font-size:.82rem; }
+
+  /* ===== C — 頂端 banner strip（最輕量，無蜥蜴）===== */
+  .ov-c { position:absolute; top:0; left:0; right:0; z-index:30; display:flex; align-items:center; gap:9px; padding:9px 16px; background:var(--page-bg); border-bottom:1px solid var(--bubble-border); border-left:3px solid var(--notify-badge-bg); box-shadow:0 2px 6px rgba(0,0,0,.06); }
+  .ov-c.failed { background:var(--notify-badge-bg); border-left-color:#8e2f1d; }
+  .ov-c.failed .lz-text, .ov-c.failed .spin { color:#fff; }
+  .ov-c .lz-text { font-size:.86rem; }
+  .ov-c .lz-refresh { margin-left:auto; padding:5px 13px; font-size:.8rem; }
+  .spin { width:15px; height:15px; border:2px solid rgba(116,105,85,.3); border-top-color:var(--notify-badge-bg); border-radius:50%; animation:spin .8s linear infinite; flex:0 0 auto; }
+  @keyframes spin { to{transform:rotate(360deg);} }
+
+  .state-pill { display:inline-block; font-size:.7rem; padding:2px 8px; border-radius:999px; background:#efe7d3; color:#6f664f; margin-left:6px; }
+</style>
+</head>
+<body>
+  <div class="panel">
+    <h1>④ 連線中斷重連提示</h1>
+    <p class="sub">WS 斷線 → 自動重連中（最多 5 次 backoff）時提示「重新連線中…」；5 次都失敗後換成「重新整理」按鈕（按下 <code>location.reload()</code>）。三種呈現位置請選一個。</p>
+
+    <h2>呈現位置</h2>
+    <div class="seg" id="segV">
+      <button data-v="a" class="active">A · 全螢幕遮罩</button>
+      <button data-v="b">B · 浮貼 mini-card</button>
+      <button data-v="c">C · 頂端 strip</button>
+    </div>
+
+    <h2>連線狀態（切換看兩態）</h2>
+    <div class="seg" id="segS">
+      <button data-s="reconnecting" class="active">重新連線中…</button>
+      <button data-s="failed">重連失敗</button>
+    </div>
+
+    <h2>我的建議</h2>
+    <div class="rec"><b>選 B（浮貼 mini-card）</b>：沿用蜥蜴卡片（呼應你定的設計），但不像 A 整個蓋住、背景訊息仍可讀；比 C strip 更有存在感、且保留蜥蜴。A 最明確但會完全擋住閱讀；C 最輕但塞不下蜥蜴卡片、跟你「沿用 LizardLoading 蜥蜴卡片」的設定有出入。</div>
+    <p class="note">三者切到「重連失敗」時，蜥蜴／spinner 換成「重新整理」按鈕。實作會接真實 <code>wsReconnecting</code> / <code>wsFailed</code> 狀態，非計時器。<br><b>與「被踢」互斥</b>：被踢（KICKED）走 <code>intentionalClose</code> 不會觸發重連，所以此提示與 KickedModal 不會同時出現。</p>
+  </div>
+
+  <div class="phone">
+    <div class="chat">
+      <div class="chat__top">SEF Chill Lounge · /chat <span class="state-pill" id="pill">重新連線中</span></div>
+      <div class="main">
+        <div class="list">
+          <div class="msg"><div class="avatar"></div><div><div><span class="nick">小狐狸</span><span class="time">14:02</span></div><div class="line">大家午安～</div></div></div>
+          <div class="msg"><div class="avatar"></div><div><div><span class="nick">阿貓</span><span class="time">14:03</span></div><div class="line">收到！等等過去</div></div></div>
+          <div class="msg"><div class="avatar"></div><div><div><span class="nick">小蜥蜴</span><span class="time">14:21</span></div><div class="line">限定貼圖也太可愛</div></div></div>
+          <div class="msg"><div class="avatar"></div><div><div><span class="nick">水豚</span><span class="time">14:22</span></div><div class="line">有人一起去領嗎</div></div></div>
+          <div class="msg"><div class="avatar"></div><div><div><span class="nick">Toby</span><span class="time">14:23</span></div><div class="line">我也要！等等下樓</div></div></div>
+          <div class="msg"><div class="avatar"></div><div><div><span class="nick">小狐狸</span><span class="time">14:24</span></div><div class="line">B12 在電梯出來左轉</div></div></div>
+          <div class="msg"><div class="avatar"></div><div><div><span class="nick">阿貓</span><span class="time">14:25</span></div><div class="line">找到了～排隊中</div></div></div>
+          <div class="msg"><div class="avatar"></div><div><div><span class="nick">水豚</span><span class="time">14:26</span></div><div class="line">貼圖也太精緻 收藏了</div></div></div>
+        </div>
+        <div id="slot"></div>
+      </div>
+      <div class="chat__input"><input placeholder="說點什麼…" /></div>
+    </div>
+  </div>
+
+<script>
+  const LIZ = '../src/assets/lizardchi.png';
+  let variant = 'a', state = 'reconnecting';
+  const slot = document.getElementById('slot');
+  const pill = document.getElementById('pill');
+
+  function lizardBlock(w, sh) {
+    return `<img class="lizard" src="${LIZ}" alt="lizardchi" style="width:${w}px"><div class="lz-shadow"></div>`;
+  }
+
+  function render() {
+    pill.textContent = state === 'failed' ? '連線失敗' : '重新連線中';
+    pill.style.background = state === 'failed' ? '#f3d6cf' : '#efe7d3';
+    pill.style.color = state === 'failed' ? '#9e3520' : '#6f664f';
+
+    if (variant === 'a') {
+      const body = state === 'failed'
+        ? `<img class="lizard" src="${LIZ}" style="width:84px;opacity:.5;filter:grayscale(.6)"><div class="lz-shadow" style="width:62px;height:9px"></div><p class="lz-text" style="margin-top:16px">連線已中斷</p><button class="lz-refresh">重新整理</button>`
+        : `<img class="lizard" src="${LIZ}" style="width:84px"><div class="lz-shadow" style="width:62px;height:9px"></div><p class="lz-text" style="margin-top:16px">重新連線中<span class="lz-dots"></span></p>`;
+      slot.innerHTML = `<div class="ov-a"><div class="card">${body}</div></div>`;
+    } else if (variant === 'b') {
+      const body = state === 'failed'
+        ? `<img class="lizard" src="${LIZ}" style="width:40px;opacity:.5;filter:grayscale(.6)"><span class="lz-text">連線已中斷</span><button class="lz-refresh">重新整理</button>`
+        : `<div style="text-align:center"><img class="lizard" src="${LIZ}" style="width:40px"><div class="lz-shadow" style="width:30px;height:6px"></div></div><span class="lz-text">重新連線中<span class="lz-dots"></span></span>`;
+      slot.innerHTML = `<div class="ov-b"><div class="card">${body}</div></div>`;
+    } else {
+      const body = state === 'failed'
+        ? `<span class="lz-text">連線已中斷，請重新整理</span><button class="lz-refresh">重新整理</button>`
+        : `<span class="spin"></span><span class="lz-text">重新連線中<span class="lz-dots"></span></span>`;
+      slot.innerHTML = `<div class="ov-c ${state === 'failed' ? 'failed' : ''}">${body}</div>`;
+    }
+  }
+
+  document.getElementById('segV').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.querySelectorAll('#segV button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); variant = b.dataset.v; render();
+  });
+  document.getElementById('segS').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.querySelectorAll('#segS button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); state = b.dataset.s; render();
+  });
+  render();
+</script>
+</body>
+</html>

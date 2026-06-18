@@ -9,6 +9,8 @@ import UserPopup from '@/components/UserPopup.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
 import KickedModal from '@/components/KickedModal.vue'
+import ReconnectOverlay from '@/components/ReconnectOverlay.vue'
+import TypingIndicator from '@/components/TypingIndicator.vue'
 import AutofillerPopup from '@/components/AutofillerPopup.vue'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import LizardLoading from '@/components/LizardLoading.vue'
@@ -17,6 +19,7 @@ import { useChatMessages } from '@/composables/useChatMessages'
 import { useChatWebSocket } from '@/composables/useChatWebSocket'
 import { useChatImageUpload } from '@/composables/useChatImageUpload'
 import { useChatAutofiller, type AutofillerOption } from '@/composables/useChatAutofiller'
+import { useTypingIndicator } from '@/composables/useTypingIndicator'
 import { useUser } from '@/composables/useUser'
 import { useMembers } from '@/composables/useMembers'
 import { useAuthStore } from '@/stores/auth'
@@ -34,7 +37,7 @@ function uploadErrorToMessage(code: string): string {
     return ERROR_CODE_TO_MESSAGE[code] ?? code
 }
 
-const { messages, loading, initialized, hasMore, loadMore, init, reconnect, dispose, sendChatMessage, sendStickerMessage: sendChatStickerMessage, rateLimited, rateLimitRemaining, kicked } = useChatMessages()
+const { messages, loading, initialized, hasMore, loadMore, init, reconnect, dispose, sendChatMessage, sendStickerMessage: sendChatStickerMessage, rateLimited, rateLimitRemaining, kicked, wsReconnecting, wsFailed } = useChatMessages()
 const wsClient = useChatWebSocket()
 const imageUpload = useChatImageUpload()
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -319,6 +322,11 @@ function onWsMemberEvent(envelope: ChatEnvelope) {
 }
 const autofiller = useChatAutofiller(inputValue, userTags, members, caretIndex)
 
+// 輸入中指示：送出側監看 inputValue 做節流 heartbeat；接收側維護他人 typers 清單
+// （自我過濾用自己的 providerUserId）。
+const { typers: typingTypers, stopTyping: stopTyping, dispose: disposeTyping } =
+    useTypingIndicator(inputValue, () => authStore.user?.providerUserId ?? null)
+
 function onCaretChange(pos: number): void {
     caretIndex.value = pos
 }
@@ -370,6 +378,7 @@ async function onSend(value: string) {
     }
     pendingOwnScroll = true
     inputValue.value = ''
+    stopTyping()
     imageUpload.reset()
     await nextTick()
     scrollToBottom(true)
@@ -383,6 +392,7 @@ async function onStickerSelect(url: string) {
         return
     }
     pendingOwnScroll = true
+    stopTyping()
     await nextTick()
     scrollToBottom(true)
 }
@@ -514,6 +524,7 @@ onBeforeUnmount(() => {
     clearUnreadDivider()
     announcementResizeObserver?.disconnect()
     announcementResizeObserver = null
+    disposeTyping()
     dispose()
     wsClient.disconnect()
 })
@@ -613,6 +624,8 @@ void currentProfile
             </div>
         </div>
 
+        <TypingIndicator :typers="typingTypers" />
+
         <BottomBar
             ref="bottomBarRef"
             v-model:input-value="inputValue"
@@ -678,6 +691,11 @@ void currentProfile
         <KickedModal
             :open="kicked"
             @reconnect="onReconnect"
+        />
+
+        <ReconnectOverlay
+            :reconnecting="wsReconnecting"
+            :failed="wsFailed"
         />
     </div>
 </template>

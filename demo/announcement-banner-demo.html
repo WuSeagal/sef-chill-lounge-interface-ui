@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>主持人公告（釘選）— banner 呈現 demo</title>
+<style>
+  :root {
+    --chat-bg: #f9f5e5;
+    --page-bg: #ebe3ce;
+    --input-bg: #f6f2eb;
+    --bubble-border: #d7d0b8;
+    --avatar-default-bg: #8c8672;
+    --notify-badge-bg: #c2452d;
+    --input-text: #746955;
+    --bottom-bar-bg: #625945;
+    --shadow-popup: 0 4px 16px rgba(0,0,0,.15);
+    --space-md: 16px;
+    --radius-sm: 4px;
+    --font-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#ece4cf; color:#4a4433; font-family:var(--font-base); display:flex; gap:24px; padding:24px; align-items:flex-start; flex-wrap:wrap; }
+  h1 { font-size:1.1rem; margin:0 0 4px; }
+  .sub { font-size:.8rem; color:#6f664f; margin:0 0 16px; }
+
+  .panel { background:#fff; border:1px solid var(--bubble-border); border-radius:10px; padding:18px; width:340px; box-shadow:0 4px 16px rgba(0,0,0,.08); position:sticky; top:24px; }
+  .panel h2 { font-size:.85rem; margin:18px 0 8px; color:var(--bottom-bar-bg); text-transform:uppercase; letter-spacing:.05em; }
+  .panel h2:first-of-type { margin-top:0; }
+  .seg { display:flex; gap:6px; }
+  .seg button { flex:1; padding:8px 6px; border:1px solid var(--bubble-border); background:#faf7ee; border-radius:var(--radius-sm); cursor:pointer; font-size:.78rem; color:var(--input-text); }
+  .seg button.active { background:var(--notify-badge-bg); color:#fff; border-color:var(--notify-badge-bg); font-weight:700; }
+  textarea { width:100%; min-height:70px; resize:vertical; border:1px solid var(--bubble-border); border-radius:var(--radius-sm); padding:8px; font-family:inherit; font-size:.85rem; color:var(--input-text); }
+  .row { display:flex; gap:8px; margin-top:8px; }
+  .btn { flex:1; padding:9px; border:none; border-radius:var(--radius-sm); cursor:pointer; font-size:.85rem; font-weight:600; }
+  .btn--pin { background:var(--bottom-bar-bg); color:#fff; }
+  .btn--unpin { background:#faf7ee; color:var(--input-text); border:1px solid var(--bubble-border); }
+  .note { font-size:.74rem; color:#6f664f; line-height:1.55; margin-top:10px; }
+  .rec { background:#f4ecd6; border-left:3px solid var(--notify-badge-bg); padding:8px 10px; border-radius:4px; font-size:.76rem; line-height:1.55; margin-top:6px; }
+
+  /* ── mock /chat ── */
+  .phone { width:380px; }
+  .chat { background:var(--chat-bg); border:1px solid var(--bubble-border); border-radius:14px; overflow:hidden; box-shadow:0 6px 22px rgba(0,0,0,.10); display:flex; flex-direction:column; height:520px; }
+  .chat__top { background:var(--bottom-bar-bg); color:#eeebe2; font-size:.82rem; padding:10px 16px; font-weight:600; flex:0 0 auto; }
+  /* main 是定位容器：list 鋪滿整個聊天區（不因釘選縮小），slot 浮在頂端覆蓋 */
+  .main { position:relative; flex:1 1 auto; min-height:0; }
+  .list { position:absolute; inset:0; overflow:auto; padding:8px 0 14px; }
+  /* 浮層不攔截事件：捲動 / 捲軸點擊都穿透到底下的 .list，永遠不會被 banner 擋到 */
+  .slot { position:absolute; top:0; left:0; right:0; z-index:2; pointer-events:none; }
+  .msg { display:flex; gap:8px; padding:8px var(--space-md); }
+  .avatar { flex:0 0 auto; width:36px; height:36px; border-radius:50%; background:var(--avatar-default-bg); }
+  .nick { font-size:.9rem; font-weight:600; color:var(--input-text); }
+  .time { font-size:.72rem; opacity:.65; color:var(--input-text); margin-left:8px; }
+  .line { font-size:.95rem; color:var(--input-text); margin-top:1px; }
+
+  /* 共用入場動畫 */
+  @media (prefers-reduced-motion: no-preference) {
+    .ann { animation: annIn .28s ease-out both; }
+  }
+  @keyframes annIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
+
+  /* ===== A — 暖色卡 + 紅左飾條 + 喇叭（推薦）===== */
+  .ann--a { display:flex; gap:10px; align-items:flex-start; padding:10px 16px; background:var(--page-bg); border-bottom:1px solid var(--bubble-border); border-left:3px solid var(--notify-badge-bg); box-shadow:0 2px 6px rgba(0,0,0,.06); }
+  .ann--a .ann__icon { color:var(--notify-badge-bg); flex:0 0 auto; width:18px; height:18px; margin-top:1px; }
+  .ann--a .ann__text { color:var(--input-text); font-size:.9rem; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
+
+  /* ===== B — 紅底強提示 strip ===== */
+  .ann--b { display:flex; gap:9px; align-items:flex-start; padding:9px 16px; background:var(--notify-badge-bg); color:#fff; }
+  .ann--b .ann__icon { flex:0 0 auto; width:17px; height:17px; margin-top:2px; }
+  .ann--b .ann__label { font-weight:700; font-size:.7rem; letter-spacing:.04em; padding:2px 7px; border-radius:999px; background:rgba(255,255,255,.22); flex:0 0 auto; }
+  .ann--b .ann__text { font-size:.88rem; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
+
+  /* ===== C — 置中浮貼圓角卡 ===== */
+  .ann--c { padding:10px var(--space-md) 0; }
+  .ann--c .ann__card { display:flex; gap:9px; align-items:flex-start; background:#fff; border:1px solid var(--bubble-border); border-top:3px solid var(--notify-badge-bg); border-radius:10px; padding:10px 12px; box-shadow:var(--shadow-popup); }
+  .ann--c .ann__icon { color:var(--notify-badge-bg); flex:0 0 auto; width:17px; height:17px; margin-top:1px; }
+  .ann--c .ann__text { color:var(--input-text); font-size:.88rem; line-height:1.5; white-space:pre-wrap; word-break:break-word; }
+</style>
+</head>
+<body>
+  <div class="panel">
+    <h1>主持人公告（釘選）</h1>
+    <p class="sub">模擬「設定頁 textarea + 釘選/取消釘選」→ /chat 頂端 banner 呈現。</p>
+
+    <h2>banner 樣式</h2>
+    <div class="seg" id="seg">
+      <button data-v="a">A · 暖卡紅飾條</button>
+      <button data-v="b">B · 紅底強提示</button>
+      <button data-v="c" class="active">C · 浮貼卡</button>
+    </div>
+
+    <h2>主持人設定（模擬）</h2>
+    <textarea id="ta" placeholder="輸入公告純文字…">本日 18:00 大廳有限定貼圖發放，記得來領 🎁
+攤位 B12 加碼抽獎！</textarea>
+    <div class="row">
+      <button class="btn btn--unpin" id="unpin">取消釘選</button>
+      <button class="btn btn--pin" id="pin">釘選</button>
+    </div>
+    <p class="note">釘選＝把目前 textarea 內容貼到頂端；內容空白時按釘選＝等同取消釘選（清除）。</p>
+
+    <h2>我的建議</h2>
+    <div class="rec"><b>選 A</b>：暖色卡 + 紅色左飾條 + 喇叭圖示，跟 parchment 主題融合、紅色點出「重要」但不像 B 整條紅牆那麼壓迫；純文字 <code>pre-wrap</code> 支援多行、長文可讀。B 適合想要最強存在感的短公告；C 較輕、像浮貼卡。</div>
+    <p class="note">無障礙：banner 為 <code>role="region" aria-label="公告"</code> + <code>aria-live="polite"</code>（出現時報讀器宣告）；純文字渲染（不 v-html、防 XSS）；圖示用 SVG 非 emoji；出現 ease-out 滑入、尊重 reduced-motion。banner 固定在訊息列「之上」、不隨訊息捲動。</p>
+  </div>
+
+  <div class="phone">
+    <div class="chat">
+      <div class="chat__top">SEF Chill Lounge · /chat</div>
+      <div class="main">
+      <div class="list" id="list">
+        <div class="msg"><div class="avatar"></div><div><div><span class="nick">小狐狸</span><span class="time">14:02</span></div><div class="line">大家午安～</div></div></div>
+        <div class="msg"><div class="avatar"></div><div><div><span class="nick">阿貓</span><span class="time">14:03</span></div><div class="line">收到！等等過去</div></div></div>
+        <div class="msg"><div class="avatar"></div><div><div><span class="nick">小蜥蜴</span><span class="time">14:21</span></div><div class="line">限定貼圖也太可愛</div></div></div>
+        <div class="msg"><div class="avatar"></div><div><div><span class="nick">水豚</span><span class="time">14:22</span></div><div class="line">有人一起去領嗎</div></div></div>
+        <div class="msg"><div class="avatar"></div><div><div><span class="nick">Toby</span><span class="time">14:23</span></div><div class="line">我也要！等等下樓</div></div></div>
+        <div class="msg"><div class="avatar"></div><div><div><span class="nick">小狐狸</span><span class="time">14:24</span></div><div class="line">B12 在電梯出來左轉</div></div></div>
+        <div class="msg"><div class="avatar"></div><div><div><span class="nick">阿貓</span><span class="time">14:25</span></div><div class="line">找到了～排隊中</div></div></div>
+        <div class="msg"><div class="avatar"></div><div><div><span class="nick">水豚</span><span class="time">14:26</span></div><div class="line">貼圖也太精緻 收藏了</div></div></div>
+        <div class="msg"><div class="avatar"></div><div><div><span class="nick">小蜥蜴</span><span class="time">14:27</span></div><div class="line">主持人公告有抽獎欸</div></div></div>
+        <div class="msg"><div class="avatar"></div><div><div><span class="nick">Toby</span><span class="time">14:28</span></div><div class="line">幾點開獎啊</div></div></div>
+        <div class="msg"><div class="avatar"></div><div><div><span class="nick">小狐狸</span><span class="time">14:29</span></div><div class="line">看頂端公告 18:00</div></div></div>
+        <div class="msg"><div class="avatar"></div><div><div><span class="nick">阿貓</span><span class="time">14:30</span></div><div class="line">收到～先去逛逛</div></div></div>
+      </div>
+      <div class="slot" id="slot"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  let variant = 'c';
+  const slot = document.getElementById('slot');
+  const list = document.getElementById('list');
+  const ta = document.getElementById('ta');
+
+  // SVG 喇叭（megaphone）—— 非 emoji
+  const icon = '<svg class="ann__icon" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 11v2a1 1 0 0 0 1 1h2l3.5 3.5V7.5L6 11H4a1 1 0 0 0-1 0z" fill="currentColor"/><path d="M6 11l8-5v12l-8-5" fill="currentColor"/><path d="M17 9a3 3 0 0 1 0 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+
+  function esc(s) { return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  function render(text) {
+    if (!text) { slot.innerHTML = ''; return; }
+    const t = esc(text);
+    if (variant === 'a') {
+      slot.innerHTML = `<div class="ann ann--a" role="region" aria-label="公告" aria-live="polite">${icon}<div class="ann__text">${t}</div></div>`;
+    } else if (variant === 'b') {
+      slot.innerHTML = `<div class="ann ann--b" role="region" aria-label="公告" aria-live="polite">${icon}<span class="ann__label">公告</span><div class="ann__text">${t}</div></div>`;
+    } else {
+      slot.innerHTML = `<div class="ann ann--c" role="region" aria-label="公告" aria-live="polite"><div class="ann__card">${icon}<div class="ann__text">${t}</div></div></div>`;
+    }
+  }
+
+  let pinned = ta.value;
+  function repaint() {
+    render(pinned);
+    // 列維持滿高；頂端 padding = 浮層 banner 高度（+8 基礎內距），讓訊息起點落在 banner 下方、不被遮
+    const h = slot.firstElementChild ? slot.offsetHeight : 0;
+    list.style.paddingTop = (h + 8) + 'px';
+  }
+
+  document.getElementById('seg').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    document.querySelectorAll('#seg button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active'); variant = b.dataset.v; repaint();
+  });
+  document.getElementById('pin').addEventListener('click', () => { pinned = ta.value.trim(); repaint(); });
+  document.getElementById('unpin').addEventListener('click', () => { pinned = ''; repaint(); });
+
+  repaint();
+</script>
+</body>
+</html>

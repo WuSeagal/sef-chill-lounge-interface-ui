@@ -61,6 +61,11 @@ const loadingRef = ref(false)
 const initializedRef = ref(true)
 const hasMoreRef = ref(false)
 const kickedRef = ref(false)
+const wsReconnectingRef = ref(false)
+const wsFailedRef = ref(false)
+const typingTypersRef = ref<Array<{ userId: string; furName: string | null; avatar: string | null; avatarColor: string | null }>>([])
+const stopTypingSpy = vi.fn()
+const disposeTypingSpy = vi.fn()
 const initSpy = vi.fn()
 const reconnectSpy = vi.fn()
 const disposeSpy = vi.fn()
@@ -112,8 +117,8 @@ vi.mock('@/composables/useChatMessages', () => ({
         sendChatMessage: sendChatMessageSpy,
         sendStickerMessage: sendStickerMessageSpy,
         kicked: kickedRef,
-        wsReconnecting: ref(false),
-        wsFailed: ref(false),
+        wsReconnecting: wsReconnectingRef,
+        wsFailed: wsFailedRef,
     }),
 }))
 
@@ -142,6 +147,14 @@ vi.mock('@/composables/useMembers', () => ({
         loading: ref(false),
         error: membersErrorRef,
         refetch: refetchMembersSpy,
+    }),
+}))
+
+vi.mock('@/composables/useTypingIndicator', () => ({
+    useTypingIndicator: () => ({
+        typers: typingTypersRef,
+        stopTyping: stopTypingSpy,
+        dispose: disposeTypingSpy,
     }),
 }))
 
@@ -1268,5 +1281,137 @@ describe('ChatView host 刪除訊息', () => {
 
         expect(pushErrorSpy).toHaveBeenCalled()
         wrapper.unmount()
+    })
+})
+
+describe('ChatView 連線重連 overlay', () => {
+    beforeEach(() => {
+        profileRef.value = { userId: 'u-101', username: '小毛', furName: '毛毛', avatar: '/mock-images/avatar-default.png', avatarColor: '#8c8672' }
+        messagesRef.value = [makeMessage({ cursorId: 11, messageId: 'm1', content: 'a' })]
+        loadingRef.value = false
+        initializedRef.value = true
+        hasMoreRef.value = false
+        kickedRef.value = false
+        wsReconnectingRef.value = false
+        wsFailedRef.value = false
+        membersRef.value = []
+        membersErrorRef.value = null
+        refetchMembersSpy.mockReset().mockResolvedValue(undefined)
+        initSpy.mockReset().mockResolvedValue(undefined)
+        authUserHolder.value = null
+    })
+
+    afterEach(() => {
+        wsReconnectingRef.value = false
+        wsFailedRef.value = false
+    })
+
+    it('連線正常（皆 false）時不渲染 overlay', async () => {
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        expect(wrapper.find('[data-test="reconnect-overlay"]').exists()).toBe(false)
+        wrapper.unmount()
+    })
+
+    it('wsReconnecting=true → overlay 顯示「重新連線中」、無重新整理按鈕', async () => {
+        wsReconnectingRef.value = true
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        expect(wrapper.find('[data-test="reconnect-overlay"]').exists()).toBe(true)
+        expect(wrapper.text()).toContain('重新連線中')
+        expect(wrapper.find('[data-test="reconnect-overlay-refresh"]').exists()).toBe(false)
+        wrapper.unmount()
+    })
+
+    it('wsFailed=true → overlay 顯示「連線已中斷」+ 重新整理按鈕', async () => {
+        // 真實失敗終態：達上限後 wsReconnecting 不被重置，故兩者同時為真（failed 優先）
+        wsReconnectingRef.value = true
+        wsFailedRef.value = true
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        expect(wrapper.find('[data-test="reconnect-overlay"]').exists()).toBe(true)
+        expect(wrapper.text()).toContain('連線已中斷')
+        expect(wrapper.find('[data-test="reconnect-overlay-refresh"]').exists()).toBe(true)
+        wrapper.unmount()
+    })
+
+    it('重連成功（true→false）後 overlay 消失', async () => {
+        wsReconnectingRef.value = true
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        expect(wrapper.find('[data-test="reconnect-overlay"]').exists()).toBe(true)
+
+        wsReconnectingRef.value = false
+        await nextTick()
+        expect(wrapper.find('[data-test="reconnect-overlay"]').exists()).toBe(false)
+        wrapper.unmount()
+    })
+})
+
+describe('ChatView 輸入中指示器', () => {
+    beforeEach(() => {
+        profileRef.value = { userId: 'u-101', username: '小毛', furName: '毛毛', avatar: '/mock-images/avatar-default.png', avatarColor: '#8c8672' }
+        messagesRef.value = [makeMessage({ cursorId: 11, messageId: 'm1', content: 'a' })]
+        loadingRef.value = false
+        initializedRef.value = true
+        hasMoreRef.value = false
+        kickedRef.value = false
+        membersRef.value = []
+        membersErrorRef.value = null
+        refetchMembersSpy.mockReset().mockResolvedValue(undefined)
+        initSpy.mockReset().mockResolvedValue(undefined)
+        sendChatMessageSpy.mockReset().mockReturnValue(true)
+        typingTypersRef.value = []
+        stopTypingSpy.mockReset()
+        disposeTypingSpy.mockReset()
+        authUserHolder.value = null
+    })
+
+    afterEach(() => {
+        typingTypersRef.value = []
+    })
+
+    it('有人輸入中 → 顯示 TypingIndicator', async () => {
+        typingTypersRef.value = [{ userId: 'u-2', furName: 'Fox', avatar: null, avatarColor: null }]
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        expect(wrapper.find('[data-test="typing-indicator"]').exists()).toBe(true)
+        wrapper.unmount()
+    })
+
+    it('無人輸入中 → 不顯示 TypingIndicator', async () => {
+        typingTypersRef.value = []
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        expect(wrapper.find('[data-test="typing-indicator"]').exists()).toBe(false)
+        wrapper.unmount()
+    })
+
+    it('TypingIndicator 位於輸入框（BottomBar）之上', async () => {
+        typingTypersRef.value = [{ userId: 'u-2', furName: 'Fox', avatar: null, avatarColor: null }]
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        const ti = wrapper.find('[data-test="typing-indicator"]').element
+        const bb = wrapper.find('.bottom-bar__input').element
+        // ti 在 bb 之前（DOCUMENT_POSITION_FOLLOWING：bb 跟在 ti 之後）
+        expect(ti.compareDocumentPosition(bb) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+        wrapper.unmount()
+    })
+
+    it('送出訊息後呼叫 stopTyping', async () => {
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        await wrapper.find('.bottom-bar__input').setValue('hello')
+        await wrapper.find('[data-btn="send"]').trigger('click')
+        await flushPromises()
+        expect(stopTypingSpy).toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('unmount 時呼叫 dispose', async () => {
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        wrapper.unmount()
+        expect(disposeTypingSpy).toHaveBeenCalled()
     })
 })
