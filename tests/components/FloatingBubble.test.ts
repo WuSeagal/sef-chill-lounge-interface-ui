@@ -259,3 +259,34 @@ describe('FloatingBubble — position and animation classes', () => {
         expect(avatar.classes()).not.toContain('floating-bubble__avatar--entering')
     })
 })
+
+describe('FloatingBubble — 圖片解碼屬性（decoding，刻意不用 lazy）', () => {
+    // dashboard 是單一畫面、泡泡靠 transform 浮動：loading="lazy" 不適用
+    // （沒有視窗外歷史可延後、且會延後浮入圖與動畫打架），只用 decoding="async"。
+    it('頭像帶 decoding="async" 且不帶 loading（不套 lazy）', () => {
+        const wrapper = mount(FloatingBubble, {
+            props: { bubble: makeBubble() },
+        })
+        const img = wrapper.find('.floating-bubble__avatar')
+        expect(img.attributes('decoding')).toBe('async')
+        expect(img.attributes('loading')).toBeUndefined()
+    })
+
+    it('訊息圖帶 decoding="async" 且不帶 loading（不套 lazy）', () => {
+        const msg: MockMessage = {
+            id: 'msg-img',
+            userId: 'u-101',
+            nickname: 'Test',
+            avatarUrl: '/mock-images/avatar-default.png',
+            content: '',
+            imageUrl: '/mock-images/chat-image-1.jpg',
+            timestamp: '2026-05-21T00:00:00.000Z',
+        }
+        const wrapper = mount(FloatingBubble, {
+            props: { bubble: makeBubble({ id: 'bubble-msg-img', message: msg }) },
+        })
+        const img = wrapper.find('.floating-bubble__image')
+        expect(img.attributes('decoding')).toBe('async')
+        expect(img.attributes('loading')).toBeUndefined()
+    })
+})

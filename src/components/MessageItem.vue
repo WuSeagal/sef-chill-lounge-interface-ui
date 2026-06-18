@@ -90,6 +90,8 @@ const avatarStyle = computed(() => ({
                         class="message-item__image"
                         :src="assetUrl(imageUrl)"
                         alt=""
+                        loading="lazy"
+                        decoding="async"
                         @load="emit('image-load')"
                     />
                 </div>
@@ -99,6 +101,8 @@ const avatarStyle = computed(() => ({
                 class="message-item__sticker"
                 :src="assetUrl(message.stickerImageUrl)"
                 alt=""
+                loading="lazy"
+                decoding="async"
                 role="button"
                 tabindex="0"
                 @click="emit('image-click', message.stickerImageUrl)"

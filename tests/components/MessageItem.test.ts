@@ -285,3 +285,39 @@ describe('MessageItem 安全渲染（URL / mention）', () => {
         expect(wrapper.find('.message-item__link').exists()).toBe(true)
     })
 })
+
+describe('MessageItem — 圖片延遲載入屬性（lazy/decoding）', () => {
+    // /chat 一進頁載 50 則歷史、圖片垂直堆疊大量在視窗外 → lazy 延後視窗外圖片請求；
+    // decoding=async 讓解碼不卡主執行緒。
+    it('訊息圖片帶 loading="lazy" 與 decoding="async"', () => {
+        const wrapper = mount(MessageItem, {
+            props: {
+                message: makeMessage({
+                    content: null,
+                    imageUrls: ['/mock-images/chat-image-1.jpg'],
+                }),
+            },
+        })
+
+        const img = wrapper.find('.message-item__image')
+        expect(img.attributes('loading')).toBe('lazy')
+        expect(img.attributes('decoding')).toBe('async')
+    })
+
+    it('貼圖帶 loading="lazy" 與 decoding="async"', () => {
+        const wrapper = mount(MessageItem, {
+            props: {
+                message: makeMessage({
+                    messageType: 'STICKER',
+                    content: null,
+                    imageUrls: [],
+                    stickerImageUrl: '/mock-images/sticker-1.png',
+                }),
+            },
+        })
+
+        const sticker = wrapper.find('.message-item__sticker')
+        expect(sticker.attributes('loading')).toBe('lazy')
+        expect(sticker.attributes('decoding')).toBe('async')
+    })
+})

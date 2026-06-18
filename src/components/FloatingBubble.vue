@@ -48,6 +48,7 @@ const innerClass = computed(() => ({
                 :src="resolveAvatarSrc(bubble.message.avatarUrl)"
                 :style="avatarRingStyle"
                 alt=""
+                decoding="async"
             />
             <SpeechBubble
                 :direction="bubble.direction"
@@ -61,6 +62,7 @@ const innerClass = computed(() => ({
                         class="floating-bubble__image"
                         :src="bubble.message.imageUrl"
                         alt=""
+                        decoding="async"
                     />
                     <span v-if="bubble.message.content" class="floating-bubble__caption">{{ bubble.message.content }}</span>
                 </div>
