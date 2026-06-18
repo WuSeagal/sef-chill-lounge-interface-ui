@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import './FloatingBubble.css'
 import SpeechBubble from '@/components/SpeechBubble.vue'
 import { buildAvatarRingStyle } from '@/utils/avatarRing'
@@ -37,12 +37,42 @@ const innerClass = computed(() => ({
     'floating-bubble__inner--entering': props.bubble.animateEntrance && !props.bubble.isExiting,
     'floating-bubble__inner--exiting': props.bubble.isExiting,
 }))
+
+// 量測頭像在 wrapper 內的垂直 offset / 高度，回寫給漂浮物理（垂直碰撞以頭像頂/底為基準）。
+// 用 offsetTop（版面值，不受入場後空翻 transform 影響）；圖片載入等內容尺寸變動時由 ResizeObserver 重新量測。
+const innerEl = ref<HTMLElement | null>(null)
+const avatarEl = ref<HTMLImageElement | null>(null)
+let resizeObserver: ResizeObserver | null = null
+
+function measureAvatar() {
+    const el = avatarEl.value
+    if (!el) return
+    // offsetTop 相對 offsetParent（.floating-bubble，position:absolute）。目前 wrapper 無 padding/border、
+    // inner 貼齊 wrapper 原點，故此值 = 頭像在 inner 內的垂直 offset。若日後替 wrapper 加內距或讓 inner 帶
+    // position，這個對應會失準，需改量「頭像相對 inner」。
+    props.bubble.avatarOffsetTop = el.offsetTop
+    props.bubble.avatarH = el.offsetHeight
+}
+
+onMounted(() => {
+    measureAvatar()
+    if (typeof ResizeObserver !== 'undefined' && innerEl.value) {
+        resizeObserver = new ResizeObserver(() => measureAvatar())
+        resizeObserver.observe(innerEl.value)
+    }
+})
+
+onBeforeUnmount(() => {
+    resizeObserver?.disconnect()
+    resizeObserver = null
+})
 </script>
 
 <template>
     <div class="floating-bubble" :style="wrapperStyle">
-        <div :class="innerClass">
+        <div ref="innerEl" :class="innerClass">
             <img
+                ref="avatarEl"
                 class="floating-bubble__avatar"
                 :class="{ 'floating-bubble__avatar--right': bubble.direction === 'right' }"
                 :src="resolveAvatarSrc(bubble.message.avatarUrl)"

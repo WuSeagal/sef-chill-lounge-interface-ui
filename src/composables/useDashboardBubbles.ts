@@ -14,6 +14,11 @@ export type DashboardBubble = {
     /** 是否播放後空翻入場動畫：僅「進頁面後新收到」的泡泡為 true；
      *  連線 replay 的既有訊息與重掛載的舊泡泡為 false（見 useDashboardFeed liveSince）。 */
     animateEntrance: boolean
+    /** 量測值：頭像頂相對 wrapper 頂的垂直 offset（px）。垂直碰撞以「頭像頂/底」為基準，
+     *  由 FloatingBubble 量測回寫；量測前預設 0。 */
+    avatarOffsetTop: number
+    /** 量測值：頭像高度（px，CSS 固定 50）。由 FloatingBubble 量測回寫；量測前預設 AVATAR_H。 */
+    avatarH: number
 }
 
 const MAX_BUBBLES = 30
@@ -21,11 +26,14 @@ const EXIT_DURATION = 500
 // 入場動畫總時長上限（後空翻 820ms + 光暈收斂 ~950ms），播畢即清除 animateEntrance，
 // 避免日後重掛載（如切頁回來）時 CSS 入場動畫重播。
 export const ENTRANCE_ANIM_MS = 1000
-// 反彈碰撞框 = 典型最大泡泡 footprint（含旁側頭像）：
-// 寬 = 泡泡 max 276 + 間距 8 + 頭像 36 ≈ 320；高取圖片泡泡常見最大 ≈ 290。
-// 採固定框（不做逐泡泡碰撞框）；超長文字/圖片+長 caption 的高泡泡反彈前底部可能略超出畫面，為已接受的取捨。
+// 水平碰撞框寬度（沿用固定框）：寬 = 泡泡 max 276 + 間距 8 + 頭像 36 ≈ 320。
+// 左右行為維持現狀（小文字泡泡右緣略短、圖片泡泡左右略超出，皆為已接受取捨）。
 const BUBBLE_W = 320
+// 出生位置的垂直內縮範圍（只用於 addBubble 的 y 取樣，避免一出生就半截在畫面外）；
+// 垂直「碰撞」已改以頭像頂/底為基準（見 avatarVerticalBounds），不再用固定高度夾邊界。
 const BUBBLE_H = 290
+// 頭像高度（CSS 固定 50px）；垂直碰撞量測前的安全預設。
+const AVATAR_H = 50
 
 // ── bounce / motion tuning constants (集中宣告，目視驗收時可調整) ──
 /** 出生與反彈共用的全域速度大小區間（px/s） */
@@ -126,6 +134,23 @@ export function bounceVelocity(
     return { dx: speed * Math.cos(angle), dy: speed * Math.sin(angle) }
 }
 
+/**
+ * 垂直碰撞邊界（以「頭像頂/底」為基準，不論泡泡多大）：
+ * - `minY`：使頭像頂貼齊視窗頂（`y + avatarOffsetTop = 0`）。
+ * - `maxY`：使頭像底貼齊視窗底（`y + avatarOffsetTop + avatarH = viewportH`）。
+ * 泡泡本體高於頭像的部分（offsetTop 兩側）任其對稱超出上下緣——沿用原「過高泡泡」行為，套用到全部泡泡。
+ * 視窗比頭像還矮的退化情境夾 `maxY ≥ minY`，避免上下夾限互相打架。
+ */
+export function avatarVerticalBounds(
+    avatarOffsetTop: number,
+    avatarH: number,
+    viewportH: number,
+): { minY: number; maxY: number } {
+    const minY = 0 - avatarOffsetTop // 0 - x（非一元負號）避免 offsetTop=0 時產生 -0
+    const maxY = Math.max(minY, viewportH - avatarH - avatarOffsetTop)
+    return { minY, maxY }
+}
+
 export type UseDashboardBubblesReturn = {
     bubbles: Ref<DashboardBubble[]>
     addBubble: (message: DashboardMessage, animateEntrance?: boolean) => void
@@ -182,6 +207,9 @@ export function useDashboardBubbles(options?: { random?: () => number }): UseDas
             zIndex: zCounter,
             isExiting: false,
             animateEntrance,
+            // 量測前的安全預設：頭像在 wrapper 頂、固定高度；掛載後由 FloatingBubble 回寫實際值。
+            avatarOffsetTop: 0,
+            avatarH: AVATAR_H,
         }
         bubbles.value.push(bubble)
 
@@ -247,7 +275,7 @@ export function useDashboardBubbles(options?: { random?: () => number }): UseDas
         lastTime = time
 
         const maxX = Math.max(0, viewportWidth() - BUBBLE_W)
-        const maxY = Math.max(0, viewportHeight() - BUBBLE_H)
+        const vh = viewportHeight()
 
         for (const b of bubbles.value) {
             b.x += b.dx * dt
@@ -257,7 +285,9 @@ export function useDashboardBubbles(options?: { random?: () => number }): UseDas
             if (b.x <= 0) { b.x = 0; hits.push('left') }
             else if (b.x >= maxX) { b.x = maxX; hits.push('right') }
 
-            if (b.y <= 0) { b.y = 0; hits.push('top') }
+            // 垂直碰撞以頭像頂/底為基準（不論泡泡多大）：頭像頂碰視窗頂、頭像底碰視窗底即反彈。
+            const { minY, maxY } = avatarVerticalBounds(b.avatarOffsetTop, b.avatarH, vh)
+            if (b.y <= minY) { b.y = minY; hits.push('top') }
             else if (b.y >= maxY) { b.y = maxY; hits.push('bottom') }
 
             if (hits.length > 0) {

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
     useDashboardBubbles,
     bounceVelocity,
+    avatarVerticalBounds,
     JITTER_MAX_DEG,
     CLAMP_MIN_DEG,
     CLAMP_MAX_DEG,
@@ -162,6 +163,13 @@ describe('useDashboardBubbles — addBubble basics', () => {
         const { bubbles, addBubble } = useDashboardBubbles()
         addBubble(makeMsg('msg-001'))
         expect(bubbles.value[0].isExiting).toBe(false)
+    })
+
+    it('addBubble 初始化頭像量測欄位（avatarOffsetTop=0、avatarH=50；量測前的安全預設）', () => {
+        const { bubbles, addBubble } = useDashboardBubbles()
+        addBubble(makeMsg('msg-001'))
+        expect(bubbles.value[0].avatarOffsetTop).toBe(0)
+        expect(bubbles.value[0].avatarH).toBe(50)
     })
 })
 
@@ -446,6 +454,28 @@ describe('useDashboardBubbles — bounce jitter (pure function)', () => {
     })
 })
 
+describe('useDashboardBubbles — avatarVerticalBounds (pure)', () => {
+    // 垂直碰撞改以「頭像頂/底」為基準（不論泡泡多大）：
+    // minY 讓頭像頂貼齊視窗頂（y + offsetTop = 0）；maxY 讓頭像底貼齊視窗底（y + offsetTop + avatarH = vh）。
+
+    it('短泡泡（頭像即整顆，offsetTop=0）可從 y=0 一路漂到頭像底貼視窗底', () => {
+        const { minY, maxY } = avatarVerticalBounds(0, 50, 768)
+        expect(minY).toBe(0)
+        expect(maxY).toBe(768 - 50)
+    })
+
+    it('高泡泡（頭像置中，offsetTop=175）上下對稱：minY 為負（本體超出頂緣）、maxY 讓頭像底貼視窗底', () => {
+        const { minY, maxY } = avatarVerticalBounds(175, 50, 768)
+        expect(minY).toBe(-175) // wrapper 頂在視窗外 175px，頭像頂剛好 = 0
+        expect(maxY).toBe(768 - 50 - 175) // 頭像底剛好 = 768
+    })
+
+    it('視窗比頭像還矮的退化情境：maxY 不小於 minY（泡泡被釘住，上下夾限不互相打架）', () => {
+        const { minY, maxY } = avatarVerticalBounds(10, 50, 30)
+        expect(maxY).toBeGreaterThanOrEqual(minY)
+    })
+})
+
 describe('useDashboardBubbles — animate bounce integration', () => {
     let rafCb: ((t: number) => void) | null = null
 
@@ -486,5 +516,50 @@ describe('useDashboardBubbles — animate bounce integration', () => {
         expect(mag(b.dx, b.dy)).toBeGreaterThanOrEqual(SPEED_MAG_MIN - 1e-6)
         expect(mag(b.dx, b.dy)).toBeLessThanOrEqual(SPEED_MAG_MAX + 1e-6)
         expect(b.dx).toBeGreaterThan(0) // now heading back inward
+    })
+
+    it('短泡泡（offsetTop=0）能一路漂到頭像底貼視窗底才反彈（修正下緣留白）', () => {
+        const random = fixed(0.5) // 無擾動，斷言乾淨
+        const { bubbles, addBubble, startAnimation } = useDashboardBubbles({ random })
+        addBubble(makeMsg('m1'))
+        const b = bubbles.value[0]
+        b.avatarOffsetTop = 0
+        b.avatarH = 50
+        b.x = 100
+        b.dx = 0 // 避免水平碰撞
+        // maxY = 768 - 50 - 0 = 718（頭像底 = 視窗底 768）
+        b.y = 700
+        b.dy = 30 // dt=1s → y = 730 > 718 → 夾回 718、hit 'bottom'
+
+        startAnimation()
+        rafCb!(0)
+        rafCb!(1000)
+
+        expect(b.y).toBe(768 - 50)
+        expect(b.dy).toBeLessThan(0) // 反彈後朝上（往畫面內）
+    })
+
+    it('垂直反彈以頭像底為界、非泡泡 footprint：高泡泡頭像底碰視窗底才夾住反彈', () => {
+        const random = fixed(0.5)
+        const { bubbles, addBubble, startAnimation } = useDashboardBubbles({ random })
+        addBubble(makeMsg('m1'))
+        const b = bubbles.value[0]
+        // 模擬高泡泡：頭像置中、offsetTop=175、avatarH=50 → maxY = 768-50-175 = 543
+        b.avatarOffsetTop = 175
+        b.avatarH = 50
+        b.x = 100
+        b.dx = 0
+        b.y = 540
+        b.dy = 30 // dt=1s → y = 570 > 543 → 夾回 543、hit 'bottom'
+
+        startAnimation()
+        rafCb!(0)
+        rafCb!(1000)
+
+        expect(b.y).toBe(543)
+        const expected = bounceVelocity(['bottom'], 0, 30, fixed(0.5))
+        expect(b.dx).toBeCloseTo(expected.dx)
+        expect(b.dy).toBeCloseTo(expected.dy)
+        expect(b.dy).toBeLessThan(0) // 反彈後朝上（往畫面內）
     })
 })

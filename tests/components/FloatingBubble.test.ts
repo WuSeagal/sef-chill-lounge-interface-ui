@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import FloatingBubble from '@/components/FloatingBubble.vue'
 import type { DashboardBubble } from '@/composables/useDashboardBubbles'
@@ -24,6 +24,8 @@ function makeBubble(overrides: Partial<DashboardBubble> = {}): DashboardBubble {
         zIndex: 1,
         isExiting: false,
         animateEntrance: true,
+        avatarOffsetTop: 0,
+        avatarH: 50,
         ...overrides,
     }
 }
@@ -257,6 +259,33 @@ describe('FloatingBubble — position and animation classes', () => {
         expect(inner.element.contains(speech.element)).toBe(true)
         // 頭像不帶自己的入場動畫 class（避免變成只翻頭像）
         expect(avatar.classes()).not.toContain('floating-bubble__avatar--entering')
+    })
+})
+
+describe('FloatingBubble — 量測頭像 offset 回寫（垂直碰撞以頭像頂/底為基準）', () => {
+    it('內容尺寸變動（ResizeObserver 回呼）時，把頭像 offsetTop / offsetHeight 回寫到 bubble', () => {
+        let roCb: (() => void) | null = null
+        class FakeResizeObserver {
+            constructor(cb: () => void) { roCb = cb }
+            observe() {}
+            unobserve() {}
+            disconnect() {}
+        }
+        vi.stubGlobal('ResizeObserver', FakeResizeObserver)
+        try {
+            const bubble = makeBubble({ avatarOffsetTop: 0, avatarH: 50 })
+            const wrapper = mount(FloatingBubble, { props: { bubble } })
+            const avatar = wrapper.find('.floating-bubble__avatar').element as HTMLElement
+            // jsdom 無排版：手動定義量測值，模擬圖片載入後頭像置中於變高的泡泡
+            Object.defineProperty(avatar, 'offsetTop', { configurable: true, value: 120 })
+            Object.defineProperty(avatar, 'offsetHeight', { configurable: true, value: 50 })
+
+            roCb!() // 觸發重新量測
+            expect(bubble.avatarOffsetTop).toBe(120)
+            expect(bubble.avatarH).toBe(50)
+        } finally {
+            vi.unstubAllGlobals()
+        }
     })
 })
 
