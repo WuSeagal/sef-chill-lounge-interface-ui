@@ -975,6 +975,153 @@ describe('ChatView autofiller 點外部關閉', () => {
     })
 })
 
+describe('ChatView 未讀分隔線', () => {
+    beforeEach(() => {
+        profileRef.value = { userId: 'u-101', username: '小毛', furName: '毛毛', avatar: '/mock-images/avatar-default.png', avatarColor: '#8c8672' }
+        messagesRef.value = [
+            makeMessage({ cursorId: 11, messageId: 'msg-001', content: 'first' }),
+            makeMessage({ cursorId: 12, messageId: 'msg-002', content: 'second' }),
+        ]
+        loadingRef.value = false
+        initializedRef.value = true
+        hasMoreRef.value = false
+        kickedRef.value = false
+        initSpy.mockReset().mockResolvedValue(undefined)
+        reconnectSpy.mockReset().mockResolvedValue(undefined)
+        loadMoreSpy.mockReset().mockResolvedValue(undefined)
+        sendChatMessageSpy.mockReset().mockReturnValue(true)
+        membersRef.value = []
+        membersErrorRef.value = null
+        refetchMembersSpy.mockReset().mockResolvedValue(undefined)
+        authUserHolder.value = null
+    })
+
+    function defineListMetrics(
+        list: HTMLElement,
+        { scrollHeight, clientHeight, scrollTop }: { scrollHeight: number; clientHeight: number; scrollTop: number },
+    ) {
+        Object.defineProperty(list, 'scrollHeight', { value: scrollHeight, configurable: true })
+        Object.defineProperty(list, 'clientHeight', { value: clientHeight, configurable: true })
+        Object.defineProperty(list, 'scrollTop', { value: scrollTop, configurable: true, writable: true })
+    }
+
+    async function enterScrolledUp(wrapper: ReturnType<typeof mount>): Promise<HTMLElement> {
+        const list = wrapper.find('.chat-view__list').element as HTMLElement
+        defineListMetrics(list, { scrollHeight: 1200, clientHeight: 600, scrollTop: 200 })
+        ;(list as unknown as { scrollTo: () => void }).scrollTo = vi.fn()
+        await wrapper.find('.chat-view__list').trigger('scroll')
+        return list
+    }
+
+    it('非貼底他人新訊息 → 第一則未讀上方出現分隔線「新訊息 ↓」', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        await enterScrolledUp(wrapper)
+
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 20, messageId: 'other-1', userId: 'u-202', content: 'yo' })]
+        await nextTick()
+        await flushPromises()
+
+        expect(wrapper.find('.unread-divider').exists()).toBe(true)
+        expect(wrapper.find('.unread-divider__pill').text()).toBe('新訊息')
+        wrapper.unmount()
+    })
+
+    it('自己送出的訊息不觸發分隔線', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        await enterScrolledUp(wrapper)
+
+        await wrapper.find('.bottom-bar__input').setValue('hi')
+        await wrapper.find('[data-btn="send"]').trigger('click')
+        await flushPromises()
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 21, messageId: 'own-1', content: 'hi' })]
+        await nextTick()
+        await flushPromises()
+
+        expect(wrapper.find('.unread-divider').exists()).toBe(false)
+        wrapper.unmount()
+    })
+
+    it('往上捲載入歷史（prepend）不觸發分隔線', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        await enterScrolledUp(wrapper)
+
+        const hist = Array.from({ length: 3 }, (_, i) =>
+            makeMessage({ cursorId: -i, messageId: `h-${i}`, userId: 'u-303', content: 'old' }))
+        messagesRef.value = [...hist, ...messagesRef.value]
+        await nextTick()
+        await flushPromises()
+
+        expect(wrapper.find('.unread-divider').exists()).toBe(false)
+        wrapper.unmount()
+    })
+
+    it('顯示中再來新訊息仍只有一條分隔線（邊界凍結、不重複）', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        await enterScrolledUp(wrapper)
+
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 20, messageId: 'o1', userId: 'u-202', content: 'a' })]
+        await nextTick(); await flushPromises()
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 21, messageId: 'o2', userId: 'u-202', content: 'b' })]
+        await nextTick(); await flushPromises()
+
+        expect(wrapper.findAll('.unread-divider').length).toBe(1)
+        expect(wrapper.find('.unread-divider__pill').text()).toBe('新訊息')
+        wrapper.unmount()
+    })
+
+    it('回到貼底不清除分隔線；滾到底起算 15 秒後淡出並移除', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        const list = await enterScrolledUp(wrapper)
+
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 22, messageId: 'other-2', userId: 'u-202', content: 'yo' })]
+        await nextTick(); await flushPromises()
+        expect(wrapper.find('.unread-divider').exists()).toBe(true)
+
+        vi.useFakeTimers()
+        try {
+            // 回到貼底（distance <= 80）→ 不清除，改啟動 15 秒倒數
+            defineListMetrics(list, { scrollHeight: 1200, clientHeight: 600, scrollTop: 600 })
+            await wrapper.find('.chat-view__list').trigger('scroll')
+            await nextTick()
+            expect(wrapper.find('.unread-divider').exists()).toBe(true)
+
+            // 15 秒倒數到 → 進入淡出
+            vi.advanceTimersByTime(15000)
+            await nextTick()
+            // 淡出動畫窗結束 → 移除
+            vi.advanceTimersByTime(500)
+            await nextTick()
+            expect(wrapper.find('.unread-divider').exists()).toBe(false)
+        } finally {
+            vi.useRealTimers()
+        }
+        wrapper.unmount()
+    })
+
+    it('重連清除分隔線', async () => {
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+        await enterScrolledUp(wrapper)
+
+        messagesRef.value = [...messagesRef.value, makeMessage({ cursorId: 23, messageId: 'other-3', userId: 'u-202', content: 'yo' })]
+        await nextTick(); await flushPromises()
+        expect(wrapper.find('.unread-divider').exists()).toBe(true)
+
+        kickedRef.value = true
+        await nextTick()
+        await wrapper.find('[data-test="kicked-modal-reconnect"]').trigger('click')
+        await flushPromises()
+
+        expect(wrapper.find('.unread-divider').exists()).toBe(false)
+        wrapper.unmount()
+    })
+})
+
 describe('ChatView host 刪除訊息', () => {
     beforeEach(() => {
         messagesRef.value = [

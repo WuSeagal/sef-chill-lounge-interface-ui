@@ -2,6 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import './ChatView.css'
 import MessageItem from '@/components/MessageItem.vue'
+import UnreadDivider from '@/components/UnreadDivider.vue'
 import BottomBar from '@/components/BottomBar.vue'
 import UserPopup from '@/components/UserPopup.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
@@ -103,6 +104,52 @@ const unreadDisplay = computed(() => (unreadCount.value > 99 ? '99+' : String(un
 const scrollFabAriaLabel = computed(() =>
     unreadCount.value > 0 ? `捲至底部，${unreadDisplay.value} 則新訊息` : '捲至底部')
 
+// ── 未讀分隔線：純位置標記「新訊息 ↓」，標出「未讀從哪開始」（數量交給 scroll-fab badge）。
+// 生命週期：未讀 0→>0 時出現於第一則未讀上方（不啟動倒數）；回到貼底時啟動 15 秒倒數
+// （不清除，讓使用者往上滑找到它讀起）；倒數結束淡出移除；淡出後不重現直到再次滾到底；
+// 重連/離頁清除。不顯示數量，故無需追蹤 count。
+const UNREAD_DIVIDER_TIMEOUT_MS = 15_000
+const UNREAD_DIVIDER_LEAVE_MS = 320
+const unreadBoundaryId = ref<string | null>(null)
+const dividerVisible = ref(false)
+const dividerLeaving = ref(false)
+let dividerTimer: ReturnType<typeof setTimeout> | null = null
+let dividerLeaveTimer: ReturnType<typeof setTimeout> | null = null
+let dividerCountdownStarted = false
+
+function showUnreadDivider(boundaryId: string) {
+    unreadBoundaryId.value = boundaryId
+    dividerVisible.value = true
+    dividerLeaving.value = false
+    dividerCountdownStarted = false
+}
+
+// 回到貼底時呼叫：啟動 15 秒倒數（不清除分隔線）。
+function startDividerCountdown() {
+    if (!dividerVisible.value || dividerCountdownStarted) return
+    dividerCountdownStarted = true
+    dividerTimer = setTimeout(() => {
+        dividerTimer = null
+        dividerLeaving.value = true // 觸發淡出 + 高度收合動畫
+        dividerLeaveTimer = setTimeout(() => {
+            dividerLeaveTimer = null
+            dividerVisible.value = false
+            dividerLeaving.value = false
+            unreadBoundaryId.value = null
+        }, UNREAD_DIVIDER_LEAVE_MS)
+    }, UNREAD_DIVIDER_TIMEOUT_MS)
+}
+
+// 立即清除（重連 / 離頁；非一般滾到底）。
+function clearUnreadDivider() {
+    if (dividerTimer !== null) { clearTimeout(dividerTimer); dividerTimer = null }
+    if (dividerLeaveTimer !== null) { clearTimeout(dividerLeaveTimer); dividerLeaveTimer = null }
+    dividerVisible.value = false
+    dividerLeaving.value = false
+    unreadBoundaryId.value = null
+    dividerCountdownStarted = false
+}
+
 // 程式主動捲底的 smooth 動畫進行中也視為「應貼底」：圖片此時載入完成會讓
 // smooth 目標（舊 scrollHeight）落空，補捲條件須涵蓋這段期間。用時間上限
 // 自我過期＋落底時清除，避免動畫被使用者中斷後旗標殘留，之後歷史圖片
@@ -122,6 +169,8 @@ function updateAtBottom() {
     if (isAtBottom.value) {
         scrollCatchUpUntil = 0
         unreadCount.value = 0
+        // 回到貼底：不清除分隔線，改凍結數字並啟動 15 秒倒數
+        if (dividerVisible.value) startDividerCountdown()
     }
 }
 
@@ -163,6 +212,8 @@ function scrollToBottom(smooth = true) {
 function onScrollFabClick() {
     // 點 fab 即明確「回到底部」意圖：立即歸零未讀（不依賴 smooth 捲動完成的非同步偵測）
     unreadCount.value = 0
+    // 同回到貼底：不清除分隔線，改啟動 15 秒倒數
+    if (dividerVisible.value) startDividerCountdown()
     scrollToBottom(true)
 }
 
@@ -348,6 +399,8 @@ async function onReconnect() {
     await nextTick()
     // 重連 = 全量重載並回到底部；重載期間的列表變動不應殘留為未讀（等 watcher flush 後歸零）
     unreadCount.value = 0
+    // 列表全量重載、邊界訊息失效 → 清除分隔線
+    clearUnreadDivider()
     scrollToBottom(true)
 }
 
@@ -378,7 +431,15 @@ watch(() => messages.value.length, async (newLen, oldLen) => {
         return
     }
     // 非貼底、非自己送出的尾端新訊息 → 累計未讀計數
-    if (tailAppended) unreadCount.value += newLen - oldLen
+    if (tailAppended) {
+        const wasZero = unreadCount.value === 0
+        unreadCount.value += newLen - oldLen
+        // 未讀分隔線：首波未讀（0→>0、尚未顯示）→ 釘在第一則未讀（messages[oldLen]）上方
+        if (wasZero && !dividerVisible.value) {
+            const firstUnread = messages.value[oldLen]
+            if (firstUnread) showUnreadDivider(firstUnread.messageId)
+        }
+    }
 }, { immediate: true })
 
 onMounted(async () => {
@@ -418,6 +479,7 @@ onBeforeUnmount(() => {
     wsMemberUnsub?.()
     wsMemberUnsub = null
     document.removeEventListener('mousedown', onDocumentPointerDown)
+    clearUnreadDivider()
     dispose()
     wsClient.disconnect()
 })
@@ -440,18 +502,22 @@ void currentProfile
                 <div v-else-if="!messages.length" class="chat-view__empty">
                     目前沒有訊息
                 </div>
-                <MessageItem
-                    v-for="m in messages"
-                    :key="m.messageId"
-                    :message="m"
-                    :member-names="memberNames"
-                    :can-delete="canDelete"
-                    @avatar-click="onAvatarClick"
-                    @image-click="onImageClick"
-                    @image-load="onMessageImageLoad"
-                    @link-click="onLinkClick"
-                    @delete-click="onDeleteClick"
-                />
+                <template v-for="m in messages" :key="m.messageId">
+                    <UnreadDivider
+                        v-if="dividerVisible && m.messageId === unreadBoundaryId"
+                        :leaving="dividerLeaving"
+                    />
+                    <MessageItem
+                        :message="m"
+                        :member-names="memberNames"
+                        :can-delete="canDelete"
+                        @avatar-click="onAvatarClick"
+                        @image-click="onImageClick"
+                        @image-load="onMessageImageLoad"
+                        @link-click="onLinkClick"
+                        @delete-click="onDeleteClick"
+                    />
+                </template>
             </div>
 
             <button

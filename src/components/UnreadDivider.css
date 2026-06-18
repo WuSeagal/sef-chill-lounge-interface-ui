@@ -1,0 +1,68 @@
+/* 未讀分隔線（變體 B）：磚紅 pill 落於米色細線，標出未讀邊界位置。沿用專案 token。 */
+.unread-divider {
+    display: flex;
+    align-items: center;
+    padding: 8px var(--space-md);
+    overflow: hidden;
+}
+
+.unread-divider::before,
+.unread-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--bubble-border);
+}
+
+.unread-divider__pill {
+    /* inline-flex + align-items:center 讓「文字」與「SVG 箭頭」各自的盒子真正垂直置中，
+       不受文字字元 baseline 影響（U+2193 文字箭頭與 CJK 混排會看起來偏移）。 */
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin: 0 10px;
+    background: var(--notify-badge-bg);
+    color: var(--notify-badge-text);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    padding: 3px 11px;
+    border-radius: 999px;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(74, 68, 51, 0.22);
+}
+
+.unread-divider__arrow {
+    flex: 0 0 auto;
+    width: 11px;
+    height: 11px;
+    display: block;
+}
+
+/* 入場：淡入 + 輕微下移（ease-out）。
+   退場（is-leaving）：淡出 + 高度收合（ease-in），避免「啪」一下抽掉造成版面跳動；
+   配合訊息列保留的捲動錨定（overflow-anchor），線於視窗上方淡出時不位移閱讀內容。 */
+@media (prefers-reduced-motion: no-preference) {
+    .unread-divider {
+        animation: unread-divider-enter 0.26s ease-out both;
+    }
+    .unread-divider.is-leaving {
+        animation: unread-divider-leave 0.3s ease-in forwards;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .unread-divider.is-leaving {
+        opacity: 0;
+    }
+}
+
+@keyframes unread-divider-enter {
+    from { opacity: 0; transform: translateY(-5px); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes unread-divider-leave {
+    from { opacity: 1; max-height: 48px; }
+    to { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
+}
