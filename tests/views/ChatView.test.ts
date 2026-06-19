@@ -20,8 +20,8 @@ vi.mock('notivue', () => ({
     },
 }))
 
-// host 判定來源：可控的假 auth store user（預設非 host）。
-const authUserHolder: { value: null | { providerUserId: string } } = { value: null }
+// host 判定來源 + banned gate 來源：可控的假 auth store user（預設非 host、非 banned）。
+const authUserHolder: { value: null | { providerUserId: string; banned?: boolean } } = { value: null }
 vi.mock('@/stores/auth', () => ({
     useAuthStore: () => ({ get user() { return authUserHolder.value } }),
 }))
@@ -1413,5 +1413,44 @@ describe('ChatView 輸入中指示器', () => {
         await flushPromises()
         wrapper.unmount()
         expect(disposeTypingSpy).toHaveBeenCalled()
+    })
+})
+
+describe('ChatView 封禁 gate', () => {
+    beforeEach(() => {
+        messagesRef.value = [makeMessage({ cursorId: 11, messageId: 'm1', content: 'a' })]
+        loadingRef.value = false
+        initializedRef.value = true
+        hasMoreRef.value = false
+        kickedRef.value = false
+        membersRef.value = []
+        membersErrorRef.value = null
+        refetchMembersSpy.mockReset().mockResolvedValue(undefined)
+        initSpy.mockReset().mockResolvedValue(undefined)
+        authUserHolder.value = null
+    })
+
+    afterEach(() => {
+        authUserHolder.value = null
+    })
+
+    it('banned=true 時顯示 BannedScreen、不渲染聊天內容', async () => {
+        authUserHolder.value = { providerUserId: 'u-banned', banned: true }
+        const wrapper = mount(ChatView)
+        await flushPromises()
+
+        expect(wrapper.find('.banned-screen').exists()).toBe(true)
+        expect(wrapper.find('.chat-view__list').exists()).toBe(false)
+        wrapper.unmount()
+    })
+
+    it('banned=false（一般使用者）時正常顯示聊天，不顯示 BannedScreen', async () => {
+        authUserHolder.value = { providerUserId: 'u-normal', banned: false }
+        const wrapper = mount(ChatView)
+        await flushPromises()
+
+        expect(wrapper.find('.banned-screen').exists()).toBe(false)
+        expect(wrapper.find('.chat-view__list').exists()).toBe(true)
+        wrapper.unmount()
     })
 })

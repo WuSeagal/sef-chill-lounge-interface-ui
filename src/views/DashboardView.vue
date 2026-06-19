@@ -1,13 +1,20 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import './DashboardView.css'
 import '@/assets/grid-paper.css'
 import FloatingBubble from '@/components/FloatingBubble.vue'
 import DashboardOnlineCounter from '@/components/DashboardOnlineCounter.vue'
 import LizardLoading from '@/components/LizardLoading.vue'
+import BannedScreen from '@/components/BannedScreen.vue'
 import { useDashboardFeed } from '@/composables/useDashboardFeed'
+import { useAuthStore } from '@/stores/auth'
 
 const { bubbles, onlineCount, connected, ready, connect, disconnect, startAnimation, cleanup } = useDashboardFeed()
+
+// 封禁 gate（design D7）：banned 來自 check-auth（進入/重整即生效）；為真則整頁顯示 BannedScreen
+// 取代儀表板內容。WS viewer 連線被後端拒絕為防守縱深第二層。
+const authStore = useAuthStore()
+const banned = computed(() => authStore.user?.banned ?? false)
 
 const isFullscreen = ref(false)
 
@@ -37,7 +44,8 @@ function onFullscreenClick() {
 </script>
 
 <template>
-    <div class="dashboard-view grid-paper">
+    <BannedScreen v-if="banned" />
+    <div v-else class="dashboard-view grid-paper">
         <DashboardOnlineCounter :count="onlineCount" :connected="connected" />
 
         <div v-if="!ready" class="dashboard-view__loading">

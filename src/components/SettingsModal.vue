@@ -8,11 +8,12 @@ import FeedbackTab from './FeedbackTab.vue'
 import DonateTab from './DonateTab.vue'
 import ExportPassportTab from './ExportPassportTab.vue'
 import AnnouncementTab from './AnnouncementTab.vue'
+import BlacklistTab from './BlacklistTab.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 import { isHost } from '@/utils/host'
 
-type TabId = 'settings' | 'export' | 'sticker' | 'topic' | 'feedback' | 'donate' | 'announcement'
+type TabId = 'settings' | 'export' | 'sticker' | 'topic' | 'feedback' | 'donate' | 'announcement' | 'blacklist'
 
 const TABS: { id: TabId; label: string }[] = [
     { id: 'settings', label: '個人資料' },
@@ -23,10 +24,12 @@ const TABS: { id: TabId; label: string }[] = [
     { id: 'donate', label: '斗內連結' },
 ]
 
-// 公告分頁僅 host 可見（重用 ① 的 isHost；非 host 不顯示）
+// 公告、黑名單分頁僅 host 可見（重用 isHost；非 host 不顯示）
 const authStore = useAuthStore()
 const visibleTabs = computed<{ id: TabId; label: string }[]>(() =>
-    isHost(authStore.user?.providerUserId) ? [...TABS, { id: 'announcement', label: '公告' }] : TABS,
+    isHost(authStore.user?.providerUserId)
+        ? [...TABS, { id: 'announcement', label: '公告' }, { id: 'blacklist', label: '黑名單' }]
+        : TABS,
 )
 
 const props = defineProps<{ open: boolean }>()
@@ -160,6 +163,7 @@ onBeforeUnmount(() => {
                         <FeedbackTab v-if="activeTab === 'feedback'" />
                         <DonateTab v-if="activeTab === 'donate'" />
                         <AnnouncementTab v-if="activeTab === 'announcement'" />
+                        <BlacklistTab v-if="activeTab === 'blacklist'" />
                     </div>
                 </div>
                 <!-- #12 未儲存浮層：附在 panel 底、從下滑出；個人資料/貼圖設定 dirty 時顯示，原頁面與原儲存鈕不變 -->

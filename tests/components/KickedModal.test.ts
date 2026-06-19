@@ -7,8 +7,16 @@ describe('KickedModal', () => {
         const wrapper = mount(KickedModal, { props: { open: true } })
 
         expect(wrapper.text()).toContain('你已在其他裝置登入')
+        expect(wrapper.text()).toContain('這個連線已被新登入的裝置取代')
         expect(wrapper.find('[data-test="kicked-modal-reconnect"]').exists()).toBe(true)
         expect(wrapper.find('[data-test="kicked-modal-logout"]').exists()).toBe(false)
+    })
+
+    it('uses the shared LizardCard (grayscale lizard) styling', () => {
+        const wrapper = mount(KickedModal, { props: { open: true } })
+
+        expect(wrapper.find('.lizard-card').exists()).toBe(true)
+        expect(wrapper.find('.lizard-card__lizard').exists()).toBe(true)
     })
 
     it('emits reconnect event when reconnect button clicked', async () => {

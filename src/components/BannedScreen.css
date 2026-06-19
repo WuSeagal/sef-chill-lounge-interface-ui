@@ -1,0 +1,10 @@
+/* 整頁封禁畫面（demo: .screen-banned）：方格紙背景由 .grid-paper 提供，這裡只做置中與滿版佈局。純 CSS。 */
+.banned-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}

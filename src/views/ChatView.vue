@@ -9,6 +9,7 @@ import UserPopup from '@/components/UserPopup.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
 import KickedModal from '@/components/KickedModal.vue'
+import BannedScreen from '@/components/BannedScreen.vue'
 import ReconnectOverlay from '@/components/ReconnectOverlay.vue'
 import TypingIndicator from '@/components/TypingIndicator.vue'
 import AutofillerPopup from '@/components/AutofillerPopup.vue'
@@ -73,6 +74,11 @@ function onLightboxClose() {
 // Host 刪除訊息：僅寫死 host 帳號可見刪除鈕；後端為唯一授權邊界，此處僅控制顯隱。
 const authStore = useAuthStore()
 const canDelete = computed(() => isHost(authStore.user?.providerUserId))
+
+// 封禁 gate（design D7）：banned 來自 check-auth（進入/重整即生效）；為真則整頁顯示 BannedScreen
+// 取代聊天內容。WS 連線被後端拒絕為防守縱深第二層（此處 onMounted 的 init/connect 對 banned
+// 使用者無害，故不條件化 composable，維持既有行為與測試）。
+const banned = computed(() => authStore.user?.banned ?? false)
 
 // 刪除確認框狀態。不做樂觀本地移除——確認後呼叫 API，實際移除等 MESSAGE_DELETED 廣播。
 const pendingDeleteId = ref<string | null>(null)
@@ -534,7 +540,8 @@ void currentProfile
 </script>
 
 <template>
-    <div class="chat-view">
+    <BannedScreen v-if="banned" />
+    <div v-else class="chat-view">
         <div class="chat-view__main">
             <div
                 ref="listEl"

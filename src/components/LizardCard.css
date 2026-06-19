@@ -1,0 +1,77 @@
+/* 共用灰階蜥蜴卡片（demo: ban-screens-demo.html 的 .card）。純 CSS，無 SCSS。 */
+.lizard-card {
+    background: var(--chat-bg);
+    border: 1px solid var(--bubble-border);
+    border-radius: 18px;
+    box-shadow: 0 14px 30px rgba(98, 89, 69, 0.28);
+    padding: 34px 40px 30px;
+    text-align: center;
+    width: 304px;
+    max-width: calc(100% - 40px);
+}
+
+/* 灰階靜止蜥蜴：grayscale(.6) + opacity .5、不跳動（與 ReconnectOverlay 失敗態一致，表終局）。 */
+.lizard-card__lizard {
+    width: 92px;
+    height: auto;
+    margin: 0 auto;
+    display: block;
+    image-rendering: pixelated;
+    filter: grayscale(0.6);
+    opacity: 0.5;
+}
+
+.lizard-card__title {
+    margin: 18px 0 0;
+    font-family: var(--font-family-base);
+    font-size: 1.08rem;
+    font-weight: 700;
+    color: #4a4433;
+    letter-spacing: 0.01em;
+}
+
+.lizard-card__body {
+    margin: 10px 0 0;
+    font-family: var(--font-family-base);
+    font-size: 0.9rem;
+    line-height: 1.65;
+    color: var(--input-text);
+}
+
+.lizard-card__body a {
+    color: #a8462f;
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(168, 70, 47, 0.4);
+}
+
+.lizard-card__actions {
+    margin-top: 22px;
+    display: flex;
+    justify-content: center;
+    gap: var(--space-sm);
+}
+
+/* 卡片內按鈕共用樣式（demo: .card__btn）。bg #ebe3ce / border 1px #d7cdaf / radius 10 / bold #4a4433 / min-height 44px。 */
+.lizard-card__btn {
+    font-family: var(--font-family-base);
+    font-weight: 700;
+    color: #4a4433;
+    background: #ebe3ce;
+    border: 1px solid #d7cdaf;
+    border-radius: 10px;
+    padding: 12px 26px;
+    font-size: 0.92rem;
+    min-height: 44px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.lizard-card__btn:hover {
+    background: #e2d8bc;
+    border-color: #8c8672;
+}

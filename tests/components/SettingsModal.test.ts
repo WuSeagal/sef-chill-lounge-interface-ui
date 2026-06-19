@@ -1,11 +1,27 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { nextTick, ref } from 'vue'
 import SettingsModal from '@/components/SettingsModal.vue'
 
 vi.mock('vue-i18n', () => ({
     useI18n: () => ({ t: (key: string) => key }),
 }))
+
+// BlacklistTab（host 黑名單分頁）會在 mount 時呼叫 API / useMembers；此處 mock 掉避免真實網路請求。
+vi.mock('@/api/blacklistApi', () => ({
+    fetchBlacklist: vi.fn().mockResolvedValue([]),
+    banUser: vi.fn().mockResolvedValue(undefined),
+    removeFromBlacklist: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock('@/composables/useMembers', () => ({
+    useMembers: () => ({
+        members: ref([]),
+        loading: ref(false),
+        error: ref(null),
+        refetch: vi.fn().mockResolvedValue(undefined),
+    }),
+}))
+vi.mock('notivue', () => ({ push: { error: vi.fn(), success: vi.fn() } }))
 
 // SettingsModal 用 useAuthStore 判定是否顯示 host 公告分頁；預設非 host（null）→ 6 分頁。
 const authUserHolder: { value: null | { providerUserId: string } } = { value: null }
@@ -16,18 +32,29 @@ vi.mock('@/stores/auth', () => ({
 describe('SettingsModal', () => {
     afterEach(() => { authUserHolder.value = null })
 
-    it('host 帳號多顯示「公告」分頁（共 7）', () => {
+    it('host 帳號多顯示「公告」與「黑名單」分頁（共 8）', () => {
         authUserHolder.value = { providerUserId: '111427449810799428954' }
         const wrapper = mount(SettingsModal, { props: { open: true } })
         const labels = wrapper.findAll('.settings-modal__tab').map(t => t.text())
         expect(labels).toContain('公告')
-        expect(wrapper.findAll('.settings-modal__tab').length).toBe(7)
+        expect(labels).toContain('黑名單')
+        expect(wrapper.findAll('.settings-modal__tab').length).toBe(8)
     })
 
-    it('非 host 不顯示「公告」分頁', () => {
+    it('非 host 不顯示「公告」與「黑名單」分頁', () => {
         authUserHolder.value = null
         const wrapper = mount(SettingsModal, { props: { open: true } })
-        expect(wrapper.findAll('.settings-modal__tab').map(t => t.text())).not.toContain('公告')
+        const labels = wrapper.findAll('.settings-modal__tab').map(t => t.text())
+        expect(labels).not.toContain('公告')
+        expect(labels).not.toContain('黑名單')
+    })
+
+    it('host 點「黑名單」分頁渲染 BlacklistTab', async () => {
+        authUserHolder.value = { providerUserId: '111427449810799428954' }
+        const wrapper = mount(SettingsModal, { props: { open: true } })
+        const blacklistTab = wrapper.findAll('.settings-modal__tab').find(t => t.text() === '黑名單')!
+        await blacklistTab.trigger('click')
+        expect(wrapper.find('[data-test="blacklist-tab"]').exists()).toBe(true)
     })
 
     it('renders nothing when open=false', () => {

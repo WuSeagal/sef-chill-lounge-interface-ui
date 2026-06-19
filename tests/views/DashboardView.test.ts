@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { ref } from 'vue'
 import type { DashboardBubble } from '@/composables/useDashboardBubbles'
@@ -25,6 +25,12 @@ vi.mock('@/composables/useDashboardFeed', () => ({
         stopAnimation: stopAnimationSpy,
         cleanup: cleanupSpy,
     }),
+}))
+
+// 封禁 gate 來源：可控的假 auth store user（預設 null → 非 banned，既有測試走正常分支）。
+const authUserHolder: { value: null | { providerUserId: string; banned?: boolean } } = { value: null }
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => ({ get user() { return authUserHolder.value } }),
 }))
 
 import DashboardView from '@/views/DashboardView.vue'
@@ -76,5 +82,41 @@ describe('DashboardView', () => {
         wrapper.unmount()
         expect(cleanupSpy).toHaveBeenCalledTimes(1)
         expect(disconnectSpy).toHaveBeenCalledTimes(1)
+    })
+})
+
+describe('DashboardView 封禁 gate', () => {
+    beforeEach(() => {
+        bubblesRef.value = []
+        onlineCountRef.value = 0
+        connectedRef.value = false
+        readyRef.value = true
+        connectSpy.mockClear()
+        disconnectSpy.mockClear()
+        startAnimationSpy.mockClear()
+        cleanupSpy.mockClear()
+        authUserHolder.value = null
+    })
+
+    afterEach(() => {
+        authUserHolder.value = null
+    })
+
+    it('banned=true 時顯示 BannedScreen、不渲染儀表板內容', () => {
+        authUserHolder.value = { providerUserId: 'u-banned', banned: true }
+        const wrapper = mount(DashboardView)
+
+        expect(wrapper.find('.banned-screen').exists()).toBe(true)
+        expect(wrapper.find('.dashboard-view').exists()).toBe(false)
+        wrapper.unmount()
+    })
+
+    it('banned=false 時正常顯示儀表板，不顯示 BannedScreen', () => {
+        authUserHolder.value = { providerUserId: 'u-normal', banned: false }
+        const wrapper = mount(DashboardView)
+
+        expect(wrapper.find('.banned-screen').exists()).toBe(false)
+        expect(wrapper.find('.dashboard-view').exists()).toBe(true)
+        wrapper.unmount()
     })
 })

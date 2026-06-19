@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import './KickedModal.css'
+import LizardCard from './LizardCard.vue'
 
 defineProps<{
     open: boolean
@@ -19,21 +20,25 @@ function onReconnect() {
         v-if="open"
         class="kicked-modal-backdrop"
         data-test="kicked-modal-backdrop"
-        role="dialog"
+        role="alertdialog"
         aria-modal="true"
         aria-labelledby="kicked-modal-title"
     >
-        <div class="kicked-modal" @click.stop>
-            <h2 id="kicked-modal-title" class="kicked-modal__title">你已在其他裝置登入</h2>
-            <p class="kicked-modal__body">這個連線已被新登入的裝置取代。</p>
-            <button
-                type="button"
-                class="kicked-modal__button"
-                data-test="kicked-modal-reconnect"
-                @click="onReconnect"
-            >
-                重新連線
-            </button>
-        </div>
+        <LizardCard @click.stop>
+            <template #title>
+                <span id="kicked-modal-title">你已在其他裝置登入</span>
+            </template>
+            <template #body>這個連線已被新登入的裝置取代。</template>
+            <template #actions>
+                <button
+                    type="button"
+                    class="lizard-card__btn"
+                    data-test="kicked-modal-reconnect"
+                    @click="onReconnect"
+                >
+                    重新連線
+                </button>
+            </template>
+        </LizardCard>
     </div>
 </template>
