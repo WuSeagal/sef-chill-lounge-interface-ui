@@ -152,6 +152,21 @@ describe('PeopleModal', () => {
         wrapper.unmount()
     })
 
+    it('suspended 時 Esc 不 emit close（上層護照疊著時讓最上層先關）', async () => {
+        state.members.value = [member('u1', 'A')]
+        const wrapper = mount(PeopleModal, { props: { open: true, suspended: true } })
+        await flushPromises()
+
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+        expect(wrapper.emitted('close')).toBeUndefined() // 被疊在護照之下，Esc 由護照處理，名單不關
+
+        // 護照關閉後 suspended 變 false → Esc 恢復關閉名單
+        await wrapper.setProps({ suspended: false })
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+        expect(wrapper.emitted('close')?.length).toBe(1)
+        wrapper.unmount()
+    })
+
     it('具 role=dialog / aria-modal 無障礙屬性', async () => {
         state.members.value = [member('u1', 'A')]
         const wrapper = mount(PeopleModal, { props: { open: true } })

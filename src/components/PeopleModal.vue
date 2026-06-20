@@ -12,7 +12,7 @@ import type { Member } from '@/types/user'
  */
 const PAGE_SIZE = 50
 
-const props = defineProps<{ open: boolean; onlineIds?: string[] }>()
+const props = defineProps<{ open: boolean; onlineIds?: string[]; suspended?: boolean }>()
 const emit = defineEmits<{
     (e: 'close'): void
     (e: 'select', userId: string): void
@@ -55,6 +55,9 @@ watch(query, () => { page.value = 1 })
 
 function onKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
+        // 有子層 overlay（如點成員開的護照）疊在其上時暫停 Esc，讓最上層先關（與
+        // PassportOverlay 對內層 lightbox 的 `lightboxUrl !== null` 禮讓一致）。
+        if (props.suspended) return
         event.stopPropagation()
         emit('close')
     }

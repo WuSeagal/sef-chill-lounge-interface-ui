@@ -688,7 +688,7 @@ void currentProfile
             @close="onPopupClose"
         />
 
-        <PeopleModal :open="peopleOpen" :online-ids="onlineIds" @close="peopleOpen = false" @select="onSelectPerson" />
+        <PeopleModal :open="peopleOpen" :online-ids="onlineIds" :suspended="popupOpen" @close="peopleOpen = false" @select="onSelectPerson" />
 
         <ImageLightbox
             :open="lightboxOpen"
