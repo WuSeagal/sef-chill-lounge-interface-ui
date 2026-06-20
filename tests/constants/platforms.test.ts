@@ -83,11 +83,6 @@ describe('platform input/display metadata', () => {
   })
 
   it('模式 B（template + fullUrl）平台帶正確模板與顯示模式', () => {
-    expect(PLATFORMS.STEAM.inputMode).toBe('template')
-    expect(PLATFORMS.STEAM.displayMode).toBe('fullUrl')
-    expect(PLATFORMS.STEAM.urlTemplate).toBe('https://steamcommunity.com/profiles/{{}}')
-    expect(PLATFORMS.STEAM.fillPlaceholder).toBe('id')
-
     expect(PLATFORMS.DISCORD.urlTemplate).toBe('https://discord.com/users/{{}}')
     expect(PLATFORMS.DISCORD.displayMode).toBe('fullUrl')
     expect(PLATFORMS.DISCORD_SERVER.urlTemplate).toBe('https://discord.gg/{{}}')
@@ -95,6 +90,16 @@ describe('platform input/display metadata', () => {
     expect(PLATFORMS.FACEBOOK_PAGE.urlTemplate).toBe('https://www.facebook.com/profile.php?id={{}}')
     expect(PLATFORMS.FACEBOOK_PAGE.displayMode).toBe('fullUrl')
     expect(PLATFORMS.FACEBOOK_PAGE.fillPlaceholder).toBe('id')
+  })
+
+  it('STEAM（free + lastSegment）自由貼整條 URL、保留 host 鎖定、無模板', () => {
+    expect(PLATFORMS.STEAM.inputMode).toBe('free')
+    expect(PLATFORMS.STEAM.displayMode).toBe('lastSegment')
+    expect(PLATFORMS.STEAM.urlTemplate).toBeUndefined()
+    expect(PLATFORMS.STEAM.fillPlaceholder).toBeUndefined()
+    // host 仍鎖 steamcommunity.com（free 不等同無 urlPattern）
+    expect(PLATFORMS.STEAM.urlPattern).toBeDefined()
+    expect(PLATFORMS.STEAM.urlPattern?.test('steamcommunity.com')).toBe(true)
   })
 
   it('模式 C（free + fullUrl）平台無模板', () => {

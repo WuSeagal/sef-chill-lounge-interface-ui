@@ -74,14 +74,49 @@ export function parseSocialHandle(platform: string, rawUrl: string): string | nu
   }
 }
 
+/** 安全 decode 單一 path segment（失敗回原值，不丟例外） */
+function decodeSegment(seg: string): string {
+  try {
+    return decodeURIComponent(seg)
+  } catch {
+    return seg
+  }
+}
+
 /**
- * 顯示文字：handle 模式回 `@帳號`（反解失敗 fallback 完整 URL）；fullUrl 模式回完整 URL。
+ * 取 Steam 類路徑的「識別段」：優先取 `/id/` 或 `/profiles/` 之後的那一段，
+ * 皆不符（或其後無段）時 fallback 取最後一個非空 segment。
+ * 非合法 URL 回 null（由呼叫端 fallback 顯示完整 URL）。
+ */
+function lastSegmentDisplay(url: string): string | null {
+  let u: URL
+  try {
+    u = new URL(url)
+  } catch {
+    return null
+  }
+  const segments = u.pathname.split('/').filter((s) => s !== '')
+  if (segments.length === 0) return null
+
+  const markerIndex = segments.findIndex((s) => s === 'id' || s === 'profiles')
+  if (markerIndex !== -1 && markerIndex + 1 < segments.length) {
+    return decodeSegment(segments[markerIndex + 1])
+  }
+  return decodeSegment(segments[segments.length - 1])
+}
+
+/**
+ * 顯示文字：handle 模式回 `@帳號`（反解失敗 fallback 完整 URL）；
+ * lastSegment 模式回路徑識別段（反解失敗 fallback 完整 URL）；fullUrl 模式回完整 URL。
  */
 export function formatSocialDisplay(platform: string, url: string): string {
   const meta = metaOf(platform)
   if (meta?.displayMode === 'handle') {
     const handle = parseSocialHandle(platform, url)
     return handle !== null ? `@${handle}` : url
+  }
+  if (meta?.displayMode === 'lastSegment') {
+    return lastSegmentDisplay(url) ?? url
   }
   return url
 }

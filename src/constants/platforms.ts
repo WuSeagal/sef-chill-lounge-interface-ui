@@ -22,8 +22,8 @@ export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number]
 
 /** 輸入模式：template = 只填槽位自動補前綴；free = 自由貼完整 URL */
 export type InputMode = 'template' | 'free'
-/** 顯示模式：handle = 去前綴顯示 @帳號；fullUrl = 顯示完整 URL */
-export type DisplayMode = 'handle' | 'fullUrl'
+/** 顯示模式：handle = 去前綴顯示 @帳號；fullUrl = 顯示完整 URL；lastSegment = 顯示路徑識別段（/id/ 或 /profiles/ 後一段） */
+export type DisplayMode = 'handle' | 'fullUrl' | 'lastSegment'
 
 export interface PlatformMeta {
   value: SocialPlatform
@@ -48,7 +48,7 @@ const FACEBOOK_HOST = /^(www\.|m\.)?facebook\.com$|^fb\.com$/i
 export const PLATFORMS: Record<SocialPlatform, PlatformMeta> = {
   FACEBOOK:       { value: 'FACEBOOK',       label: 'Facebook個人',     icon: facebook,   brandColor: '#1877f2', urlPattern: FACEBOOK_HOST, inputMode: 'template', displayMode: 'handle',  urlTemplate: 'https://www.facebook.com/{{}}', fillPlaceholder: 'username' },
   FACEBOOK_PAGE:  { value: 'FACEBOOK_PAGE',  label: 'Facebook粉絲專頁', icon: facebook,   brandColor: '#1877f2', urlPattern: FACEBOOK_HOST, inputMode: 'template', displayMode: 'fullUrl', urlTemplate: 'https://www.facebook.com/profile.php?id={{}}', fillPlaceholder: 'id' },
-  STEAM:          { value: 'STEAM',          label: 'Steam',            icon: steam,      brandColor: '#171a21', urlPattern: /^(www\.)?steamcommunity\.com$/i, inputMode: 'template', displayMode: 'fullUrl', urlTemplate: 'https://steamcommunity.com/profiles/{{}}', fillPlaceholder: 'id' },
+  STEAM:          { value: 'STEAM',          label: 'Steam',            icon: steam,      brandColor: '#171a21', urlPattern: /^(www\.)?steamcommunity\.com$/i, inputMode: 'free', displayMode: 'lastSegment' },
   PLURK:          { value: 'PLURK',          label: 'Plurk',            icon: plurk,      brandColor: '#ff574d', urlPattern: /^(www\.)?plurk\.com$/i, inputMode: 'template', displayMode: 'handle', urlTemplate: 'https://www.plurk.com/{{}}', fillPlaceholder: 'username' },
   CAKERESUME:     { value: 'CAKERESUME',     label: 'CakeResume',       icon: cakeresume, brandColor: '#34c759', urlPattern: /^(www\.)?(cake\.me|cakeresume\.com)$/i, inputMode: 'template', displayMode: 'handle', urlTemplate: 'https://www.cake.me/me/{{}}', fillPlaceholder: 'username' },
   LINKEDIN:       { value: 'LINKEDIN',       label: 'LinkedIn',         icon: linkedin,   brandColor: '#0a66c2', urlPattern: /^(www\.)?linkedin\.com$/i, inputMode: 'template', displayMode: 'handle', urlTemplate: 'https://www.linkedin.com/in/{{}}', fillPlaceholder: 'name' },

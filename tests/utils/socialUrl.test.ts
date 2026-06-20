@@ -15,7 +15,6 @@ describe('composeSocialUrl', () => {
     expect(composeSocialUrl('FACEBOOK_PAGE', '12345')).toBe('https://www.facebook.com/profile.php?id=12345')
     expect(composeSocialUrl('DISCORD', '999')).toBe('https://discord.com/users/999')
     expect(composeSocialUrl('DISCORD_SERVER', 'abc')).toBe('https://discord.gg/abc')
-    expect(composeSocialUrl('STEAM', '76561198000000000')).toBe('https://steamcommunity.com/profiles/76561198000000000')
   })
 
   it('中文 / 非 ASCII 槽位 percent-encode', () => {
@@ -29,6 +28,11 @@ describe('composeSocialUrl', () => {
   it('模式 C（free）原樣回傳', () => {
     expect(composeSocialUrl('PERSONAL', 'https://my.example.com')).toBe('https://my.example.com')
     expect(composeSocialUrl('OTHER', 'https://linktr.ee/x')).toBe('https://linktr.ee/x')
+  })
+
+  it('STEAM（free）整條 URL 原樣回傳，/id/ 與 /profiles/ 皆不改寫', () => {
+    expect(composeSocialUrl('STEAM', 'https://steamcommunity.com/id/akigenshigure')).toBe('https://steamcommunity.com/id/akigenshigure')
+    expect(composeSocialUrl('STEAM', 'https://steamcommunity.com/profiles/76561198000000000')).toBe('https://steamcommunity.com/profiles/76561198000000000')
   })
 
   it('使用者自打開頭 @ 時去除一個（避免 @%40 雙重）', () => {
@@ -95,9 +99,37 @@ describe('formatSocialDisplay', () => {
   })
 
   it('模式 B / C 顯示完整 URL', () => {
-    expect(formatSocialDisplay('STEAM', 'https://steamcommunity.com/profiles/123')).toBe('https://steamcommunity.com/profiles/123')
     expect(formatSocialDisplay('DISCORD', 'https://discord.com/users/999')).toBe('https://discord.com/users/999')
     expect(formatSocialDisplay('PERSONAL', 'https://my.example.com')).toBe('https://my.example.com')
+  })
+
+  it('STEAM（lastSegment）顯示路徑識別段', () => {
+    // /id/ → 帳號段；/profiles/ → 代碼段
+    expect(formatSocialDisplay('STEAM', 'https://steamcommunity.com/id/akigenshigure')).toBe('akigenshigure')
+    expect(formatSocialDisplay('STEAM', 'https://steamcommunity.com/profiles/76561198000000000')).toBe('76561198000000000')
+  })
+
+  it('STEAM（lastSegment）容忍尾斜線 / query / 子頁路徑', () => {
+    expect(formatSocialDisplay('STEAM', 'https://steamcommunity.com/id/akigenshigure/')).toBe('akigenshigure')
+    expect(formatSocialDisplay('STEAM', 'https://steamcommunity.com/id/akigenshigure?foo=bar')).toBe('akigenshigure')
+    // 子頁：仍取 /id/ 後一段，忽略尾段子頁
+    expect(formatSocialDisplay('STEAM', 'https://steamcommunity.com/id/akigenshigure/screenshots/')).toBe('akigenshigure')
+    expect(formatSocialDisplay('STEAM', 'https://steamcommunity.com/profiles/76561198000000000/games/')).toBe('76561198000000000')
+  })
+
+  it('STEAM（lastSegment）percent-encode 還原、皆不符前綴時 fallback 末段、非 URL fallback 原字串', () => {
+    expect(formatSocialDisplay('STEAM', 'https://steamcommunity.com/id/%E5%B0%8F%E8%B2%93')).toBe('小貓')
+    // 非 /id//profiles/ 路徑 → fallback 取最後一個非空 segment
+    expect(formatSocialDisplay('STEAM', 'https://steamcommunity.com/groups/lizardchi')).toBe('lizardchi')
+    // 非合法 URL → fallback 顯示原字串
+    expect(formatSocialDisplay('STEAM', 'not-a-url')).toBe('not-a-url')
+  })
+
+  it('STEAM（lastSegment）邊界：空路徑 fallback 完整 URL、/id/ 後無段取末段', () => {
+    // 可解析但無 path segment → null → fallback 顯示完整 URL
+    expect(formatSocialDisplay('STEAM', 'https://steamcommunity.com/')).toBe('https://steamcommunity.com/')
+    // /id/ 後無 vanity → marker 後無段 → fallback 取最後一個非空 segment（即 'id'，display-only、href 不受影響）
+    expect(formatSocialDisplay('STEAM', 'https://steamcommunity.com/id/')).toBe('id')
   })
 
   it('模式 A 反解失敗 fallback 顯示完整 URL', () => {
