@@ -57,6 +57,22 @@ describe('PeopleModal', () => {
         wrapper.unmount()
     })
 
+    it('在線成員優先排序、離線成員淡化', async () => {
+        state.members.value = [
+            member('off1', 'Off1'),
+            member('on1', 'On1'),
+            member('off2', 'Off2'),
+            member('on2', 'On2'),
+        ]
+        const wrapper = mount(PeopleModal, { props: { open: true, onlineIds: ['on1', 'on2'] } })
+        await flushPromises()
+
+        const names = Array.from(document.querySelectorAll('.people-row__name')).map((n) => n.textContent)
+        expect(names.slice(0, 2)).toEqual(['On1', 'On2']) // 在線優先（保留原順序）
+        expect(document.querySelectorAll('.people-row--offline').length).toBe(2) // 離線淡化（不用綠點，純淡色區別）
+        wrapper.unmount()
+    })
+
     it('每頁 50 人、可換頁', async () => {
         state.members.value = Array.from({ length: 60 }, (_, i) => member(`u${i}`, `name${i}`))
         const wrapper = mount(PeopleModal, { props: { open: true } })

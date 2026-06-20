@@ -4,21 +4,13 @@ import './DashboardView.css'
 import '@/assets/grid-paper.css'
 import FloatingBubble from '@/components/FloatingBubble.vue'
 import DashboardOnlineCounter from '@/components/DashboardOnlineCounter.vue'
-import PeopleModal from '@/components/PeopleModal.vue'
-import UserPopup from '@/components/UserPopup.vue'
 import LizardLoading from '@/components/LizardLoading.vue'
 import BannedScreen from '@/components/BannedScreen.vue'
 import { useDashboardFeed } from '@/composables/useDashboardFeed'
 import { useAuthStore } from '@/stores/auth'
 
+// /dashboard 為唯讀投影：線上人數計數器僅顯示、不開 People 名單（People 入口在 /chat）。
 const { bubbles, onlineCount, connected, ready, connect, disconnect, startAnimation, cleanup } = useDashboardFeed()
-
-// people-directory：點線上人數計數器開 People 名單；點名單某人開唯讀護照（重用 UserPopup）。
-const peopleOpen = ref(false)
-const selectedUserId = ref<string | null>(null)
-function onSelectPerson(userId: string): void {
-    selectedUserId.value = userId
-}
 
 // 封禁 gate（design D7）：banned 來自 check-auth（進入/重整即生效）；為真則整頁顯示 BannedScreen
 // 取代儀表板內容。WS viewer 連線被後端拒絕為防守縱深第二層。
@@ -55,7 +47,7 @@ function onFullscreenClick() {
 <template>
     <BannedScreen v-if="banned" />
     <div v-else class="dashboard-view grid-paper">
-        <DashboardOnlineCounter :count="onlineCount" :connected="connected" @click="peopleOpen = true" />
+        <DashboardOnlineCounter :count="onlineCount" :connected="connected" />
 
         <div v-if="!ready" class="dashboard-view__loading">
             <LizardLoading variant="inline" message="連線中" />
@@ -92,8 +84,5 @@ function onFullscreenClick() {
                 />
             </svg>
         </button>
-
-        <PeopleModal :open="peopleOpen" @close="peopleOpen = false" @select="onSelectPerson" />
-        <UserPopup :open="selectedUserId !== null" :user-id="selectedUserId" @close="selectedUserId = null" />
     </div>
 </template>

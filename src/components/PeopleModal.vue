@@ -12,7 +12,7 @@ import type { Member } from '@/types/user'
  */
 const PAGE_SIZE = 50
 
-const props = defineProps<{ open: boolean }>()
+const props = defineProps<{ open: boolean; onlineIds?: string[] }>()
 const emit = defineEmits<{
     (e: 'close'): void
     (e: 'select', userId: string): void
@@ -30,10 +30,24 @@ const filtered = computed<Member[]>(() => {
     if (!q) return members.value
     return members.value.filter((m) => (m.furName || m.username || '').toLowerCase().includes(q))
 })
-const totalPages = computed(() => Math.max(1, Math.ceil(filtered.value.length / PAGE_SIZE)))
+// 在線優先排序：先在線（保留原順序）再離線；離線列淡化顯示。
+const onlineSet = computed(() => new Set(props.onlineIds ?? []))
+function isOnline(m: Member): boolean {
+    return onlineSet.value.has(m.userId)
+}
+const sorted = computed<Member[]>(() => {
+    const online: Member[] = []
+    const offline: Member[] = []
+    for (const m of filtered.value) {
+        if (isOnline(m)) online.push(m)
+        else offline.push(m)
+    }
+    return [...online, ...offline]
+})
+const totalPages = computed(() => Math.max(1, Math.ceil(sorted.value.length / PAGE_SIZE)))
 const pageItems = computed<Member[]>(() => {
     const start = (page.value - 1) * PAGE_SIZE
-    return filtered.value.slice(start, start + PAGE_SIZE)
+    return sorted.value.slice(start, start + PAGE_SIZE)
 })
 
 // 搜尋變動 → 回第 1 頁
@@ -85,11 +99,11 @@ function nextPage(): void {
                 class="people-modal__panel"
                 role="dialog"
                 aria-modal="true"
-                aria-label="現場成員"
+                aria-label="參加成員"
                 tabindex="-1"
             >
                 <header class="people-modal__head">
-                    <h2 class="people-modal__title">現場成員</h2>
+                    <h2 class="people-modal__title">參加成員</h2>
                     <button type="button" class="people-modal__close" aria-label="關閉" @click="emit('close')">×</button>
                 </header>
 
@@ -107,7 +121,12 @@ function nextPage(): void {
                     <p v-else-if="filtered.length === 0" class="people-modal__status">找不到符合的成員</p>
                     <ul v-else class="people-modal__list">
                         <li v-for="m in pageItems" :key="m.userId">
-                            <button type="button" class="people-row" @click="emit('select', m.userId)">
+                            <button
+                                type="button"
+                                class="people-row"
+                                :class="{ 'people-row--offline': !isOnline(m) }"
+                                @click="emit('select', m.userId)"
+                            >
                                 <img class="people-row__avatar" :src="resolveAvatarSrc(m.avatar)" alt="" />
                                 <span class="people-row__main">
                                     <span class="people-row__name">{{ displayName(m) }}</span>

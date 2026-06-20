@@ -12,6 +12,8 @@ const { bubbles, addBubble, removeBubble, patchProfile, startAnimation, stopAnim
 
 // 線上人數（由 PRESENCE_SNAPSHOT 即時更新）與 WS 連線狀態（驅動紅點閃爍 / 轉灰）。
 const onlineCount = ref(0)
+// 線上 userId 名單（people-directory：People modal 用來在線優先排序 + 離線淡化）。
+const onlineUserIds = ref<string[]>([])
 const connected = ref(false)
 // 「初次 replay 是否完成」的單向旗標：收到首個 PRESENCE_SNAPSHOT（replay 結束標誌）
 // 後翻 true，之後不再 reset（重連不重新以載入動畫覆蓋既有 bubbles）。供 DashboardView
@@ -75,7 +77,9 @@ function handleEnvelope(env: ChatEnvelope) {
         return
     }
     if (env.type === 'PRESENCE_SNAPSHOT' && env.data) {
-        onlineCount.value = (env.data as PresenceSnapshotPayload).onlineUserIds.length
+        const ids = (env.data as PresenceSnapshotPayload).onlineUserIds
+        onlineUserIds.value = ids
+        onlineCount.value = ids.length
         // replay 已結束（snapshot 緊接 replay 之後送出）→ 之後的 CHAT_MESSAGE 才是新訊息
         liveSince = true
         // 初次 replay 完成 → 收掉載入動畫；之後重連 replay 不再重置（bubbles 已在畫面上）
@@ -179,5 +183,5 @@ function disconnect() {
 }
 
 export function useDashboardFeed() {
-    return { bubbles, onlineCount, connected, ready, connect, disconnect, startAnimation, stopAnimation, cleanup }
+    return { bubbles, onlineCount, onlineUserIds, connected, ready, connect, disconnect, startAnimation, stopAnimation, cleanup }
 }

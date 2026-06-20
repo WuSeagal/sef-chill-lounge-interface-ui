@@ -8,29 +8,33 @@
     z-index: 50;
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    padding: 8px 16px;
+    /* RWD：隨視窗縮放（大螢幕投影大、手機小），而非固定尺寸。 */
+    gap: clamp(6px, 1.2vw, 12px);
+    padding: clamp(6px, 1.1vw, 12px) clamp(12px, 2.3vw, 22px);
     border-radius: var(--radius-md);
     background: var(--bottom-bar-bg);
     box-shadow: var(--shadow-popup);
-    /* 從 div 改為可點擊 button：重置外觀、加游標與互動回饋（people-directory 入口）。 */
+    /* button 變體（/chat 入口）重置外觀；div 變體（/dashboard）為純展示。 */
     border: none;
-    cursor: pointer;
     font: inherit;
     color: inherit;
     transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
-.dashboard-online-counter:hover {
+/* 只有可點擊（button）版本才有游標與互動回饋。 */
+button.dashboard-online-counter {
+    cursor: pointer;
+}
+button.dashboard-online-counter:hover {
     transform: translateY(-1px);
 }
-.dashboard-online-counter:focus-visible {
-    outline: 2px solid var(--accent, #c2452d);
+button.dashboard-online-counter:focus-visible {
+    outline: 2px solid var(--notify-badge-bg, #c2452d);
     outline-offset: 2px;
 }
 
 .dashboard-online-counter__dot {
-    width: 12px;
-    height: 12px;
+    width: clamp(9px, 1.5vw, 16px);
+    height: clamp(9px, 1.5vw, 16px);
     flex: 0 0 auto;
     border-radius: 50%;
     /* 斷線預設：灰、不閃 */
@@ -44,7 +48,7 @@
 
 .dashboard-online-counter__num {
     color: var(--bottom-bar-icon);
-    font-size: 1.5rem;
+    font-size: clamp(1rem, 2.6vw, 1.8rem);
     font-weight: 700;
     line-height: 1;
     font-variant-numeric: tabular-nums;

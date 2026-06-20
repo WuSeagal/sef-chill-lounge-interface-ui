@@ -53,8 +53,9 @@ const myStickers = computed(() => user.profile.value?.stickers ?? [])
 const popupUserId = ref<string | null>(null)
 const popupOpen = computed(() => popupUserId.value !== null)
 
-// people-directory：/chat 線上人數（由 PRESENCE_SNAPSHOT 維護）+ People 名單入口。
+// people-directory：/chat 線上人數與線上名單（由 PRESENCE_SNAPSHOT 維護）+ People 名單入口。
 const onlineCount = ref(0)
+const onlineIds = ref<string[]>([])
 const wsConnected = computed(() => !wsReconnecting.value && !wsFailed.value)
 const peopleOpen = ref(false)
 function onSelectPerson(userId: string): void {
@@ -330,6 +331,7 @@ function onWsMemberEvent(envelope: ChatEnvelope) {
     } else if (envelope.type === 'PRESENCE_SNAPSHOT') {
         candidateIds = (envelope.data as PresenceSnapshotPayload | undefined)?.onlineUserIds ?? []
         onlineCount.value = candidateIds.length
+        onlineIds.value = candidateIds
     } else {
         return
     }
@@ -560,6 +562,7 @@ void currentProfile
             class="chat-view__online-counter"
             :count="onlineCount"
             :connected="wsConnected"
+            clickable
             @click="peopleOpen = true"
         />
         <div class="chat-view__main">
@@ -685,7 +688,7 @@ void currentProfile
             @close="onPopupClose"
         />
 
-        <PeopleModal :open="peopleOpen" @close="peopleOpen = false" @select="onSelectPerson" />
+        <PeopleModal :open="peopleOpen" :online-ids="onlineIds" @close="peopleOpen = false" @select="onSelectPerson" />
 
         <ImageLightbox
             :open="lightboxOpen"

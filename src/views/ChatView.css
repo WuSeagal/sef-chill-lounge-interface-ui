@@ -173,9 +173,20 @@
 }
 
 
-/* people-directory：/chat 線上人數計數器（People 名單入口）置左上，避開右側 host 刪訊息鈕與右下 scroll-fab。 */
+/* people-directory：/chat 線上人數計數器（People 名單入口）置右上。
+   /chat 是手機/桌面共用的 app chrome，尺寸用「溫和」clamp（上限接近手機大小、不放大到投影尺寸）；
+   /dashboard 投影版維持元件本身較大的 clamp。 */
 .dashboard-online-counter.chat-view__online-counter {
     top: 12px;
-    left: 12px;
-    right: auto;
+    right: 12px;
+    left: auto;
+    gap: clamp(5px, 0.6vw, 8px);
+    padding: clamp(5px, 0.6vw, 8px) clamp(10px, 1vw, 14px);
+}
+.dashboard-online-counter.chat-view__online-counter .dashboard-online-counter__num {
+    font-size: clamp(0.9rem, 1vw, 1.05rem);
+}
+.dashboard-online-counter.chat-view__online-counter .dashboard-online-counter__dot {
+    width: clamp(8px, 0.8vw, 11px);
+    height: clamp(8px, 0.8vw, 11px);
 }
