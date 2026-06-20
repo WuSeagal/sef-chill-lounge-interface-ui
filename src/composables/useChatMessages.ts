@@ -78,6 +78,13 @@ export function useChatMessages() {
     const pendingLive: ChatMessageBroadcastPayload[] = []
     let historyLoaded = false
 
+    // D7：呼叫端（ChatView）注入「目前是否貼底」的 getter，供 appendLive 判定是否裁頭。
+    // 預設 true（視為貼底）以沿用舊行為；每次 appendLive 即時求值以追蹤最新捲動狀態。
+    let isAtBottomGetter: () => boolean = () => true
+    function setIsAtBottom(getter: () => boolean) {
+        isAtBottomGetter = getter
+    }
+
     // Rate-limit UX state: when the server rejects a send with RATE_LIMITED,
     // disable the composer for the reported window and tick a per-second
     // countdown so the input placeholder can show「請 X 秒後再發送」。
@@ -128,7 +135,7 @@ export function useChatMessages() {
                 }
                 const last = history.messages.value.at(-1)
                 if (last && last.messageId === data.messageId) return
-                history.appendLive(data)
+                history.appendLive(data, isAtBottomGetter())
                 return
             }
             if (envelope.type === 'PROFILE_UPDATED') {
@@ -173,7 +180,7 @@ export function useChatMessages() {
         const seen = new Set(history.messages.value.map((m) => m.messageId))
         for (const msg of pendingLive) {
             if (seen.has(msg.messageId)) continue
-            history.appendLive(msg)
+            history.appendLive(msg, isAtBottomGetter())
             seen.add(msg.messageId)
         }
         pendingLive.length = 0
@@ -260,6 +267,7 @@ export function useChatMessages() {
         init,
         reconnect,
         dispose,
+        setIsAtBottom,
         sendChatMessage,
         sendStickerMessage,
         rateLimited,

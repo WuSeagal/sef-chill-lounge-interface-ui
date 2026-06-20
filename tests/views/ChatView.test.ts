@@ -114,6 +114,7 @@ vi.mock('@/composables/useChatMessages', () => ({
         init: initSpy,
         reconnect: reconnectSpy,
         dispose: disposeSpy,
+        setIsAtBottom: vi.fn(),
         sendChatMessage: sendChatMessageSpy,
         sendStickerMessage: sendStickerMessageSpy,
         kicked: kickedRef,

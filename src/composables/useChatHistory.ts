@@ -2,6 +2,11 @@ import { ref } from 'vue'
 import { fetchMessageHistory } from '@/api/messageApi'
 import type { MessageResponse } from '@/types/message'
 
+// 前端訊息工作集上限（D7）：數小時 long-run 的 /chat 若無限 appendLive 會讓 DOM
+// 無限膨脹。貼底（不在讀歷史）時，超過此上限即從最舊端裁切，並恢復 hasMore 讓更舊
+// 訊息仍可由 loadMore 自伺服器（完整持久化）重載。初始載入則數與往上捲 lazy load 不受影響。
+const MAX_MESSAGES = 1000
+
 function sortAscending(messages: MessageResponse[]) {
     return [...messages].sort((a, b) => {
         if (a.createdDate === b.createdDate) {
@@ -56,8 +61,16 @@ export function useChatHistory() {
         }
     }
 
-    function appendLive(message: MessageResponse) {
-        messages.value = [...messages.value, message]
+    // isAtBottom 預設 true 以沿用舊呼叫端行為；只有「貼底（不在讀歷史）」時才裁頭，
+    // 永不抽走使用者正在看的歷史。裁頭後恢復 hasMore，確保更舊訊息仍可 loadMore 重載。
+    function appendLive(message: MessageResponse, isAtBottom = true) {
+        const next = [...messages.value, message]
+        if (isAtBottom && next.length > MAX_MESSAGES) {
+            messages.value = next.slice(next.length - MAX_MESSAGES)
+            hasMore.value = true
+            return
+        }
+        messages.value = next
     }
 
     return {

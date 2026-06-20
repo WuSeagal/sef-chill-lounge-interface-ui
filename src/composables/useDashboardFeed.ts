@@ -30,6 +30,10 @@ let pongTimeout: ReturnType<typeof setTimeout> | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let reconnectAttempts = 0
 let intentionalClose = false
+// 上次成功收到 PONG（或本連線 onopen）的時間，供回前景時判定「半死連線」（pong 逾時）。
+let lastPongAt = 0
+// D4：前景重連監聽只註冊一次（module flag），disconnect 時移除。
+let lifecycleListenersRegistered = false
 
 function clearPing() {
     if (pingInterval) clearInterval(pingInterval)
@@ -83,10 +87,12 @@ function connect() {
     if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return
     intentionalClose = false
     ws = new WebSocket(import.meta.env.VITE_WS_DASHBOARD_ENDPOINT as string)
+    registerLifecycleListeners()
 
     ws.onopen = () => {
         connected.value = true
         reconnectAttempts = 0
+        lastPongAt = Date.now()
         // 每次（含重連）連線都會重新 replay；重置 live 邊界，等首個 PRESENCE_SNAPSHOT 再開啟
         liveSince = false
         schedulePing()
@@ -95,6 +101,7 @@ function connect() {
         let env: ChatEnvelope
         try { env = JSON.parse(event.data) } catch { return }
         if (env.type === 'PONG') {
+            lastPongAt = Date.now()
             if (pongTimeout) { clearTimeout(pongTimeout); pongTimeout = null }
             return
         }
@@ -108,10 +115,64 @@ function connect() {
     }
 }
 
+/**
+ * D4：投影端回前景 / 網路恢復時，若 viewer 連線非 OPEN（或 PONG 已逾時的半死連線）→
+ * reset 退避並立即重連，不等 backoff。半死連線需先強制關閉舊 socket 再重連，否則
+ * connect() 因 readyState===OPEN 而早退什麼都不做。
+ */
+function reconnectIfForeground() {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+    const open = ws?.readyState === WebSocket.OPEN
+    const pongOverdue = open && Date.now() - lastPongAt > PONG_TIMEOUT_MS
+    if (open && !pongOverdue) return
+    if (open && pongOverdue && ws) {
+        intentionalClose = true
+        clearPing()
+        ws.close()
+        ws = null
+    }
+    reconnectAttempts = 0
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+    connect()
+}
+
+function onVisibilityChange() {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        reconnectIfForeground()
+    }
+}
+
+function onOnline() {
+    reconnectIfForeground()
+}
+
+function registerLifecycleListeners() {
+    if (lifecycleListenersRegistered) return
+    if (typeof document !== 'undefined') {
+        document.addEventListener('visibilitychange', onVisibilityChange)
+    }
+    if (typeof window !== 'undefined') {
+        window.addEventListener('online', onOnline)
+    }
+    lifecycleListenersRegistered = true
+}
+
+function removeLifecycleListeners() {
+    if (!lifecycleListenersRegistered) return
+    if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+    if (typeof window !== 'undefined') {
+        window.removeEventListener('online', onOnline)
+    }
+    lifecycleListenersRegistered = false
+}
+
 function disconnect() {
     intentionalClose = true
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
     clearPing()
+    removeLifecycleListeners()
     ws?.close()
     ws = null
     reconnectAttempts = 0

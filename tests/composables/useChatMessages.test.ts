@@ -187,7 +187,44 @@ describe('useChatMessages', () => {
 
         messageHandlers[0]({ type: 'CHAT_MESSAGE', data: live })
 
-        expect(appendLiveMock).toHaveBeenCalledWith(live)
+        expect(appendLiveMock).toHaveBeenCalledWith(live, expect.any(Boolean))
+    })
+
+    // ── D7 wiring：把貼底狀態傳給 appendLive（裁頭只在貼底時發生）──────────
+
+    it('預設貼底狀態為 true，appendLive 第二參數為 true', async () => {
+        const { init } = useChatMessages()
+        await init()
+
+        const live = fakeMessage({ messageId: 'msg-bottom', content: 'live' })
+        messageHandlers[0]({ type: 'CHAT_MESSAGE', data: live })
+
+        expect(appendLiveMock).toHaveBeenCalledWith(live, true)
+    })
+
+    it('setIsAtBottom 設為非貼底時，appendLive 第二參數為 false（不裁頭）', async () => {
+        const { init, setIsAtBottom } = useChatMessages()
+        await init()
+        setIsAtBottom(() => false)
+
+        const live = fakeMessage({ messageId: 'msg-scrolled', content: 'live' })
+        messageHandlers[0]({ type: 'CHAT_MESSAGE', data: live })
+
+        expect(appendLiveMock).toHaveBeenCalledWith(live, false)
+    })
+
+    it('setIsAtBottom getter 於每次 appendLive 即時求值（追蹤最新貼底狀態）', async () => {
+        const { init, setIsAtBottom } = useChatMessages()
+        await init()
+        let atBottom = true
+        setIsAtBottom(() => atBottom)
+
+        messageHandlers[0]({ type: 'CHAT_MESSAGE', data: fakeMessage({ messageId: 'a' }) })
+        expect(appendLiveMock).toHaveBeenLastCalledWith(expect.objectContaining({ messageId: 'a' }), true)
+
+        atBottom = false
+        messageHandlers[0]({ type: 'CHAT_MESSAGE', data: fakeMessage({ messageId: 'b' }) })
+        expect(appendLiveMock).toHaveBeenLastCalledWith(expect.objectContaining({ messageId: 'b' }), false)
     })
 
     it('sendChatMessage emits a TEXT envelope via WebSocket', async () => {
@@ -325,7 +362,8 @@ describe('useChatMessages', () => {
         await initPromise
 
         // After load completes, the buffered live message should be appended.
-        expect(appendLiveMock).toHaveBeenCalledWith(live)
+        // appendLive now also receives the at-bottom flag (D7 工作集上限裁頭判定)。
+        expect(appendLiveMock).toHaveBeenCalledWith(live, expect.any(Boolean))
     })
 
     it('flushPendingLive skips messages that history already contains', async () => {

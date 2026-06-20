@@ -38,7 +38,7 @@ function uploadErrorToMessage(code: string): string {
     return ERROR_CODE_TO_MESSAGE[code] ?? code
 }
 
-const { messages, loading, initialized, hasMore, loadMore, init, reconnect, dispose, sendChatMessage, sendStickerMessage: sendChatStickerMessage, rateLimited, rateLimitRemaining, kicked, wsReconnecting, wsFailed } = useChatMessages()
+const { messages, loading, initialized, hasMore, loadMore, init, reconnect, dispose, setIsAtBottom, sendChatMessage, sendStickerMessage: sendChatStickerMessage, rateLimited, rateLimitRemaining, kicked, wsReconnecting, wsFailed } = useChatMessages()
 const wsClient = useChatWebSocket()
 const imageUpload = useChatImageUpload()
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -107,6 +107,9 @@ async function onDeleteConfirm() {
 const listEl = ref<HTMLElement | null>(null)
 const isAtBottom = ref(true)
 const SCROLL_BOTTOM_THRESHOLD = 80
+
+// D7：把貼底狀態交給 useChatMessages，讓 appendLive 只在貼底時裁頭（不抽走正在看的歷史）。
+setIsAtBottom(() => isAtBottom.value)
 
 // 非貼底期間到達的他人新訊息計數，顯示於 scroll-fab 右上角 badge；貼底即歸零。
 const unreadCount = ref(0)
