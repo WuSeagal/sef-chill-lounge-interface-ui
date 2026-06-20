@@ -12,6 +12,7 @@ import BlacklistTab from './BlacklistTab.vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 import { isHost } from '@/utils/host'
+import { useFocusTrap } from '@/composables/useFocusTrap'
 
 type TabId = 'settings' | 'export' | 'sticker' | 'topic' | 'feedback' | 'donate' | 'announcement' | 'blacklist'
 
@@ -33,6 +34,9 @@ const visibleTabs = computed<{ id: TabId; label: string }[]>(() =>
 )
 
 const props = defineProps<{ open: boolean }>()
+
+const settingsPanelRef = ref<HTMLElement | null>(null)
+useFocusTrap(settingsPanelRef, () => props.open)
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 const activeTab = ref<TabId>('settings')
@@ -132,7 +136,15 @@ onBeforeUnmount(() => {
 <template>
     <Transition name="settings-modal">
         <div v-if="open" class="settings-modal" @click="attemptClose">
-            <div class="settings-modal__panel" @click.stop>
+            <div
+                ref="settingsPanelRef"
+                class="settings-modal__panel"
+                role="dialog"
+                aria-modal="true"
+                aria-label="設定"
+                tabindex="-1"
+                @click.stop
+            >
                 <button
                     class="settings-modal__close"
                     type="button"

@@ -19,6 +19,16 @@ describe('BottomBar', () => {
         expect(btns[4].attributes('data-btn')).toBe('send')
     })
 
+    it('每顆圖示按鈕都有可存取名稱 aria-label（mobile-a11y-polish）', () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '' } })
+        const labels: Record<string, string> = {
+            gear: '設定', attach: '附加圖片', emoji: '表情符號', sticker: '貼圖', send: '送出',
+        }
+        for (const [btn, label] of Object.entries(labels)) {
+            expect(wrapper.find(`[data-btn="${btn}"]`).attributes('aria-label')).toBe(label)
+        }
+    })
+
     it('emits gear-click when gear button is clicked', async () => {
         const wrapper = mount(BottomBar, { props: { inputValue: '' } })
         await wrapper.find('[data-btn="gear"]').trigger('click')

@@ -188,18 +188,19 @@ function onStickerSelect(url: string) {
 
 <template>
     <div class="bottom-bar">
-        <button class="bottom-bar__btn" data-btn="gear" type="button" @click="emit('gear-click')">
-            <span class="bottom-bar__icon" v-html="iconSettingsRaw"></span>
+        <button class="bottom-bar__btn" data-btn="gear" type="button" aria-label="設定" @click="emit('gear-click')">
+            <span class="bottom-bar__icon" v-html="iconSettingsRaw" aria-hidden="true"></span>
         </button>
         <button
             class="bottom-bar__btn"
             data-btn="attach"
             type="button"
+            aria-label="附加圖片"
             :disabled="attachDisabled || rateLimited"
             :title="attachDisabled ? '已達 5 張上限' : ''"
             @click="emit('attach-click')"
         >
-            <span class="bottom-bar__icon" v-html="iconAttachRaw"></span>
+            <span class="bottom-bar__icon" v-html="iconAttachRaw" aria-hidden="true"></span>
         </button>
         <textarea
             ref="textareaEl"
@@ -218,28 +219,31 @@ function onStickerSelect(url: string) {
             class="bottom-bar__btn"
             data-btn="emoji"
             type="button"
+            aria-label="表情符號"
             :disabled="rateLimited"
             @click.stop="onEmojiButtonClick"
         >
-            <span class="bottom-bar__icon" v-html="iconEmojiRaw"></span>
+            <span class="bottom-bar__icon" v-html="iconEmojiRaw" aria-hidden="true"></span>
         </button>
         <button
             class="bottom-bar__btn"
             data-btn="sticker"
             type="button"
+            aria-label="貼圖"
             :disabled="rateLimited"
             @click.stop="onStickerButtonClick"
         >
-            <span class="bottom-bar__icon" v-html="iconStickerRaw"></span>
+            <span class="bottom-bar__icon" v-html="iconStickerRaw" aria-hidden="true"></span>
         </button>
         <button
             class="bottom-bar__btn"
             data-btn="send"
             type="button"
+            aria-label="送出"
             :disabled="rateLimited"
             @click="onSend"
         >
-            <span class="bottom-bar__icon" v-html="iconSendRaw"></span>
+            <span class="bottom-bar__icon" v-html="iconSendRaw" aria-hidden="true"></span>
         </button>
 
         <EmojiPicker

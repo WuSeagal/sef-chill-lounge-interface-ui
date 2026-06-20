@@ -108,7 +108,8 @@ function onInput(value: string): void {
   background: var(--sli-bg, #fffdf6);
   color: var(--sli-text, #3f3a2c);
   font: inherit;
-  font-size: var(--sli-font, 0.95rem);
+  /* 預設 ≥16px 防 iOS 聚焦自動放大（mobile-a11y-polish）。 */
+  font-size: var(--sli-font, 16px);
   line-height: 1.5;
 }
 .social-link-input__field:focus {

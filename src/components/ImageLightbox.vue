@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import './ImageLightbox.css'
 import { assetUrl } from '@/utils/assetUrl'
+import { useFocusTrap } from '@/composables/useFocusTrap'
 
 const props = defineProps<{
     open: boolean
@@ -15,6 +16,9 @@ const emit = defineEmits<{
 }>()
 
 const visible = computed(() => props.open && props.imageUrl !== null)
+
+const lightboxRef = ref<HTMLElement | null>(null)
+useFocusTrap(lightboxRef, () => visible.value)
 
 function onKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape' && visible.value) {
@@ -49,7 +53,16 @@ function onFrameClick(event: Event) {
 </script>
 
 <template>
-    <div v-if="visible" class="image-lightbox" @click="onBackdropClick">
+    <div
+        v-if="visible"
+        ref="lightboxRef"
+        class="image-lightbox"
+        role="dialog"
+        aria-modal="true"
+        aria-label="圖片預覽"
+        tabindex="-1"
+        @click="onBackdropClick"
+    >
         <div class="image-lightbox__frame" @click="onFrameClick">
             <img class="image-lightbox__img" :src="resolvedUrl" alt="" />
             <a

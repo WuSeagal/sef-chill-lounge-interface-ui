@@ -5,6 +5,7 @@ import PassportCard from './PassportCard.vue'
 import ImageLightbox from './ImageLightbox.vue'
 import type { Tag } from '@/types/user'
 import { exportPassportToPng, buildPassportFileName } from '@/utils/exportPassport'
+import { useFocusTrap } from '@/composables/useFocusTrap'
 import { push } from 'notivue'
 
 /**
@@ -34,6 +35,9 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 const closeRef = ref<HTMLButtonElement | null>(null)
+const overlayRef = ref<HTMLElement | null>(null)
+// a11y：Tab/Shift+Tab 循環限制在遮罩內（focus-in/還原與既有 closeRef/lastFocused 邏輯一致、不衝突）。
+useFocusTrap(overlayRef, () => props.open)
 const lightboxUrl = ref<string | null>(null)
 // a11y：記住開啟前的焦點元素，關閉/卸載時還原（onboarding 與 /chat 兩條路徑共用）
 let lastFocused: HTMLElement | null = null
@@ -107,8 +111,13 @@ onBeforeUnmount(() => {
   <Teleport to="body">
     <div
       v-if="open"
+      ref="overlayRef"
       class="passport-overlay"
       data-test="passport-zoom"
+      role="dialog"
+      aria-modal="true"
+      aria-label="放大護照"
+      tabindex="-1"
       @click.self="emit('close')"
     >
       <button
