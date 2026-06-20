@@ -122,7 +122,10 @@ function onKeydown(event: KeyboardEvent) {
     if (props.autofillerOpen && props.autofillerHandleKeydown?.(event)) {
         return
     }
-    if (event.key === 'Enter' && !event.shiftKey) {
+    const isTouchDevice = typeof window.matchMedia === 'function'
+        ? window.matchMedia('(pointer: coarse)').matches
+        : false
+    if (event.key === 'Enter' && !event.shiftKey && !isTouchDevice) {
         event.preventDefault()
         onSend()
     }

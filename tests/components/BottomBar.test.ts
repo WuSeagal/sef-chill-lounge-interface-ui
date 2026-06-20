@@ -1,8 +1,23 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import BottomBar from '@/components/BottomBar.vue'
 
+function mockMatchMedia(coarse: boolean) {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+        matches: coarse && query === '(pointer: coarse)',
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+    }))
+}
+
 describe('BottomBar', () => {
+    afterEach(() => { vi.unstubAllGlobals() })
+
     it('renders five icon buttons and one input', () => {
         const wrapper = mount(BottomBar, { props: { inputValue: '' } })
         expect(wrapper.findAll('.bottom-bar__btn').length).toBe(5)
@@ -53,7 +68,8 @@ describe('BottomBar', () => {
         expect(updates![0]).toEqual(['typed'])
     })
 
-    it('emits send with the current input value when Enter is pressed (keydown)', async () => {
+    it('emits send with the current input value when Enter is pressed (keydown) — desktop', async () => {
+        mockMatchMedia(false)
         const wrapper = mount(BottomBar, { props: { inputValue: 'enter-typed' } })
         await wrapper.find('.bottom-bar__input').trigger('keydown', { key: 'Enter' })
         const sent = wrapper.emitted('send')
@@ -62,9 +78,26 @@ describe('BottomBar', () => {
     })
 
     it('does NOT emit send on Shift+Enter (newline insertion path)', async () => {
+        mockMatchMedia(false)
         const wrapper = mount(BottomBar, { props: { inputValue: 'shift-enter' } })
         await wrapper.find('.bottom-bar__input').trigger('keydown', { key: 'Enter', shiftKey: true })
         expect(wrapper.emitted('send')).toBeFalsy()
+    })
+
+    it('does NOT emit send on Enter when touch device (mobile Enter = newline)', async () => {
+        mockMatchMedia(true)
+        const wrapper = mount(BottomBar, { props: { inputValue: 'mobile-text' } })
+        await wrapper.find('.bottom-bar__input').trigger('keydown', { key: 'Enter' })
+        expect(wrapper.emitted('send')).toBeFalsy()
+    })
+
+    it('emits send when touch device presses Send button', async () => {
+        mockMatchMedia(true)
+        const wrapper = mount(BottomBar, { props: { inputValue: 'mobile-text' } })
+        await wrapper.find('[data-btn="send"]').trigger('click')
+        const sent = wrapper.emitted('send')
+        expect(sent).toBeTruthy()
+        expect(sent![0]).toEqual(['mobile-text'])
     })
 
     it('renders the input as a <textarea> for multi-line support', () => {
