@@ -270,6 +270,53 @@ describe('IntroView', () => {
         expect((nextBtn.element as HTMLButtonElement).disabled).toBe(false)
     })
 
+    it('nickname step: 顯示「快速通關」按鈕與 hover 說明（onboarding-quick-pass）', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        const quickBtn = wrapper.find('[data-test=quick-pass]')
+        expect(quickBtn.exists()).toBe(true)
+        expect(quickBtn.text()).toContain('快速通關')
+        expect(quickBtn.attributes('title')).toContain('跳過初始資料的建立直接進入互動大廳')
+        expect((quickBtn.element as HTMLButtonElement).disabled).toBe(false)
+    })
+
+    it('nickname step: 暱稱為空時「快速通關」disabled', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: '' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+        await wrapper.find('[data-test=furName]').setValue('')
+        await flushPromises()
+
+        expect((wrapper.find('[data-test=quick-pass]').element as HTMLButtonElement).disabled).toBe(true)
+    })
+
+    it('nickname step: 點「快速通關」僅以暱稱建立 profile 並直達話題卡步', async () => {
+        authState.isLogin = true
+        authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }
+        needsOnboardingRef.value = true
+
+        const wrapper = mountIntroView()
+        await flushPromises()
+
+        await wrapper.find('[data-test=quick-pass]').trigger('click')
+        await flushPromises()
+
+        // 僅以暱稱建立 profile（中間可選步被略過）
+        expect(createProfileMock).toHaveBeenCalledWith(expect.objectContaining({ furName: 'Google Fox' }))
+        // 直達話題卡步：顯示抽到的話題卡內容
+        expect(wrapper.text()).toContain('今晚想一起聊什麼？')
+        // 未經過 avatar 等可選步
+        expect(wrapper.find('[data-test=later-edit]').exists()).toBe(false)
+    })
+
     it('nickname step: no later-edit or skip button', async () => {
         authState.isLogin = true
         authState.user = { providerUserId: 'u-mock', googleName: 'Google Fox' }

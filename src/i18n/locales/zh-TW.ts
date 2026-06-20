@@ -79,6 +79,8 @@ const zhTW = {
             previous: '上一步',
             skip: '先略過',
             next: '下一步',
+            quickPass: '快速通關',
+            quickPassHint: '跳過初始資料的建立直接進入互動大廳',
             confirmCreate: '確認並建立',
             laterEdit: '稍後編輯',
             laterFill: '稍後填寫',

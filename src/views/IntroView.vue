@@ -394,6 +394,14 @@ async function confirmProfileSetup(): Promise<void> {
     }
 }
 
+// 快速通關（onboarding-quick-pass）：暱稱步捷徑——標記所有可選步為略過，僅以暱稱建立 profile，
+// 重用 confirmProfileSetup 完成建立並導向話題卡步（隨後既有 5 秒倒數進 /chat）。
+async function quickPass(): Promise<void> {
+    if (!canNext.value || submitting.value) return
+    skippedStepKeys.value = ['avatar', 'tags', 'socials', 'stickers']
+    await confirmProfileSetup()
+}
+
 
 async function initializeOnboarding(): Promise<void> {
     clearTimers()
@@ -707,6 +715,16 @@ onBeforeUnmount(() => {
                     <div class="intro-view__wz-foot-right">
                         <!-- Nickname: single 下一步 (disabled when empty) -->
                         <template v-if="currentStep.key === 'nickname'">
+                            <button
+                                type="button"
+                                class="intro-view__wz-btn intro-view__wz-btn--ghost"
+                                data-test="quick-pass"
+                                :title="t('intro.actions.quickPassHint')"
+                                :aria-label="t('intro.actions.quickPassHint')"
+                                :disabled="!canNext"
+                                @click="quickPass">
+                                {{ t('intro.actions.quickPass') }}
+                            </button>
                             <button
                                 type="button"
                                 class="intro-view__wz-btn intro-view__wz-btn--primary"
