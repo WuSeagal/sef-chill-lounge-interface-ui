@@ -107,19 +107,31 @@ describe('useChatWebSocket', () => {
         expect(received).toEqual([])
     })
 
-    // D1 後：grace 內的 KICKED 視為同人自我碰撞（見下方專屬測試）；只有 grace 外的 KICKED
-    // 才視為別台登入而設 kicked=true。close 4271 的 grace 外情境見「grace 外…別台登入」測試。
-    it('grace 外收到 KICKED envelope 視為別台登入：kicked=true', () => {
+    // ── 嚴格單一連線：被踢即顯示 modal、不靜默重連 ──────────────────
+
+    it('sets kicked when receiving KICKED envelope', () => {
         const ws = useChatWebSocket()
         ws.connect()
         const socket = FakeWebSocket.instances[0]
         socket.open()
 
-        // 超過 KICK_GRACE_MS(4000) 才收到 KICKED envelope
-        vi.advanceTimersByTime(5_000)
         socket.deliver('{"type":"KICKED","timestamp":1,"data":null}')
 
         expect(ws.kicked.value).toBe(true)
+        // 被踢不自動重連
+        expect(FakeWebSocket.instances).toHaveLength(1)
+    })
+
+    it('sets kicked when close code is 4271', () => {
+        const ws = useChatWebSocket()
+        ws.connect()
+        const socket = FakeWebSocket.instances[0]
+        socket.open()
+
+        socket.close(4271)
+
+        expect(ws.kicked.value).toBe(true)
+        expect(FakeWebSocket.instances).toHaveLength(1)
     })
 
     it('reconnects with backoff after unexpected close', () => {
@@ -138,7 +150,7 @@ describe('useChatWebSocket', () => {
     it('marks wsFailed after 5 failed reconnects', () => {
         const ws = useChatWebSocket()
         ws.connect()
-        // D4 後 onopen 會重置 reconnectAttempts，故「成功開啟再斷」不算失敗重連；
+        // onopen 會重置 reconnectAttempts，故「成功開啟再斷」不算失敗重連；
         // 只有「連上前就斷（never open）」的重連才會累計。模擬連續 6 次未開啟即斷。
         for (let attempt = 0; attempt < 6; attempt++) {
             const socket = FakeWebSocket.instances.at(-1)!
@@ -158,8 +170,6 @@ describe('useChatWebSocket', () => {
 
         first.close(1006)
         vi.advanceTimersByTime(2_000)
-        // after close, before second WS opens, connectTime should be reset to null
-        // so that any waitForConnectTime call doesn't see stale value
         const second = FakeWebSocket.instances.at(-1)!
         expect(ws.connectTime.value).toBeNull()
 
@@ -176,103 +186,6 @@ describe('useChatWebSocket', () => {
         expect(warn).toHaveBeenCalled()
 
         warn.mockRestore()
-    })
-
-    // ── D1：KICKED 自我碰撞以 grace-window 判定 ──────────────────────
-
-    it('grace 內收到 KICKED envelope 視為自我碰撞：kicked 維持 false 並靜默重連', () => {
-        const ws = useChatWebSocket()
-        ws.connect()
-        const socket = FakeWebSocket.instances[0]
-        socket.open()
-
-        // onopen 後 1 秒（< KICK_GRACE_MS 4000）收到 KICKED envelope
-        vi.advanceTimersByTime(1_000)
-        socket.deliver('{"type":"KICKED","timestamp":1,"data":null}')
-
-        expect(ws.kicked.value).toBe(false)
-        // 靜默重連：應立即建立新 socket（reset attempts、不等 backoff）
-        expect(FakeWebSocket.instances.length).toBeGreaterThanOrEqual(2)
-    })
-
-    it('grace 內收到 close 4271 視為自我碰撞：kicked 維持 false 並靜默重連', () => {
-        const ws = useChatWebSocket()
-        ws.connect()
-        const socket = FakeWebSocket.instances[0]
-        socket.open()
-
-        vi.advanceTimersByTime(500)
-        socket.close(4271)
-
-        expect(ws.kicked.value).toBe(false)
-        expect(FakeWebSocket.instances.length).toBeGreaterThanOrEqual(2)
-    })
-
-    it('grace 外（連線已久）收到 KICKED 視為別台登入：kicked=true 不靜默重連', () => {
-        const ws = useChatWebSocket()
-        ws.connect()
-        const socket = FakeWebSocket.instances[0]
-        socket.open()
-
-        // 超過 KICK_GRACE_MS(4000) 才被踢
-        vi.advanceTimersByTime(5_000)
-        socket.close(4271)
-
-        expect(ws.kicked.value).toBe(true)
-        expect(FakeWebSocket.instances).toHaveLength(1)
-    })
-
-    it('grace 內連續被踢達 MAX_SELF_RECONNECT(2) 後改顯示 modal 並停止靜默重連', () => {
-        const ws = useChatWebSocket()
-        ws.connect()
-
-        // 第 1 次：grace 內被踢 → 自我重連（count 1），不開 modal
-        let socket = FakeWebSocket.instances.at(-1)!
-        socket.open()
-        socket.close(4271)
-        expect(ws.kicked.value).toBe(false)
-
-        // 第 2 次：grace 內被踢 → 自我重連（count 2），仍不開 modal
-        socket = FakeWebSocket.instances.at(-1)!
-        socket.open()
-        socket.close(4271)
-        expect(ws.kicked.value).toBe(false)
-
-        // 第 3 次：已達上限 → 開 modal、不再靜默重連
-        const beforeCount = FakeWebSocket.instances.length
-        socket = FakeWebSocket.instances.at(-1)!
-        socket.open()
-        socket.close(4271)
-        expect(ws.kicked.value).toBe(true)
-        expect(FakeWebSocket.instances).toHaveLength(beforeCount)
-    })
-
-    it('連線存活超過 grace 後計數歸零：之後新連線於 grace 內被踢仍可靜默重連', () => {
-        const ws = useChatWebSocket()
-        ws.connect()
-
-        // 第 1、2 次 grace 內被踢，自我重連計數累積到上限 2
-        let socket = FakeWebSocket.instances.at(-1)!
-        socket.open()
-        socket.close(4271)
-        socket = FakeWebSocket.instances.at(-1)!
-        socket.open()
-        socket.close(4271)
-
-        // 一次成功 onopen 並存活超過 grace window → graceTimer 把計數歸零
-        socket = FakeWebSocket.instances.at(-1)!
-        socket.open()
-        vi.advanceTimersByTime(5_000)
-
-        // 該連線之後非預期斷線 → 自動重連，建立全新連線（fresh onopen 重置 grace 起點）
-        socket.close(1006)
-        vi.advanceTimersByTime(2_000)
-        const fresh = FakeWebSocket.instances.at(-1)!
-        fresh.open()
-
-        // 新連線於 grace 內被踢：計數已歸零 → 視為新一輪自我碰撞，不開 modal
-        fresh.close(4271)
-        expect(ws.kicked.value).toBe(false)
     })
 
     // ── D2：socket 身分守門 + connect 重置 kicked ──────────────────
@@ -294,7 +207,6 @@ describe('useChatWebSocket', () => {
         first.onclose?.({ code: 4271 })
 
         expect(ws.kicked.value).toBe(false)
-        // 不因舊 socket 事件而新增重連
         expect(FakeWebSocket.instances).toHaveLength(countBefore)
     })
 
@@ -303,11 +215,10 @@ describe('useChatWebSocket', () => {
         ws.connect()
         const socket = FakeWebSocket.instances[0]
         socket.open()
-        vi.advanceTimersByTime(5_000)
-        socket.close(4271) // grace 外 → kicked = true
+        socket.close(4271) // 被踢 → kicked = true
         expect(ws.kicked.value).toBe(true)
 
-        ws.connect()
+        ws.connect() // 使用者於 modal 點「重新連線」
         expect(ws.kicked.value).toBe(false)
     })
 
@@ -324,18 +235,15 @@ describe('useChatWebSocket', () => {
     it('onopen 重置 reconnectAttempts（避免多次背景斷線後永久停止自動重連）', () => {
         const ws = useChatWebSocket()
         ws.connect()
-        // 累積 4 次失敗重連（未達 5 上限）
         for (let i = 0; i < 4; i++) {
             const s = FakeWebSocket.instances.at(-1)!
             s.open()
             s.close(1006)
             vi.advanceTimersByTime(60_000)
         }
-        // 此時若一次成功 onopen，reconnectAttempts 應歸零
         const s = FakeWebSocket.instances.at(-1)!
         s.open()
 
-        // 之後再斷線，仍應能重連（不會因累計而立即 wsFailed）
         s.close(1006)
         vi.advanceTimersByTime(2_000)
         expect(ws.wsFailed.value).toBe(false)
@@ -347,7 +255,7 @@ describe('useChatWebSocket', () => {
         const first = FakeWebSocket.instances[0]
         first.open()
         vi.advanceTimersByTime(5_000)
-        first.close(1006) // 斷線進入退避等待
+        first.close(1006)
         const countBefore = FakeWebSocket.instances.length
 
         setHidden(false)
@@ -369,6 +277,21 @@ describe('useChatWebSocket', () => {
 
         expect(FakeWebSocket.instances).toHaveLength(countBefore)
         ws.disconnect()
+    })
+
+    it('被踢後不因回前景而自動重連（嚴格單一連線）', () => {
+        const ws = useChatWebSocket()
+        ws.connect()
+        const socket = FakeWebSocket.instances[0]
+        socket.open()
+        socket.close(4271)
+        expect(ws.kicked.value).toBe(true)
+        const countBefore = FakeWebSocket.instances.length
+
+        setHidden(false)
+        document.dispatchEvent(new Event('visibilitychange'))
+
+        expect(FakeWebSocket.instances).toHaveLength(countBefore)
     })
 
     it('online 事件且連線非 OPEN 時立即重連', () => {
