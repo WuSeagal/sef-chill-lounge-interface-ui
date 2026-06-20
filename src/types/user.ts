@@ -92,6 +92,8 @@ export interface Member {
     avatar: string | null
     avatarColor: string | null
     avatarBorder?: boolean
+    // people-directory：後端 /members 回傳的興趣 TAG（無則空陣列；舊呼叫端可忽略）。
+    tags?: Tag[]
 }
 
 export interface CreateProfileRequest {

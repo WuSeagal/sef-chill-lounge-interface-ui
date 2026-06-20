@@ -5,11 +5,20 @@ defineProps<{
     count: number
     connected: boolean
 }>()
+
+const emit = defineEmits<{
+    (e: 'click'): void
+}>()
 </script>
 
 <template>
-    <div class="dashboard-online-counter" role="status" aria-label="線上人數">
+    <button
+        type="button"
+        class="dashboard-online-counter"
+        :aria-label="`線上人數 ${count}，點擊查看現場成員`"
+        @click="emit('click')"
+    >
         <span class="dashboard-online-counter__dot" :class="{ 'is-live': connected }"></span>
         <span class="dashboard-online-counter__num">{{ count }}</span>
-    </div>
+    </button>
 </template>

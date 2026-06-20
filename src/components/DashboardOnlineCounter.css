@@ -13,6 +13,19 @@
     border-radius: var(--radius-md);
     background: var(--bottom-bar-bg);
     box-shadow: var(--shadow-popup);
+    /* 從 div 改為可點擊 button：重置外觀、加游標與互動回饋（people-directory 入口）。 */
+    border: none;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.dashboard-online-counter:hover {
+    transform: translateY(-1px);
+}
+.dashboard-online-counter:focus-visible {
+    outline: 2px solid var(--accent, #c2452d);
+    outline-offset: 2px;
 }
 
 .dashboard-online-counter__dot {

@@ -172,3 +172,10 @@
     justify-content: center;
 }
 
+
+/* people-directory：/chat 線上人數計數器（People 名單入口）置左上，避開右側 host 刪訊息鈕與右下 scroll-fab。 */
+.dashboard-online-counter.chat-view__online-counter {
+    top: 12px;
+    left: 12px;
+    right: auto;
+}

@@ -6,6 +6,8 @@ import UnreadDivider from '@/components/UnreadDivider.vue'
 import AnnouncementBanner from '@/components/AnnouncementBanner.vue'
 import BottomBar from '@/components/BottomBar.vue'
 import UserPopup from '@/components/UserPopup.vue'
+import DashboardOnlineCounter from '@/components/DashboardOnlineCounter.vue'
+import PeopleModal from '@/components/PeopleModal.vue'
 import ImageLightbox from '@/components/ImageLightbox.vue'
 import SettingsModal from '@/components/SettingsModal.vue'
 import KickedModal from '@/components/KickedModal.vue'
@@ -50,6 +52,14 @@ const myStickers = computed(() => user.profile.value?.stickers ?? [])
 // UserPopup state — tracks which userId's popup is open. null = closed.
 const popupUserId = ref<string | null>(null)
 const popupOpen = computed(() => popupUserId.value !== null)
+
+// people-directory：/chat 線上人數（由 PRESENCE_SNAPSHOT 維護）+ People 名單入口。
+const onlineCount = ref(0)
+const wsConnected = computed(() => !wsReconnecting.value && !wsFailed.value)
+const peopleOpen = ref(false)
+function onSelectPerson(userId: string): void {
+    popupUserId.value = userId
+}
 
 function onAvatarClick(userId: string) {
     popupUserId.value = popupUserId.value === userId ? null : userId
@@ -319,6 +329,7 @@ function onWsMemberEvent(envelope: ChatEnvelope) {
         candidateIds = uid ? [uid] : []
     } else if (envelope.type === 'PRESENCE_SNAPSHOT') {
         candidateIds = (envelope.data as PresenceSnapshotPayload | undefined)?.onlineUserIds ?? []
+        onlineCount.value = candidateIds.length
     } else {
         return
     }
@@ -545,6 +556,12 @@ void currentProfile
 <template>
     <BannedScreen v-if="banned" />
     <div v-else class="chat-view">
+        <DashboardOnlineCounter
+            class="chat-view__online-counter"
+            :count="onlineCount"
+            :connected="wsConnected"
+            @click="peopleOpen = true"
+        />
         <div class="chat-view__main">
             <div
                 ref="listEl"
@@ -667,6 +684,8 @@ void currentProfile
             :user-id="popupUserId"
             @close="onPopupClose"
         />
+
+        <PeopleModal :open="peopleOpen" @close="peopleOpen = false" @select="onSelectPerson" />
 
         <ImageLightbox
             :open="lightboxOpen"
