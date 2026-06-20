@@ -27,10 +27,11 @@ describe('stickerUploadApi', () => {
         expect((formData as FormData).get('file')).toBe(file)
     })
 
-    it('deleteSticker calls DELETE /upload/sticker/{id}', async () => {
-        deleteMock.mockResolvedValue({ code: 200, message: 'OK', data: null })
+    it('deleteSticker posts to /upload/sticker/remove with id（api-delete-to-post）', async () => {
+        postMock.mockResolvedValue({ code: 200, message: 'OK', data: null })
         await deleteSticker(7)
-        expect(deleteMock).toHaveBeenCalledWith('/upload/sticker/7')
+        expect(postMock).toHaveBeenCalledWith('/upload/sticker/remove', { id: 7 })
+        expect(deleteMock).not.toHaveBeenCalled()
     })
 
     it('uploadSticker throws structured StickerUploadError on 413', async () => {

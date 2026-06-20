@@ -32,5 +32,6 @@ export async function uploadSticker(file: File): Promise<Sticker> {
 }
 
 export async function deleteSticker(id: number): Promise<void> {
-    await request.delete(`/upload/sticker/${id}`)
+    // api-delete-to-post：依專案 GET/POST-only 慣例，移除走 POST /remove + body。
+    await request.post('/upload/sticker/remove', { id })
 }
