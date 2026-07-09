@@ -1,0 +1,23 @@
+/* 跨日日期分隔線：固定顯示完整日期，純位置標記，無互動、無動畫。 */
+.date-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px var(--space-md) 4px;
+    color: var(--input-text);
+    opacity: 0.6;
+    font-size: 0.72rem;
+}
+
+.date-divider::before,
+.date-divider::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    background: var(--bubble-border);
+}
+
+.date-divider__label {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
