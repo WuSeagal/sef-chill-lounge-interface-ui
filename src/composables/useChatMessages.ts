@@ -115,6 +115,14 @@ export function useChatMessages() {
         }, 1000)
     }
 
+    // 清空「引用 targetMessageId 的回覆」之衍生欄位（replyToMessageId 保留），使其示意塊立即
+    // 反映「無法載入訊息」。供 MESSAGE_DELETED 事件與 jump-load 找不到目標時共用同一套邏輯。
+    function clearReplyPreviewFor(targetMessageId: string) {
+        history.messages.value = history.messages.value.map((m) => m.replyToMessageId === targetMessageId
+            ? { ...m, replyToUserId: null, replyToFurName: null, replyToContentSnippet: null, replyToCreatedDate: null }
+            : m)
+    }
+
     function subscribe() {
         // Replace any prior subscription so init / reconnect can be called
         // multiple times without accumulating handlers in the singleton.
@@ -133,27 +141,39 @@ export function useChatMessages() {
                     pendingLive.push(data)
                     return
                 }
-                const last = history.messages.value.at(-1)
-                if (last && last.messageId === data.messageId) return
+                // 以工作集既有 messageId 集合去重（非僅比對最後一則）：非連續抵達的同 id
+                // （中間插入過其他訊息後才重複到達）也要擋下，這是防重複送出的縱深防護之一。
+                if (history.messages.value.some((m) => m.messageId === data.messageId)) return
                 history.appendLive(data, isAtBottomGetter())
                 return
             }
             if (envelope.type === 'PROFILE_UPDATED') {
                 if (!isValidProfileUpdate(envelope.data)) return
                 const data = envelope.data
-                history.messages.value = history.messages.value.map((m) =>
-                    m.userId === data.userId
-                        ? { ...m, furName: data.furName, avatar: data.avatar, avatarColor: data.avatarColor, avatarBorder: data.avatarBorder }
-                        : m
-                )
+                // 僅 /chat 需要：改名同時即時反映在（a）自己發送的訊息（既有）與（b）別人回覆
+                // 自己訊息時、回覆預覽裡引用的作者名字（replyToFurName，經 replyToUserId 比對）。
+                // 兩者互不排斥，自己回覆自己時會同時命中。
+                history.messages.value = history.messages.value.map((m) => {
+                    const isAuthor = m.userId === data.userId
+                    const isReplyAuthor = m.replyToUserId === data.userId
+                    if (!isAuthor && !isReplyAuthor) return m
+                    return {
+                        ...m,
+                        ...(isAuthor
+                            ? { furName: data.furName, avatar: data.avatar, avatarColor: data.avatarColor, avatarBorder: data.avatarBorder }
+                            : {}),
+                        ...(isReplyAuthor ? { replyToFurName: data.furName } : {}),
+                    }
+                })
                 return
             }
             if (envelope.type === 'MESSAGE_DELETED') {
                 const data = envelope.data as MessageDeletedPayload | undefined
                 if (!data?.messageId) return
                 const deletedId = data.messageId
-                // 從畫面移除
+                // 從畫面移除，並將引用它的回覆之衍生欄位清空 → 示意塊立即反映「無法載入訊息」。
                 history.messages.value = history.messages.value.filter((m) => m.messageId !== deletedId)
+                clearReplyPreviewFor(deletedId)
                 // 同時清掉待倒入緩衝，否則 flushPendingLive 後會復活
                 for (let i = pendingLive.length - 1; i >= 0; i--) {
                     if (pendingLive[i].messageId === deletedId) pendingLive.splice(i, 1)
@@ -218,44 +238,64 @@ export function useChatMessages() {
         rateLimitRemaining.value = 0
     }
 
-    // 回傳是否真的送出（WS 斷線時為 false），讓呼叫端可保留輸入內容供重送。
-    function sendChatMessage(content: string, imageUrls: string[] = []): boolean {
-        const trimmed = content.trim()
-        if (!trimmed && imageUrls.length === 0) return false
-        const payload: ChatMessageSendPayload = {
-            messageType: 'TEXT',
-            content: trimmed,
-            imageUrls,
-        }
-        const envelope: ChatEnvelope<ChatMessageSendPayload> = {
-            type: 'CHAT_MESSAGE',
-            timestamp: Date.now(),
-            data: payload,
-        }
-        if (!socket.send(envelope)) {
-            push.error('連線中斷，訊息未送出，請稍後再試')
-            return false
-        }
-        return true
+    // iOS Safari 上單次點擊/觸控偶發重複觸發送出事件，兩個 CHAT_MESSAGE frame 各自持久化
+    // 成兩則訊息。in-flight 鎖在送出起點同步鎖住，微任務（下一個 tick）才釋放：
+    // 兩次「同步」（無 await 相隔）呼叫必落在同一個微任務佇列前，第二次會被擋下；
+    // 真正分開的後續送出則在鎖釋放後正常放行。text 與 sticker 共用同一把鎖。
+    let sending = false
+    function withSendLock<T>(action: () => T, fallback: T): T {
+        if (sending) return fallback
+        sending = true
+        queueMicrotask(() => { sending = false })
+        return action()
     }
 
-    function sendStickerMessage(stickerImageUrl: string): boolean {
-        const trimmed = stickerImageUrl.trim()
-        if (!trimmed) return false
-        const payload: ChatMessageSendPayload = {
-            messageType: 'STICKER',
-            stickerImageUrl: trimmed,
-        }
-        const envelope: ChatEnvelope<ChatMessageSendPayload> = {
-            type: 'CHAT_MESSAGE',
-            timestamp: Date.now(),
-            data: payload,
-        }
-        if (!socket.send(envelope)) {
-            push.error('連線中斷，貼圖未送出，請稍後再試')
-            return false
-        }
-        return true
+    // 回傳是否真的送出（WS 斷線時為 false），讓呼叫端可保留輸入內容供重送。
+    // replyToMessageId 缺省時 payload 不含該欄位（衍生欄位一律由 server 端即時解析，
+    // client 只送這一個 id）。
+    function sendChatMessage(content: string, imageUrls: string[] = [], replyToMessageId?: string): boolean {
+        return withSendLock(() => {
+            const trimmed = content.trim()
+            if (!trimmed && imageUrls.length === 0) return false
+            const payload: ChatMessageSendPayload = {
+                messageType: 'TEXT',
+                content: trimmed,
+                imageUrls,
+                ...(replyToMessageId ? { replyToMessageId } : {}),
+            }
+            const envelope: ChatEnvelope<ChatMessageSendPayload> = {
+                type: 'CHAT_MESSAGE',
+                timestamp: Date.now(),
+                data: payload,
+            }
+            if (!socket.send(envelope)) {
+                push.error('連線中斷，訊息未送出，請稍後再試')
+                return false
+            }
+            return true
+        }, false)
+    }
+
+    function sendStickerMessage(stickerImageUrl: string, replyToMessageId?: string): boolean {
+        return withSendLock(() => {
+            const trimmed = stickerImageUrl.trim()
+            if (!trimmed) return false
+            const payload: ChatMessageSendPayload = {
+                messageType: 'STICKER',
+                stickerImageUrl: trimmed,
+                ...(replyToMessageId ? { replyToMessageId } : {}),
+            }
+            const envelope: ChatEnvelope<ChatMessageSendPayload> = {
+                type: 'CHAT_MESSAGE',
+                timestamp: Date.now(),
+                data: payload,
+            }
+            if (!socket.send(envelope)) {
+                push.error('連線中斷，貼圖未送出，請稍後再試')
+                return false
+            }
+            return true
+        }, false)
     }
 
     return {
@@ -264,6 +304,8 @@ export function useChatMessages() {
         initialized: history.initialized,
         hasMore: history.hasMore,
         loadMore: history.loadMore,
+        jumpToMessage: history.jumpToMessage,
+        clearReplyPreviewFor,
         init,
         reconnect,
         dispose,

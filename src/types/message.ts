@@ -13,6 +13,11 @@ export type MessageResponse = {
     imageUrls: string[]
     stickerImageUrl: string | null
     createdDate: string
+    replyToMessageId: string | null
+    replyToUserId: string | null
+    replyToFurName: string | null
+    replyToContentSnippet: string | null
+    replyToCreatedDate: string | null
 }
 
 export type FetchMessageHistoryParams = {

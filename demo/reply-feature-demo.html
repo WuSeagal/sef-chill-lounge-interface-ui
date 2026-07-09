@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Chat Patch Demo — 回覆 / 時間戳 / 用戶名點擊（定案版）</title>
+<style>
+  /* ── 沿用 variables.css 的暖奶油色票，貼近真實聊天室 ── */
+  :root {
+    --chat-bg: #f9f5e5;
+    --page-bg: #ebe3ce;
+    --avatar-default-bg: #8c8672;
+    --bottom-bar-bg: #625945;
+    --bottom-bar-icon: #eeebe2;
+    --input-bg: #f6f2eb;
+    --input-text: #746955;
+    --notify-rgb: 194, 69, 45;
+    --font-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang TC',
+      'Noto Sans TC', 'Microsoft JhengHei', sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #d8cfb6; font-family: var(--font-base); color: #3f3a2e;
+    display: flex; gap: 20px; padding: 20px; align-items: flex-start; justify-content: center; min-height: 100vh;
+  }
+
+  /* ── 左側資訊盤（設定已定案，僅展示） ── */
+  .panel {
+    width: 300px; background: #fffdf6; border: 1px solid #d7d0b8; border-radius: 12px;
+    padding: 18px; position: sticky; top: 20px; box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+  }
+  .panel h1 { font-size: 1.05rem; margin: 0 0 4px; }
+  .panel .sub { font-size: 0.78rem; opacity: 0.7; margin: 0 0 4px; line-height: 1.5; }
+  .panel h2 {
+    font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em;
+    color: #8a7f66; margin: 18px 0 8px; border-top: 1px solid #eee4cc; padding-top: 14px;
+  }
+  .locked {
+    display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+    border: 1px solid #b9ad86; background: #f5efdd; border-radius: 8px; font-size: 0.86rem; margin-bottom: 8px;
+  }
+  .locked .ico { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; color: var(--bottom-bar-bg); flex: 0 0 auto; }
+  .locked .ico svg { width: 20px; height: 20px; }
+  .locked .tick { margin-left: auto; color: #5a7d4f; font-weight: 700; }
+  .fmt { font-size: 0.8rem; line-height: 1.7; background: #f5efdd; border: 1px solid #e4dcc4; border-radius: 8px; padding: 10px 12px; }
+  .fmt code { background: #ece4cc; padding: 1px 5px; border-radius: 4px; font-size: 0.78rem; }
+  .hint { font-size: 0.75rem; line-height: 1.55; background: #f3eeda; border-left: 3px solid #b9ad86; border-radius: 4px; padding: 9px 11px; margin-top: 14px; }
+  .hint b { color: #5a5137; }
+
+  /* ── 右側：模擬手機聊天室 ── */
+  .phone {
+    width: 400px; height: 720px; background: var(--chat-bg); border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.22); display: flex; flex-direction: column;
+    overflow: hidden; position: relative; border: 1px solid #d7d0b8;
+  }
+  .phone__top {
+    height: 42px; background: var(--page-bg); border-bottom: 1px solid #dfd6be;
+    display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: #8a7f66; flex: 0 0 auto;
+  }
+  .list { flex: 1 1 auto; overflow-y: auto; padding: 6px 0 10px; scroll-behavior: smooth; }
+
+  .date-divider { display: flex; align-items: center; gap: 10px; margin: 12px 16px 4px; color: #a99f83; font-size: 0.72rem; }
+  .date-divider::before, .date-divider::after { content: ''; flex: 1 1 auto; height: 1px; background: #e0d8bf; }
+
+  /* ── message-item（沿用 MessageItem.css 結構） ── */
+  .msg { display: flex; align-items: flex-start; gap: 8px; padding: 8px 16px; position: relative; }
+  .msg__avatar { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; background-size: cover; background-position: center; }
+  .msg__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+  .msg__meta { display: flex; align-items: center; gap: 8px; color: var(--input-text); min-height: 20px; }
+  .msg__nickname { font-size: 0.9rem; font-weight: 600; cursor: pointer; border-radius: 4px; padding: 0 2px; transition: background .1s; }
+  .msg__nickname:hover { text-decoration: underline; background: #efe8d3; }
+  .msg__timestamp { font-size: 0.75rem; opacity: 0.7; white-space: nowrap; }
+
+  .msg__reply-btn {
+    display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px;
+    border: none; background: transparent; cursor: pointer; color: #a2977b; opacity: 0; padding: 0;
+    border-radius: 5px; transition: opacity .12s, background .12s, color .12s;
+  }
+  .msg:hover .msg__reply-btn { opacity: 1; }
+  .msg__reply-btn:hover { background: #e7dfc9; color: var(--bottom-bar-bg); }
+  .msg__reply-btn svg { width: 15px; height: 15px; }
+
+  .msg__line { display: flex; align-items: flex-start; gap: 6px; font-size: 0.95rem; line-height: 1.45; color: var(--input-text); min-width: 0; }
+  .msg__prompt { flex: 0 0 auto; color: var(--avatar-default-bg); font-weight: 700; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .msg__content { flex: 1 1 auto; min-width: 0; white-space: pre-wrap; word-break: break-word; }
+
+  /* ── 回覆示意塊（訊息最上方，Discord 式） ── */
+  .reply-ref { display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.78rem; color: #9a8f74; margin-bottom: 2px; max-width: 100%; overflow: hidden; }
+  .reply-ref__spine { flex: 0 0 auto; width: 12px; height: 9px; border-left: 2px solid #cbc1a3; border-top: 2px solid #cbc1a3; border-top-left-radius: 6px; margin-left: 2px; align-self: flex-end; margin-bottom: 2px; }
+  .reply-ref__icon { flex: 0 0 auto; color: #b3a684; display: inline-flex; }
+  .reply-ref__icon svg { width: 12px; height: 12px; }
+  .reply-ref__author { font-weight: 600; color: #7d7256; flex: 0 0 auto; }
+  .reply-ref__snippet { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.85; }
+  .reply-ref:hover .reply-ref__author, .reply-ref:hover .reply-ref__snippet { color: var(--bottom-bar-bg); }
+
+  @keyframes flashHi { 0% { background: rgba(var(--notify-rgb), 0.22); } 100% { background: transparent; } }
+  .msg.flash { animation: flashHi 1.6s ease-out; }
+
+  /* ── 底部：回覆預覽條 + 輸入列 ── */
+  .reply-preview { display: none; align-items: center; gap: 8px; background: #efe8d3; border-top: 1px solid #ddd3b8; padding: 8px 14px; font-size: 0.8rem; color: #6f654e; }
+  .reply-preview.show { display: flex; }
+  .reply-preview__accent { width: 3px; align-self: stretch; background: var(--bottom-bar-bg); border-radius: 2px; }
+  .reply-preview__text { flex: 1 1 auto; overflow: hidden; }
+  .reply-preview__label { color: #8a7f66; }
+  .reply-preview__author { font-weight: 600; color: #5a5137; }
+  .reply-preview__snippet { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.85; }
+  .reply-preview__cancel { flex: 0 0 auto; width: 22px; height: 22px; border: none; border-radius: 50%; background: #d9cfb3; color: #5a5137; cursor: pointer; font-size: 1rem; line-height: 1; }
+  .reply-preview__cancel:hover { background: #cabf9f; }
+
+  .bar { display: flex; align-items: center; gap: 8px; background: var(--bottom-bar-bg); padding: 10px 12px; }
+  .bar__input { flex: 1 1 auto; background: var(--input-bg); border: none; border-radius: 999px; padding: 9px 14px; font-size: 0.9rem; color: var(--input-text); font-family: var(--font-base); outline: none; }
+  .bar__send { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%; border: none; background: #7a6f57; color: var(--bottom-bar-icon); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+  .bar__send:hover { background: #8a7d61; }
+  .bar__send svg { width: 20px; height: 20px; }
+
+  .toast { position: absolute; left: 50%; bottom: 78px; transform: translateX(-50%); background: var(--bottom-bar-bg); color: #f6f2eb; padding: 8px 16px; border-radius: 999px; font-size: 0.82rem; opacity: 0; pointer-events: none; transition: opacity .18s; white-space: nowrap; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+  <!-- ══════════ 資訊盤（設定已定案） ══════════ -->
+  <div class="panel">
+    <h1>Chat Patch Demo · 定案版</h1>
+    <p class="sub">操作：<b>滑鼠移到訊息</b> → 出現回覆鈕 → 點它 → 底部預覽 → 送出 → 新訊息頂部有回覆示意 → <b>點示意跳轉</b>。點暱稱或頭像 → 開資料卡（toast 示意）。</p>
+
+    <h2>① 回覆鈕（已定案）</h2>
+    <div class="locked">
+      <span class="ico" id="lockIcon"></span>
+      <span>彎箭頭 reply</span>
+      <span class="tick">✓</span>
+    </div>
+
+    <h2>② 時間戳（已定案）</h2>
+    <div class="fmt">
+      分隔線固定 <code>YYYY/MM/DD</code><br />
+      每則訊息：<code>今天 HH:mm</code> / <code>昨天 HH:mm</code> / <code>YYYY/MM/DD HH:mm</code>
+    </div>
+
+    <div class="hint">
+      <b>③ 點用戶名 = 點頭像</b><br />
+      暱稱與頭像都可點（hover 有底色/游標），點任一都開該用戶資料卡。
+    </div>
+  </div>
+
+  <!-- ══════════ 模擬聊天室 ══════════ -->
+  <div class="phone">
+    <div class="phone__top">SEF Chill Lounge · #main</div>
+    <div class="list" id="list"></div>
+
+    <div>
+      <div class="reply-preview" id="replyPreview">
+        <div class="reply-preview__accent"></div>
+        <div class="reply-preview__text">
+          <span class="reply-preview__label">回覆給 </span>
+          <span class="reply-preview__author" id="rpAuthor"></span>
+          <span class="reply-preview__snippet" id="rpSnippet"></span>
+        </div>
+        <button class="reply-preview__cancel" id="rpCancel" title="取消回覆">×</button>
+      </div>
+      <div class="bar">
+        <input class="bar__input" id="input" placeholder="輸入訊息…" />
+        <button class="bar__send" id="send" title="送出">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M4 12l16-8-6 16-3-6-7-2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+  </div>
+
+<script>
+  // 回覆用彎箭頭（stroke=currentColor，沿用專案 icon 風格）
+  const REPLY_ICON = '<svg viewBox="0 0 24 24" fill="none"><polyline points="9 17 4 12 9 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 18v-2a4 4 0 0 0-4-4H4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  document.getElementById('lockIcon').innerHTML = REPLY_ICON;
+
+  // demo 固定「今天 / 昨天」基準
+  const TODAY = '2026/07/07';
+  const YESTERDAY = '2026/07/06';
+
+  const COLORS = ['#c9826b','#7b9b8f','#b98b56','#8f7bb0','#6b93c9','#c96b8f','#7fae6b'];
+  const AV = i => COLORS[i % COLORS.length];
+
+  // 種子訊息跨三天：更早(07/01) / 昨天(07/06) / 今天(07/07)
+  const seed = [
+    { id:'m1', name:'小毛',   ci:0, text:'上週的活動照片放雲端了', day:'2026/07/01', time:'21:10' },
+    { id:'m2', name:'Foxy',   ci:1, text:'收到，晚點下載', day:'2026/07/01', time:'21:12' },
+    { id:'m3', name:'小白',   ci:2, text:'明天有人要一起過去嗎？', day:YESTERDAY, time:'19:40' },
+    { id:'m4', name:'Husky01',ci:3, text:'我要！約幾點', day:YESTERDAY, time:'19:41' },
+    { id:'m5', name:'橘子',   ci:5, text:'早上十點集合如何', day:YESTERDAY, time:'22:05' },
+    { id:'m6', name:'小毛',   ci:0, text:'大家早，我到場囉', day:TODAY, time:'09:02' },
+    { id:'m7', name:'Foxy',   ci:1, text:'這次 panel 看起來很不錯', day:TODAY, time:'09:03' },
+    { id:'m8', name:'小白',   ci:2, text:'看看這張，超可愛的柴柴', day:TODAY, time:'09:05' },
+    { id:'m9', name:'橘子',   ci:5, text:'我等等去買咖啡，有人要嗎？', day:TODAY, time:'09:12' },
+  ];
+  const ME = { name:'你', ci:6 };
+
+  const list = document.getElementById('list');
+  const messages = [];
+  let replyTo = null;
+
+  function esc(s){ return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function snippet(t){ return t.length > 34 ? t.slice(0,34)+'…' : t; }
+
+  // 每則訊息時間戳：今天/昨天用相對詞，其餘用完整日期，皆 + HH:mm
+  function msgTimestamp(m){
+    if (m.day === TODAY) return '今天 ' + m.time;
+    if (m.day === YESTERDAY) return '昨天 ' + m.time;
+    return m.day + ' ' + m.time;
+  }
+
+  function render(){
+    list.innerHTML = '';
+    let lastDay = null;
+    for (const m of messages){
+      if (m.day !== lastDay){          // 分隔線固定顯示完整 YYYY/MM/DD
+        const d = document.createElement('div');
+        d.className = 'date-divider';
+        d.innerHTML = '<span>'+ m.day +'</span>';
+        list.appendChild(d);
+        lastDay = m.day;
+      }
+      list.appendChild(renderMsg(m));
+    }
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function renderMsg(m){
+    const el = document.createElement('div');
+    el.className = 'msg'; el.id = 'msg-' + m.id;
+
+    let refHtml = '';
+    if (m.replyTo){
+      const r = messages.find(x => x.id === m.replyTo);
+      const author = r ? r.name : '(已刪除)';
+      const snip = r ? snippet(r.text) : '訊息已被刪除';
+      refHtml = '<div class="reply-ref" data-jump="'+ m.replyTo +'">'
+        + '<span class="reply-ref__spine"></span>'
+        + '<span class="reply-ref__icon">'+ REPLY_ICON +'</span>'
+        + '<span class="reply-ref__author">'+ esc(author) +'</span>'
+        + '<span class="reply-ref__snippet">'+ esc(snip) +'</span>'
+        + '</div>';
+    }
+
+    el.innerHTML =
+      '<div class="msg__avatar" data-user="'+ m.name +'" style="background-color:'+ AV(m.ci) +'"></div>'
+      + '<div class="msg__body">'
+      +   refHtml
+      +   '<div class="msg__meta">'
+      +     '<span class="msg__nickname" data-user="'+ m.name +'">'+ esc(m.name) +'</span>'
+      +     '<span class="msg__timestamp">'+ msgTimestamp(m) +'</span>'
+      +     '<button class="msg__reply-btn" data-reply="'+ m.id +'" title="回覆">'+ REPLY_ICON +'</button>'
+      +   '</div>'
+      +   '<div class="msg__line"><span class="msg__prompt">&gt;</span><span class="msg__content">'+ esc(m.text) +'</span></div>'
+      + '</div>';
+    return el;
+  }
+
+  seed.forEach(m => messages.push({ ...m }));
+  render();
+
+  list.addEventListener('click', e => {
+    const replyBtn = e.target.closest('[data-reply]');
+    if (replyBtn){ startReply(replyBtn.dataset.reply); return; }
+    const jump = e.target.closest('[data-jump]');
+    if (jump){ jumpTo(jump.dataset.jump); return; }
+    const who = e.target.closest('[data-user]');
+    if (who){ showToast('開啟「'+ who.dataset.user +'」的資料卡（點頭像或用戶名皆可）'); return; }
+  });
+
+  function startReply(id){
+    replyTo = messages.find(m => m.id === id);
+    if (!replyTo) return;
+    document.getElementById('rpAuthor').textContent = replyTo.name + '：';
+    document.getElementById('rpSnippet').textContent = snippet(replyTo.text);
+    document.getElementById('replyPreview').classList.add('show');
+    document.getElementById('input').focus();
+  }
+  function cancelReply(){ replyTo = null; document.getElementById('replyPreview').classList.remove('show'); }
+  document.getElementById('rpCancel').addEventListener('click', cancelReply);
+
+  function jumpTo(id){
+    const target = document.getElementById('msg-' + id);
+    if (!target){ showToast('訊息不在目前檢視範圍'); return; }
+    target.scrollIntoView({ behavior:'smooth', block:'center' });
+    target.classList.remove('flash'); void target.offsetWidth; target.classList.add('flash');
+  }
+
+  function send(){
+    const input = document.getElementById('input');
+    const text = input.value.trim();
+    if (!text) return;
+    messages.push({
+      id: 'x' + (messages.length + 1), name: ME.name, ci: ME.ci,
+      text, day: TODAY, time: '09:'+ String(13 + messages.length).padStart(2,'0'),
+      replyTo: replyTo ? replyTo.id : null,
+    });
+    input.value = ''; cancelReply(); render();
+  }
+  document.getElementById('send').addEventListener('click', send);
+  document.getElementById('input').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); send(); } });
+
+  let toastTimer = null;
+  function showToast(msg){
+    const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 1600);
+  }
+</script>
+</body>
+</html>

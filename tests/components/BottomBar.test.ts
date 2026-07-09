@@ -276,6 +276,31 @@ describe('BottomBar sticker picker', () => {
     })
 })
 
+describe('BottomBar reply preview', () => {
+    it('does not render the reply preview bar when replyPreview is not provided', () => {
+        const wrapper = mount(BottomBar, { props: { inputValue: '' } })
+        expect(wrapper.find('.bottom-bar__reply-preview').exists()).toBe(false)
+    })
+
+    it('renders the reply preview bar with author and snippet when replyPreview is provided', () => {
+        const wrapper = mount(BottomBar, {
+            props: { inputValue: '', replyPreview: { furName: '小白', snippet: '看看這張' } },
+        })
+        const preview = wrapper.find('.bottom-bar__reply-preview')
+        expect(preview.exists()).toBe(true)
+        expect(preview.text()).toContain('小白')
+        expect(preview.text()).toContain('看看這張')
+    })
+
+    it('emits reply-cancel when the cancel button is clicked', async () => {
+        const wrapper = mount(BottomBar, {
+            props: { inputValue: '', replyPreview: { furName: '小白', snippet: '看看這張' } },
+        })
+        await wrapper.find('.bottom-bar__reply-preview-cancel').trigger('click')
+        expect(wrapper.emitted('reply-cancel')).toBeTruthy()
+    })
+})
+
 describe('BottomBar caret channel', () => {
     it('emits caret-change with selectionStart on keyup', async () => {
         const wrapper = mount(BottomBar, { props: { inputValue: '哈囉 @' } })

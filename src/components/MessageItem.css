@@ -1,8 +1,15 @@
 .message-item {
     display: flex;
+    flex-direction: column;
+    padding: var(--space-sm) var(--space-md);
+}
+
+/* 頭像 + 內容主體那一列；回覆示意塊（若有）獨立於此列之上，橫跨整則訊息全寬，
+   不影響頭像與暱稱原本的對齊（頭像永遠對齊暱稱那一行，而非被回覆示意塊往下推）。 */
+.message-item__row {
+    display: flex;
     align-items: flex-start;
     gap: var(--space-sm);
-    padding: var(--space-sm) var(--space-md);
 }
 
 .message-item__avatar {
@@ -37,11 +44,112 @@
 .message-item__nickname {
     font-size: 0.9rem;
     font-weight: 600;
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 0 2px;
+    transition: background 0.1s;
+}
+
+.message-item__nickname:hover {
+    background: rgba(0, 0, 0, 0.06);
 }
 
 .message-item__timestamp {
     font-size: 0.75rem;
     opacity: 0.7;
+    white-space: nowrap;
+}
+
+/* hover-reveal 回覆鈕：預設隱藏，滑鼠移入整則訊息才出現，位於時間戳後方。 */
+.message-item__reply-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: var(--avatar-default-bg);
+    opacity: 0;
+    padding: 0;
+    border-radius: 5px;
+    transition: opacity 0.12s, background 0.12s, color 0.12s;
+}
+
+.message-item:hover .message-item__reply-btn {
+    opacity: 1;
+}
+
+.message-item__reply-btn:hover {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.message-item__reply-btn svg {
+    width: 15px;
+    height: 15px;
+}
+
+/* 回覆示意塊：訊息本體最上方，Discord 式「引用哪則訊息」提示。 */
+.message-item__reply-ref {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.78rem;
+    color: var(--input-text);
+    opacity: 0.75;
+    margin-bottom: 2px;
+    /* 對齊 .message-item__meta（暱稱）的起始位置：頭像寬度(36px) + .message-item__row 的
+       gap(--space-sm)，讓頭像正上方留白，而非橫跨到最左邊。block-level 元素 width:auto 時
+       margin-left 已自動從可用寬度扣除，故 max-width:100% 不需再另外扣一次。 */
+    margin-left: calc(36px + var(--space-sm));
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.message-item__reply-ref[role='button'] {
+    cursor: pointer;
+}
+
+.message-item__reply-ref[role='button']:hover {
+    opacity: 1;
+}
+
+.message-item__reply-ref--unresolvable {
+    cursor: default;
+}
+
+.message-item__reply-ref-icon {
+    flex: 0 0 auto;
+    display: inline-flex;
+}
+
+.message-item__reply-ref-icon svg {
+    width: 12px;
+    height: 12px;
+}
+
+.message-item__reply-ref-author {
+    font-weight: 600;
+    flex: 0 0 auto;
+}
+
+.message-item__reply-ref-snippet {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 跳轉命中後的高亮閃爍：短暫底色淡出，標示「就是這則」。 */
+@media (prefers-reduced-motion: no-preference) {
+    .message-item--flash {
+        animation: message-item-flash 1.6s ease-out;
+    }
+}
+
+@keyframes message-item-flash {
+    0% { background: rgba(var(--notify-rgb), 0.22); }
+    100% { background: transparent; }
 }
 
 /* Flat Discord-style content line with a CLI-style ">" prompt prefix.

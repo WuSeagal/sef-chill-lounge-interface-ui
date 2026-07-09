@@ -221,4 +221,168 @@ describe('useChatHistory', () => {
 
         expect(history.messages.value).toHaveLength(1050)
     })
+
+    it('loadMore prepend 以工作集既有 messageId 去重，不重複插入已存在的訊息', async () => {
+        const { messages, loadMore, appendLive } = useChatHistory()
+        // hasMore 預設 true；直接用 appendLive 依時間順序建置工作集（沿用本檔既有慣例，不透過 loadInitial）。
+        appendLive(makeMessage({ cursorId: 10, messageId: 'msg-010', createdDate: '2026-05-25T10:10:00' }))
+        appendLive(makeMessage({ cursorId: 20, messageId: 'msg-020', createdDate: '2026-05-25T10:20:00' }))
+
+        vi.mocked(messageApi.fetchMessageHistory).mockResolvedValueOnce([
+            // msg-010 已存在於工作集中（例如與 live 到達的訊息重疊），msg-005 才是真正新的舊訊息。
+            makeMessage({ cursorId: 10, messageId: 'msg-010', createdDate: '2026-05-25T10:10:00' }),
+            makeMessage({ cursorId: 5, messageId: 'msg-005', createdDate: '2026-05-25T10:05:00' }),
+        ])
+
+        await loadMore()
+
+        const ids = messages.value.map((m) => m.messageId)
+        expect(ids.filter((id) => id === 'msg-010')).toHaveLength(1)
+        expect(ids).toEqual(['msg-005', 'msg-010', 'msg-020'])
+    })
+
+    // ── 跳轉至被回覆訊息（載入到底）──────────────────────────────
+
+    it('jumpToMessage 目標已在工作集時直接回報 found，不呼叫 loadMore', async () => {
+        const { appendLive, jumpToMessage } = useChatHistory()
+        appendLive(makeMessage({ cursorId: 100, messageId: 'target-msg', createdDate: '2026-05-25T10:00:00' }))
+
+        const result = await jumpToMessage('target-msg', '2026-05-25T10:00:00')
+
+        expect(result).toBe('found')
+        expect(messageApi.fetchMessageHistory).not.toHaveBeenCalled()
+    })
+
+    it('jumpToMessage 目標不在工作集時反覆 loadMore 直到找到', async () => {
+        const { messages, appendLive, jumpToMessage } = useChatHistory()
+        appendLive(makeMessage({ cursorId: 100, messageId: 'msg-100', createdDate: '2026-05-25T10:00:00' }))
+
+        let call = 0
+        vi.mocked(messageApi.fetchMessageHistory).mockImplementation(async () => {
+            call += 1
+            if (call === 1) {
+                // 第一批滿 50 筆才會讓 hasMore 保持 true，迴圈才會繼續進第二批。
+                return Array.from({ length: 50 }, (_, i) =>
+                    makeMessage({ cursorId: 50 - i, messageId: `msg-b1-${50 - i}`, createdDate: '2026-05-25T09:59:00' }))
+            }
+            return [makeMessage({ cursorId: 98, messageId: 'target-msg', createdDate: '2026-05-25T09:58:00' })]
+        })
+
+        const result = await jumpToMessage('target-msg', '2026-05-25T09:58:00')
+
+        expect(result).toBe('found')
+        expect(messages.value.map((m) => m.messageId)).toContain('target-msg')
+        expect(messageApi.fetchMessageHistory).toHaveBeenCalledTimes(2)
+    })
+
+    it('jumpToMessage 超過上限 20 批仍找不到 → unresolvable，不無限迴圈', async () => {
+        const { appendLive, jumpToMessage } = useChatHistory()
+        appendLive(makeMessage({ cursorId: 1000, messageId: 'msg-1000', createdDate: '2026-05-25T10:00:00' }))
+
+        let call = 0
+        vi.mocked(messageApi.fetchMessageHistory).mockImplementation(async () => {
+            call += 1
+            // 每批固定回 50 筆維持 hasMore=true；createdDate 恆晚於 target，讓「提早依時間判定不存在」
+            // 這條路徑永不觸發，藉此單獨驗證「達上限」這一條終止路徑。
+            return Array.from({ length: 50 }, (_, i) =>
+                makeMessage({
+                    cursorId: 100000 - call * 50 - i,
+                    messageId: `batch-${call}-${i}`,
+                    createdDate: '2026-06-01T00:00:00',
+                }))
+        })
+
+        const result = await jumpToMessage('does-not-exist', '2026-01-01T00:00:00')
+
+        expect(result).toBe('unresolvable')
+        expect(messageApi.fetchMessageHistory).toHaveBeenCalledTimes(20)
+    })
+
+    it('jumpToMessage 工作集最舊已早於目標建立時間仍未找到 → 提前判定 unresolvable', async () => {
+        const { appendLive, jumpToMessage } = useChatHistory()
+        appendLive(makeMessage({ cursorId: 100, messageId: 'msg-100', createdDate: '2026-05-25T10:00:00' }))
+
+        vi.mocked(messageApi.fetchMessageHistory).mockResolvedValueOnce([
+            makeMessage({ cursorId: 50, messageId: 'msg-050', createdDate: '2026-05-20T00:00:00' }),
+        ])
+
+        // target 建立時間（05-22）介於工作集原最舊（05-25）與新載入最舊（05-20）之間，
+        // 代表往回掃過這個時間點卻找不到 → 判定不存在，只跑 1 批就提早停止。
+        const result = await jumpToMessage('does-not-exist', '2026-05-22T00:00:00')
+
+        expect(result).toBe('unresolvable')
+        expect(messageApi.fetchMessageHistory).toHaveBeenCalledTimes(1)
+    })
+
+    it('jumpToMessage 已到底（hasMore=false）仍未找到 → unresolvable', async () => {
+        const { appendLive, jumpToMessage } = useChatHistory()
+        appendLive(makeMessage({ cursorId: 100, messageId: 'msg-100', createdDate: '2026-05-25T10:00:00' }))
+
+        // 回傳筆數 < 50 → hasMore 翻 false；createdDate 刻意設晚於 target，避免提早以時間判定結束，
+        // 單獨驗證「到底」這一條終止路徑。
+        vi.mocked(messageApi.fetchMessageHistory).mockResolvedValueOnce([
+            makeMessage({ cursorId: 50, messageId: 'msg-050', createdDate: '2026-06-01T00:00:00' }),
+        ])
+
+        const result = await jumpToMessage('does-not-exist', '2026-01-01T00:00:00')
+
+        expect(result).toBe('unresolvable')
+        expect(messageApi.fetchMessageHistory).toHaveBeenCalledTimes(1)
+    })
+
+    it('jump-load 期間 appendLive 不從頂端裁切，即使超過 MAX_MESSAGES(1000)', async () => {
+        const { messages, appendLive, jumpToMessage } = useChatHistory()
+        for (let i = 0; i < 1000; i++) {
+            appendLive(makeMessage({ cursorId: i + 1, messageId: `msg-${i + 1}`, createdDate: '2026-05-25T10:00:00' }), true)
+        }
+        expect(messages.value).toHaveLength(1000)
+
+        let resolveFetch: ((v: MessageResponse[]) => void) | null = null
+        vi.mocked(messageApi.fetchMessageHistory).mockImplementation(
+            () => new Promise((resolve) => { resolveFetch = resolve }))
+
+        const jumpPromise = jumpToMessage('target-msg', '2026-05-25T09:00:00')
+        // jump-load 進行中收到一則 live 新訊息（模擬貼底時他人剛好送出）；
+        // 若未抑制裁切，這裡會把最舊的 msg-1 裁掉。
+        appendLive(makeMessage({ cursorId: 2000, messageId: 'live-during-jump', createdDate: '2026-05-25T11:00:00' }), true)
+        expect(messages.value).toHaveLength(1001)
+        expect(messages.value[0].messageId).toBe('msg-1')
+
+        resolveFetch!([makeMessage({ cursorId: 0, messageId: 'target-msg', createdDate: '2026-05-25T09:00:00' })])
+        await jumpPromise
+
+        expect(messages.value.some((m) => m.messageId === 'msg-1')).toBe(true)
+    })
+
+    it('同時對兩個不同目標 jumpToMessage 會序列化執行，不因共用 loading 狀態互相誤判為 unresolvable', async () => {
+        const { appendLive, jumpToMessage } = useChatHistory()
+        appendLive(makeMessage({ cursorId: 100, messageId: 'msg-100', createdDate: '2026-05-25T10:00:00' }))
+
+        const pendingResolvers: Array<(v: MessageResponse[]) => void> = []
+        vi.mocked(messageApi.fetchMessageHistory).mockImplementation(
+            () => new Promise((resolve) => { pendingResolvers.push(resolve) }))
+
+        // 幾乎同時對兩個不同、皆未在工作集中的目標發起跳轉。
+        const jumpA = jumpToMessage('target-A', '2026-05-25T09:00:00')
+        const jumpB = jumpToMessage('target-B', '2026-05-25T08:00:00')
+
+        // 序列化：B 不應在 A 完成前就發出自己的 fetch（只會有 1 個 pending resolver）。
+        await Promise.resolve()
+        await Promise.resolve()
+        expect(pendingResolvers).toHaveLength(1)
+
+        // A 的這批回滿 50 筆（含 target-A），讓 hasMore 保持 true——否則 B 排隊輪到自己時，
+        // 迴圈開頭的 !hasMore.value 檢查會直接短路回 unresolvable，連 B 自己的 loadMore 都不會呼叫到。
+        const fullBatch = Array.from({ length: 49 }, (_, i) =>
+            makeMessage({ cursorId: 50 + i, messageId: `filler-A-${i}`, createdDate: '2026-05-25T08:30:00' }))
+        fullBatch.push(makeMessage({ cursorId: 99, messageId: 'target-A', createdDate: '2026-05-25T09:00:00' }))
+        pendingResolvers[0](fullBatch)
+        expect(await jumpA).toBe('found')
+
+        // A 完成後，B 才輪到自己發出 fetch。
+        pendingResolvers[1]([makeMessage({ cursorId: 98, messageId: 'target-B', createdDate: '2026-05-25T08:00:00' })])
+        expect(await jumpB).toBe('found')
+
+        expect(messageApi.fetchMessageHistory).toHaveBeenCalledTimes(2)
+    })
 })

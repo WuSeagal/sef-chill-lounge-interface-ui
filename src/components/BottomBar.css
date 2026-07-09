@@ -2,6 +2,15 @@
     flex: 0 0 auto;
     position: relative;
     display: flex;
+    flex-direction: column;
+    background: var(--bottom-bar-bg);
+    box-sizing: border-box;
+    /* Anchor for absolutely-positioned children (e.g. EmojiPicker) */
+    position: relative;
+}
+
+.bottom-bar__row {
+    display: flex;
     /* Buttons anchor to the TOP of the row so when the textarea grows
        (multi-line) the icons sit beside the textarea's first line
        rather than sliding down with it. Discord uses this layout. */
@@ -12,10 +21,73 @@
     padding-bottom: max(4px, env(safe-area-inset-bottom));
     padding-left: max(4px, env(safe-area-inset-left));
     padding-right: max(4px, env(safe-area-inset-right));
-    background: var(--bottom-bar-bg);
     box-sizing: border-box;
-    /* Anchor for absolutely-positioned children (e.g. EmojiPicker) */
-    position: relative;
+}
+
+/* 回覆預覽條：輸入框上方，顯示正在回覆哪則訊息 + 取消鈕。 */
+.bottom-bar__reply-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.12);
+    padding: 8px 14px;
+    font-size: 0.8rem;
+    color: var(--bottom-bar-icon);
+}
+
+.bottom-bar__reply-preview-accent {
+    width: 3px;
+    align-self: stretch;
+    background: var(--bottom-bar-icon);
+    opacity: 0.6;
+    border-radius: 2px;
+}
+
+.bottom-bar__reply-preview-text {
+    flex: 1 1 auto;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.bottom-bar__reply-preview-label {
+    opacity: 0.75;
+}
+
+.bottom-bar__reply-preview-author {
+    font-weight: 600;
+}
+
+.bottom-bar__reply-preview-snippet {
+    opacity: 0.85;
+}
+
+.bottom-bar__reply-preview-cancel {
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--bottom-bar-icon);
+    cursor: pointer;
+    padding: 0;
+}
+
+.bottom-bar__reply-preview-cancel span {
+    display: inline-flex;
+}
+
+.bottom-bar__reply-preview-cancel svg {
+    width: 12px;
+    height: 12px;
+}
+
+.bottom-bar__reply-preview-cancel:hover {
+    background: rgba(255, 255, 255, 0.28);
 }
 
 .bottom-bar__btn {

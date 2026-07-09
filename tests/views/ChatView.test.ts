@@ -32,6 +32,18 @@ vi.mock('@/api/messageApi', () => ({
     fetchMessageHistory: vi.fn(),
 }))
 
+const uploadChatImageSpy = vi.fn(async (file: File) => ({ fileName: file.name, url: `/image/${file.name}` }))
+vi.mock('@/api/imageUploadApi', () => ({
+    uploadChatImage: (...args: [File]) => uploadChatImageSpy(...args),
+    ImageUploadError: class ImageUploadError extends Error {
+        code: number
+        constructor(code: number, message: string) {
+            super(message)
+            this.code = code
+        }
+    },
+}))
+
 function makeMessage(overrides: Partial<MessageResponse>): MessageResponse {
     return {
         cursorId: 11,
@@ -70,6 +82,14 @@ const initSpy = vi.fn()
 const reconnectSpy = vi.fn()
 const disposeSpy = vi.fn()
 const loadMoreSpy = vi.fn()
+const jumpToMessageSpy = vi.fn()
+// 沿用真實 clearReplyPreviewFor 的行為（就地清空引用 targetMessageId 的回覆衍生欄位），
+// 讓測試能觀察到 MessageItem 渲染出的「無法載入訊息」結果，而非只驗證 spy 被呼叫。
+const clearReplyPreviewForSpy = vi.fn((targetMessageId: string) => {
+    messagesRef.value = messagesRef.value.map((m) => m.replyToMessageId === targetMessageId
+        ? { ...m, replyToUserId: null, replyToFurName: null, replyToContentSnippet: null, replyToCreatedDate: null }
+        : m)
+})
 const sendChatMessageSpy = vi.fn(() => true)
 const sendStickerMessageSpy = vi.fn(() => true)
 const disconnectSpy = vi.fn()
@@ -111,6 +131,8 @@ vi.mock('@/composables/useChatMessages', () => ({
         initialized: initializedRef,
         hasMore: hasMoreRef,
         loadMore: loadMoreSpy,
+        jumpToMessage: jumpToMessageSpy,
+        clearReplyPreviewFor: clearReplyPreviewForSpy,
         init: initSpy,
         reconnect: reconnectSpy,
         dispose: disposeSpy,
@@ -180,11 +202,13 @@ describe('ChatView', () => {
         reconnectSpy.mockReset().mockResolvedValue(undefined)
         disposeSpy.mockReset()
         loadMoreSpy.mockReset().mockResolvedValue(undefined)
+        jumpToMessageSpy.mockReset()
         sendChatMessageSpy.mockReset()
         sendStickerMessageSpy.mockReset()
         connectSpy.mockReset()
         disconnectSpy.mockReset()
         pushWarningSpy.mockReset()
+        uploadChatImageSpy.mockClear()
         membersRef.value = []
         membersErrorRef.value = null
         refetchMembersSpy.mockReset().mockResolvedValue(undefined)
@@ -223,6 +247,21 @@ describe('ChatView', () => {
         expect(wrapper.findAll('.message-item')).toHaveLength(2)
         expect(wrapper.text()).toContain('first')
         expect(wrapper.text()).toContain('second')
+    })
+
+    it('renders a date divider above the first message and again only when the calendar day changes', async () => {
+        messagesRef.value = [
+            makeMessage({ cursorId: 11, messageId: 'msg-d1', content: 'day1-a', createdDate: '2026-07-06T09:00:00' }),
+            makeMessage({ cursorId: 12, messageId: 'msg-d2', content: 'day1-b', createdDate: '2026-07-06T10:00:00' }),
+            makeMessage({ cursorId: 13, messageId: 'msg-d3', content: 'day2-a', createdDate: '2026-07-07T09:00:00' }),
+        ]
+        const wrapper = mount(ChatView)
+        await flushPromises()
+
+        const dividers = wrapper.findAll('.date-divider')
+        expect(dividers).toHaveLength(2)
+        expect(dividers[0].text()).toBe('2026/07/06')
+        expect(dividers[1].text()).toBe('2026/07/07')
     })
 
     it('shows placeholder when messages are empty', async () => {
@@ -275,6 +314,225 @@ describe('ChatView', () => {
         expect(sendChatMessageSpy).toHaveBeenCalledWith('hi from test', [])
         // 不做 optimistic local append — 等 broadcast 回來才出現
         expect(wrapper.findAll('.message-item').length).toBe(before)
+    })
+
+    it('已選圖片時雙擊送出鍵只會上傳與送出一次（iOS 雙擊防護：鎖須同步設定於 uploadAll 的 await 之前）', async () => {
+        const wrapper = mount(ChatView)
+        await flushPromises()
+
+        await wrapper.find('.bottom-bar__input').setValue('圖片訊息')
+        const file = new File(['x'], 'a.png', { type: 'image/png' })
+        await wrapper.findComponent(BottomBar).vm.$emit('image-paste', [file])
+        await nextTick()
+
+        const sendBtn = wrapper.find('[data-btn="send"]')
+        // 模擬 iOS 雙擊/雙事件觸發：兩次呼叫中間不 await，落在同一輪同步執行內競爭。
+        const p1 = sendBtn.trigger('click')
+        const p2 = sendBtn.trigger('click')
+        await Promise.all([p1, p2])
+        await flushPromises()
+
+        expect(uploadChatImageSpy).toHaveBeenCalledTimes(1)
+        expect(sendChatMessageSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('clicking a message reply button shows the reply preview in BottomBar', async () => {
+        messagesRef.value = [
+            makeMessage({ cursorId: 11, messageId: 'msg-target', furName: '小白', content: '看看這張' }),
+        ]
+        const wrapper = mount(ChatView)
+        await flushPromises()
+
+        expect(wrapper.find('.bottom-bar__reply-preview').exists()).toBe(false)
+        await wrapper.find('.message-item__reply-btn').trigger('click')
+
+        const preview = wrapper.find('.bottom-bar__reply-preview')
+        expect(preview.exists()).toBe(true)
+        expect(preview.text()).toContain('小白')
+        expect(preview.text()).toContain('看看這張')
+    })
+
+    it('cancelling the reply preview clears it', async () => {
+        messagesRef.value = [
+            makeMessage({ cursorId: 11, messageId: 'msg-target', furName: '小白', content: '看看這張' }),
+        ]
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        await wrapper.find('.message-item__reply-btn').trigger('click')
+        expect(wrapper.find('.bottom-bar__reply-preview').exists()).toBe(true)
+
+        await wrapper.find('.bottom-bar__reply-preview-cancel').trigger('click')
+
+        expect(wrapper.find('.bottom-bar__reply-preview').exists()).toBe(false)
+    })
+
+    it('sending while replying passes replyToMessageId and clears the preview after send', async () => {
+        sendChatMessageSpy.mockReset().mockReturnValue(true)
+        messagesRef.value = [
+            makeMessage({ cursorId: 11, messageId: 'msg-target', furName: '小白', content: '看看這張' }),
+        ]
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        await wrapper.find('.message-item__reply-btn').trigger('click')
+
+        await wrapper.find('.bottom-bar__input').setValue('好可愛')
+        await wrapper.find('[data-btn="send"]').trigger('click')
+        await flushPromises()
+
+        expect(sendChatMessageSpy).toHaveBeenCalledWith('好可愛', [], 'msg-target')
+        expect(wrapper.find('.bottom-bar__reply-preview').exists()).toBe(false)
+    })
+
+    it('sending without an active reply still calls sendChatMessage with only 2 args (no regression)', async () => {
+        sendChatMessageSpy.mockReset().mockReturnValue(true)
+        const wrapper = mount(ChatView)
+        await flushPromises()
+
+        await wrapper.find('.bottom-bar__input').setValue('hi from test')
+        await wrapper.find('[data-btn="send"]').trigger('click')
+        await flushPromises()
+
+        expect(sendChatMessageSpy).toHaveBeenCalledWith('hi from test', [])
+    })
+
+    it('sending a sticker while replying passes replyToMessageId and clears the preview after send（支援用貼圖回覆）', async () => {
+        sendStickerMessageSpy.mockReset().mockReturnValue(true)
+        messagesRef.value = [
+            makeMessage({ cursorId: 11, messageId: 'msg-target', furName: '小白', content: '看看這張' }),
+        ]
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        await wrapper.find('.message-item__reply-btn').trigger('click')
+        expect(wrapper.find('.bottom-bar__reply-preview').exists()).toBe(true)
+
+        await wrapper.findComponent(BottomBar).vm.$emit('sticker-select', '/sticker/u-1/1.png')
+        await flushPromises()
+
+        expect(sendStickerMessageSpy).toHaveBeenCalledWith('/sticker/u-1/1.png', 'msg-target')
+        expect(wrapper.find('.bottom-bar__reply-preview').exists()).toBe(false)
+    })
+
+    it('sending a sticker without an active reply still calls sendStickerMessage with only 1 arg (no regression)', async () => {
+        sendStickerMessageSpy.mockReset().mockReturnValue(true)
+        const wrapper = mount(ChatView)
+        await flushPromises()
+
+        await wrapper.findComponent(BottomBar).vm.$emit('sticker-select', '/sticker/u-1/1.png')
+        await flushPromises()
+
+        expect(sendStickerMessageSpy).toHaveBeenCalledWith('/sticker/u-1/1.png')
+    })
+
+    it('sending a sticker while replying keeps the reply preview if the send fails (disconnected)', async () => {
+        sendStickerMessageSpy.mockReset().mockReturnValue(false)
+        messagesRef.value = [
+            makeMessage({ cursorId: 11, messageId: 'msg-target', furName: '小白', content: '看看這張' }),
+        ]
+        const wrapper = mount(ChatView)
+        await flushPromises()
+        await wrapper.find('.message-item__reply-btn').trigger('click')
+
+        await wrapper.findComponent(BottomBar).vm.$emit('sticker-select', '/sticker/u-1/1.png')
+        await flushPromises()
+
+        expect(wrapper.find('.bottom-bar__reply-preview').exists()).toBe(true)
+    })
+
+    it('點擊已載入目標的回覆示意塊直接高亮，不呼叫 jumpToMessage', async () => {
+        messagesRef.value = [
+            makeMessage({
+                cursorId: 1, messageId: 'target-msg', furName: '小白', content: '看看這張',
+                createdDate: '2026-05-25T10:00:00',
+            }),
+            makeMessage({
+                cursorId: 2, messageId: 'reply-msg', furName: '毛毛', content: '好可愛',
+                createdDate: '2026-05-25T10:05:00',
+                replyToMessageId: 'target-msg', replyToUserId: 'u-101', replyToFurName: '小白',
+                replyToContentSnippet: '看看這張', replyToCreatedDate: '2026-05-25T10:00:00',
+            }),
+        ]
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        await wrapper.find('.message-item__reply-ref').trigger('click')
+        await flushPromises()
+
+        expect(jumpToMessageSpy).not.toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('點擊未載入目標的回覆示意塊，jump-load 找到後高亮', async () => {
+        messagesRef.value = [
+            makeMessage({
+                cursorId: 2, messageId: 'reply-msg', furName: '毛毛', content: '好可愛',
+                createdDate: '2026-05-25T10:05:00',
+                replyToMessageId: 'target-msg', replyToUserId: 'u-101', replyToFurName: '小白',
+                replyToContentSnippet: '看看這張', replyToCreatedDate: '2026-05-25T10:00:00',
+            }),
+        ]
+        jumpToMessageSpy.mockImplementation(async () => {
+            messagesRef.value = [
+                makeMessage({ cursorId: 1, messageId: 'target-msg', furName: '小白', content: '看看這張', createdDate: '2026-05-25T10:00:00' }),
+                ...messagesRef.value,
+            ]
+            return 'found'
+        })
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        await wrapper.find('.message-item__reply-ref').trigger('click')
+        await flushPromises()
+
+        expect(jumpToMessageSpy).toHaveBeenCalledWith('target-msg', '2026-05-25T10:00:00')
+        expect(clearReplyPreviewForSpy).not.toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('點擊未載入目標的回覆示意塊，jump-load 找不到時該示意塊翻為「無法載入訊息」（不用 toast）', async () => {
+        messagesRef.value = [
+            makeMessage({
+                cursorId: 2, messageId: 'reply-msg', furName: '毛毛', content: '好可愛',
+                createdDate: '2026-05-25T10:05:00',
+                replyToMessageId: 'target-msg', replyToUserId: 'u-101', replyToFurName: '小白',
+                replyToContentSnippet: '看看這張', replyToCreatedDate: '2026-05-25T10:00:00',
+            }),
+        ]
+        jumpToMessageSpy.mockResolvedValue('unresolvable')
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        await wrapper.find('.message-item__reply-ref').trigger('click')
+        await flushPromises()
+
+        expect(jumpToMessageSpy).toHaveBeenCalledWith('target-msg', '2026-05-25T10:00:00')
+        expect(clearReplyPreviewForSpy).toHaveBeenCalledWith('target-msg')
+        expect(wrapper.find('.message-item__reply-ref').text()).toContain('無法載入訊息')
+        expect(pushWarningSpy).not.toHaveBeenCalled()
+        expect(pushErrorSpy).not.toHaveBeenCalled()
+        wrapper.unmount()
+    })
+
+    it('同一目標的跳轉進行中，重複點擊不會再觸發第二次 jumpToMessage', async () => {
+        messagesRef.value = [
+            makeMessage({
+                cursorId: 2, messageId: 'reply-msg', furName: '毛毛', content: '好可愛',
+                createdDate: '2026-05-25T10:05:00',
+                replyToMessageId: 'target-msg', replyToUserId: 'u-101', replyToFurName: '小白',
+                replyToContentSnippet: '看看這張', replyToCreatedDate: '2026-05-25T10:00:00',
+            }),
+        ]
+        let resolveJump!: (v: 'found' | 'unresolvable') => void
+        jumpToMessageSpy.mockImplementation(() => new Promise((resolve) => { resolveJump = resolve }))
+        const wrapper = mount(ChatView, { attachTo: document.body })
+        await flushPromises()
+
+        await wrapper.find('.message-item__reply-ref').trigger('click')
+        await wrapper.find('.message-item__reply-ref').trigger('click')
+        expect(jumpToMessageSpy).toHaveBeenCalledTimes(1)
+
+        resolveJump('unresolvable')
+        await flushPromises()
+        wrapper.unmount()
     })
 
     it('loads more when scrolled near top and hasMore is true', async () => {
@@ -551,6 +809,7 @@ describe('ChatView scroll-fab 未讀 badge', () => {
         kickedRef.value = false
         initSpy.mockReset().mockResolvedValue(undefined)
         loadMoreSpy.mockReset().mockResolvedValue(undefined)
+        jumpToMessageSpy.mockReset()
         sendChatMessageSpy.mockReset().mockReturnValue(true)
         membersRef.value = []
         membersErrorRef.value = null
@@ -608,6 +867,8 @@ describe('ChatView scroll-fab 未讀 badge', () => {
         wrapper.unmount()
     })
 
+    // 每則 MessageItem 現多渲染回覆鈕（v-html SVG），一次掛載 100 則在 happy-dom + CI 併發
+    // 負載下逼近預設 5000ms timeout，故此壓力測試個別放寬（斷言本身與回覆功能無關）。
     it('未讀超過 99 顯示 99+', async () => {
         const wrapper = mount(ChatView, { attachTo: document.body })
         await flushPromises()
@@ -621,7 +882,7 @@ describe('ChatView scroll-fab 未讀 badge', () => {
 
         expect(wrapper.find('.chat-view__scroll-fab-badge').text()).toBe('99+')
         wrapper.unmount()
-    })
+    }, 15000)
 
     it('往上捲載入歷史（prepend）不增加未讀計數', async () => {
         const wrapper = mount(ChatView, { attachTo: document.body })
@@ -1066,6 +1327,7 @@ describe('ChatView 未讀分隔線', () => {
         initSpy.mockReset().mockResolvedValue(undefined)
         reconnectSpy.mockReset().mockResolvedValue(undefined)
         loadMoreSpy.mockReset().mockResolvedValue(undefined)
+        jumpToMessageSpy.mockReset()
         sendChatMessageSpy.mockReset().mockReturnValue(true)
         membersRef.value = []
         membersErrorRef.value = null

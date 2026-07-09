@@ -179,6 +179,22 @@ describe('useChatMessages', () => {
         expect(appendLiveMock).not.toHaveBeenCalled()
     })
 
+    it('appendLive deduplicates by messageId anywhere in the working set, not just the tail', async () => {
+        const { init } = useChatMessages()
+        await init()
+
+        // 重複的是「非最後一則」：中間插入過別的訊息後，同 id 才再次抵達。
+        historyMessages.value = [
+            fakeMessage({ messageId: 'msg-dup', content: 'original' }),
+            fakeMessage({ messageId: 'msg-other', content: 'in-between' }),
+        ]
+        const duplicateLive = fakeMessage({ messageId: 'msg-dup', content: 'duplicate-arrival' })
+
+        messageHandlers[0]({ type: 'CHAT_MESSAGE', data: duplicateLive })
+
+        expect(appendLiveMock).not.toHaveBeenCalled()
+    })
+
     it('appendLive pushes message when not duplicated', async () => {
         const { init } = useChatMessages()
         await init()
@@ -273,6 +289,77 @@ describe('useChatMessages', () => {
         expect(mockPushError.mock.calls[0][0]).toContain('連線中斷')
     })
 
+    it('sendChatMessage includes replyToMessageId in the envelope when provided', async () => {
+        const { init, sendChatMessage } = useChatMessages()
+        await init()
+
+        sendChatMessage('好可愛', [], 'target-msg')
+
+        expect(send).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'CHAT_MESSAGE',
+            data: { messageType: 'TEXT', content: '好可愛', imageUrls: [], replyToMessageId: 'target-msg' },
+        }))
+    })
+
+    it('sendChatMessage omits replyToMessageId from the envelope when not replying', async () => {
+        const { init, sendChatMessage } = useChatMessages()
+        await init()
+
+        sendChatMessage('一般訊息')
+
+        const call = send.mock.calls.at(-1)?.[0]
+        expect(call.data).not.toHaveProperty('replyToMessageId')
+    })
+
+    it('two synchronous sendChatMessage calls in a row only send once (iOS double-fire guard)', async () => {
+        send.mockReturnValue(true)
+        const { init, sendChatMessage } = useChatMessages()
+        await init()
+        send.mockClear()
+
+        sendChatMessage('hello')
+        sendChatMessage('hello')
+
+        expect(send).toHaveBeenCalledTimes(1)
+    })
+
+    it('two synchronous sendStickerMessage calls in a row only send once (iOS double-fire guard)', async () => {
+        send.mockReturnValue(true)
+        const { init, sendStickerMessage } = useChatMessages()
+        await init()
+        send.mockClear()
+
+        sendStickerMessage('/sticker/u-1/1.png')
+        sendStickerMessage('/sticker/u-1/1.png')
+
+        expect(send).toHaveBeenCalledTimes(1)
+    })
+
+    it('mixing text and sticker sends synchronously in a row also only sends once (shared lock)', async () => {
+        send.mockReturnValue(true)
+        const { init, sendChatMessage, sendStickerMessage } = useChatMessages()
+        await init()
+        send.mockClear()
+
+        sendChatMessage('hello')
+        sendStickerMessage('/sticker/u-1/1.png')
+
+        expect(send).toHaveBeenCalledTimes(1)
+    })
+
+    it('lock releases on next microtask so a genuinely separate send afterwards succeeds', async () => {
+        send.mockReturnValue(true)
+        const { init, sendChatMessage } = useChatMessages()
+        await init()
+        send.mockClear()
+
+        sendChatMessage('first')
+        await Promise.resolve() // 讓鎖釋放的微任務跑完
+        sendChatMessage('second')
+
+        expect(send).toHaveBeenCalledTimes(2)
+    })
+
     it('sendStickerMessage shows an error toast and returns false when the socket send is dropped', async () => {
         send.mockReturnValue(false)
         const { init, sendStickerMessage } = useChatMessages()
@@ -320,6 +407,55 @@ describe('useChatMessages', () => {
             expect.objectContaining({ messageId: 'm2', furName: 'Other', avatar: '/o.png', avatarColor: '#oth', avatarBorder: false }),
             expect.objectContaining({ messageId: 'm3', furName: 'NewFur', avatar: '/new.png', avatarColor: '#new', avatarBorder: true }),
         ])
+    })
+
+    it('PROFILE_UPDATED also patches replyToFurName for messages replying to that userId', async () => {
+        const { init } = useChatMessages()
+        await init()
+
+        historyMessages.value = [
+            fakeMessage({
+                messageId: 'reply-1', userId: 'u-2', furName: 'Other',
+                replyToMessageId: 'target', replyToUserId: 'u-1', replyToFurName: 'Old', replyToContentSnippet: '看看這張',
+            }),
+            fakeMessage({ messageId: 'unrelated', userId: 'u-3', furName: 'Third' }),
+        ]
+
+        messageHandlers[0]({
+            type: 'PROFILE_UPDATED',
+            data: { userId: 'u-1', furName: 'NewFur', avatar: '/new.png', avatarColor: '#new', avatarBorder: true },
+        })
+
+        expect(historyMessages.value[0]).toEqual(expect.objectContaining({
+            messageId: 'reply-1',
+            userId: 'u-2', // 自己的 userId 不受影響（回覆者不是被改名的人）
+            furName: 'Other',
+            replyToFurName: 'NewFur', // 回覆預覽的作者名字即時更新
+            replyToContentSnippet: '看看這張', // 摘要不受影響
+        }))
+        expect(historyMessages.value[1]).toEqual(expect.objectContaining({ messageId: 'unrelated', furName: 'Third' }))
+    })
+
+    it('PROFILE_UPDATED patches both own furName and replyToFurName when self-replying', async () => {
+        const { init } = useChatMessages()
+        await init()
+
+        historyMessages.value = [
+            fakeMessage({
+                messageId: 'self-reply', userId: 'u-1', furName: 'Old',
+                replyToMessageId: 'earlier', replyToUserId: 'u-1', replyToFurName: 'Old',
+            }),
+        ]
+
+        messageHandlers[0]({
+            type: 'PROFILE_UPDATED',
+            data: { userId: 'u-1', furName: 'NewFur', avatar: '/new.png', avatarColor: '#new', avatarBorder: true },
+        })
+
+        expect(historyMessages.value[0]).toEqual(expect.objectContaining({
+            furName: 'NewFur',
+            replyToFurName: 'NewFur',
+        }))
     })
 
     it('PROFILE_UPDATED is a no-op when no messages are loaded yet', async () => {
@@ -465,6 +601,28 @@ describe('useChatMessages', () => {
         }))
     })
 
+    it('sendStickerMessage includes replyToMessageId in the envelope when provided (支援用貼圖回覆)', async () => {
+        const { init, sendStickerMessage } = useChatMessages()
+        await init()
+
+        sendStickerMessage('/sticker/u-1/1.png?v=1', 'target-msg')
+
+        expect(send).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'CHAT_MESSAGE',
+            data: { messageType: 'STICKER', stickerImageUrl: '/sticker/u-1/1.png?v=1', replyToMessageId: 'target-msg' },
+        }))
+    })
+
+    it('sendStickerMessage omits replyToMessageId from the envelope when not replying', async () => {
+        const { init, sendStickerMessage } = useChatMessages()
+        await init()
+
+        sendStickerMessage('/sticker/u-1/1.png?v=1')
+
+        const call = send.mock.calls.at(-1)?.[0]
+        expect(call.data).not.toHaveProperty('replyToMessageId')
+    })
+
     it('sendStickerMessage ignores blank url', async () => {
         const { init, sendStickerMessage } = useChatMessages()
         await init()
@@ -480,6 +638,47 @@ describe('useChatMessages', () => {
         messageHandlers[0]({ type: 'MESSAGE_DELETED', data: { messageId: 'm1' } })
 
         expect(historyMessages.value.map((m) => m.messageId)).toEqual(['m2'])
+    })
+
+    it('MESSAGE_DELETED clears reply preview fields on messages that replied to the deleted message', async () => {
+        const { init } = useChatMessages()
+        await init()
+        historyMessages.value = [
+            fakeMessage({
+                messageId: 'reply-1', replyToMessageId: 'm1', replyToUserId: 'u-1',
+                replyToFurName: '小白', replyToContentSnippet: '看看這張', replyToCreatedDate: '2026-05-20T14:00:00',
+            }),
+            fakeMessage({ messageId: 'unrelated', replyToMessageId: null }),
+        ]
+
+        messageHandlers[0]({ type: 'MESSAGE_DELETED', data: { messageId: 'm1' } })
+
+        expect(historyMessages.value).toHaveLength(2)
+        expect(historyMessages.value[0]).toEqual(expect.objectContaining({
+            messageId: 'reply-1',
+            replyToMessageId: 'm1', // 持久化欄位保留（曾是一則回覆）
+            replyToUserId: null,
+            replyToFurName: null,
+            replyToContentSnippet: null,
+            replyToCreatedDate: null,
+        }))
+        expect(historyMessages.value[1]).toEqual(expect.objectContaining({ messageId: 'unrelated' }))
+    })
+
+    it('MESSAGE_DELETED does not affect reply preview fields on unrelated messages', async () => {
+        const { init } = useChatMessages()
+        await init()
+        historyMessages.value = [
+            fakeMessage({
+                messageId: 'reply-1', replyToMessageId: 'other-msg', replyToUserId: 'u-1', replyToFurName: '小白',
+            }),
+        ]
+
+        messageHandlers[0]({ type: 'MESSAGE_DELETED', data: { messageId: 'not-this-one' } })
+
+        expect(historyMessages.value[0]).toEqual(expect.objectContaining({
+            replyToMessageId: 'other-msg', replyToUserId: 'u-1', replyToFurName: '小白',
+        }))
     })
 
     it('MESSAGE_DELETED purges a buffered pending-live message so it does not reappear after flush', async () => {

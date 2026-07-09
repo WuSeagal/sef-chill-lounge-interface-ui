@@ -3,6 +3,10 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import './ChatView.css'
 import MessageItem from '@/components/MessageItem.vue'
 import UnreadDivider from '@/components/UnreadDivider.vue'
+import DateDivider from '@/components/DateDivider.vue'
+import { formatDateDivider, isSameCalendarDay } from '@/utils/messageTimestamp'
+import { snippetOf } from '@/utils/messageSnippet'
+import type { MessageResponse } from '@/types/message'
 import AnnouncementBanner from '@/components/AnnouncementBanner.vue'
 import BottomBar from '@/components/BottomBar.vue'
 import UserPopup from '@/components/UserPopup.vue'
@@ -40,7 +44,7 @@ function uploadErrorToMessage(code: string): string {
     return ERROR_CODE_TO_MESSAGE[code] ?? code
 }
 
-const { messages, loading, initialized, hasMore, loadMore, init, reconnect, dispose, setIsAtBottom, sendChatMessage, sendStickerMessage: sendChatStickerMessage, rateLimited, rateLimitRemaining, kicked, wsReconnecting, wsFailed } = useChatMessages()
+const { messages, loading, initialized, hasMore, loadMore, jumpToMessage, clearReplyPreviewFor, init, reconnect, dispose, setIsAtBottom, sendChatMessage, sendStickerMessage: sendChatStickerMessage, rateLimited, rateLimitRemaining, kicked, wsReconnecting, wsFailed } = useChatMessages()
 const wsClient = useChatWebSocket()
 const imageUpload = useChatImageUpload()
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -81,6 +85,71 @@ function onImageClick(imageUrl: string) {
 function onLightboxClose() {
     lightboxImageUrl.value = null
 }
+
+// 回覆狀態：記完整目標訊息（供組合覆給預覽文字），非僅 messageId。
+const replyTarget = ref<MessageResponse | null>(null)
+const replyPreviewForBar = computed(() => replyTarget.value
+    ? { furName: replyTarget.value.furName ?? '', snippet: snippetOf(replyTarget.value) }
+    : null)
+
+function onReplyClick(messageId: string) {
+    replyTarget.value = messages.value.find((m) => m.messageId === messageId) ?? null
+}
+
+function onReplyCancel() {
+    replyTarget.value = null
+}
+
+// 點回覆示意塊跳轉：已在工作集直接捲動高亮；否則走 jump-load（載入到底），成功一樣捲動高亮，
+// 失敗（unresolvable）則把引用該目標的回覆示意塊清為「無法載入訊息」——不使用 toast。
+async function scrollAndHighlight(messageId: string) {
+    await nextTick()
+    const el = listEl.value?.querySelector(`[data-message-id="${messageId}"]`) as HTMLElement | null
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.remove('message-item--flash')
+    void el.offsetWidth // reflow 重啟動畫，允許連續點同一則也能重新閃爍
+    el.classList.add('message-item--flash')
+}
+
+// 同一目標若已有一個 jump-load 在飛行中，忽略重複點擊：jumpToMessage 內部的 loadMore
+// 若被同時呼叫兩次，第二個呼叫會因 loading 旗標一路空轉、可能提早誤判為 unresolvable。
+const jumpingTargets = new Set<string>()
+
+async function onJump(messageId: string) {
+    if (messages.value.some((m) => m.messageId === messageId)) {
+        await scrollAndHighlight(messageId)
+        return
+    }
+    if (jumpingTargets.has(messageId)) return
+    const replyingMessage = messages.value.find((m) => m.replyToMessageId === messageId)
+    const targetCreatedDate = replyingMessage?.replyToCreatedDate
+    if (!targetCreatedDate) return
+    jumpingTargets.add(messageId)
+    try {
+        const result = await jumpToMessage(messageId, targetCreatedDate)
+        if (result === 'found') {
+            await scrollAndHighlight(messageId)
+        } else {
+            clearReplyPreviewFor(messageId)
+        }
+    } finally {
+        jumpingTargets.delete(messageId)
+    }
+}
+
+// 跨日日期分隔線：純函式分組（見 utils/messageTimestamp），串首第一則之上亦顯示其日期。
+// key 為 messageId，值為該則之上要顯示的分隔線文字；無需顯示的訊息不進此 map。
+const dateDividerLabels = computed<Record<string, string>>(() => {
+    const labels: Record<string, string> = {}
+    messages.value.forEach((m, idx) => {
+        const prev = messages.value[idx - 1]
+        if (!prev || !isSameCalendarDay(prev.createdDate, m.createdDate)) {
+            labels[m.messageId] = formatDateDivider(m.createdDate)
+        }
+    })
+    return labels
+})
 
 // Host 刪除訊息：僅寫死 host 帳號可見刪除鈕；後端為唯一授權邊界，此處僅控制顯隱。
 const authStore = useAuthStore()
@@ -272,6 +341,13 @@ function onScrollFabClick() {
 // 下一次列表變動時強制捲底（不看 isAtBottom，消除 smooth 捲動進行中的 race）。
 let pendingOwnScroll = false
 
+// iOS 雙擊/雙事件防護（D1）：與 useChatMessages 的 withSendLock 同一機制，但獨立一份——
+// onSend 在呼叫 sendChatMessage 之前還有 await imageUpload.uploadAll()，若沒有這裡的鎖，
+// 已選圖片的送出路徑就只能「順便」依賴 imageUpload.uploading 擋雙擊，而非 D1 明講的
+// 「任何 await 之前同步設鎖」機制。同步設定、queueMicrotask 釋放：擋住同一輪同步觸發的
+// 第二次呼叫，但不影響之後真正的下一次送出。
+let sendingMessage = false
+
 // 圖片/貼圖載入完成時內容會變高；若使用者貼底（或捲底動畫進行中）則補捲到
 // 真正的底。用 auto（瞬間落底）避免多張圖陸續載完時 smooth 動畫互相打斷。
 function onMessageImageLoad() {
@@ -375,13 +451,18 @@ function handleAutofillerKey(event: KeyboardEvent): boolean {
 }
 
 async function onSend(value: string) {
-    if (imageUpload.uploading.value) return
+    if (sendingMessage || imageUpload.uploading.value) return
     // 空送出是 no-op（sendChatMessage 同樣條件會拒發），不可立 pendingOwnScroll，
     // 否則旗標殘留會在下一則他人訊息時把往上閱讀的使用者硬拉到底
     if (!value.trim() && imageUpload.selectedFiles.value.length === 0) {
         inputValue.value = ''
         return
     }
+
+    // 鎖必須在此同步設定——在 imageUpload.uploadAll() 的 await 之前，同一輪同步觸發的
+    // 第二次 onSend 呼叫才會被這裡擋下，而不是意外依賴 uploadAll 內部何時設定 uploading。
+    sendingMessage = true
+    queueMicrotask(() => { sendingMessage = false })
 
     let imageUrls: string[] = []
     if (imageUpload.selectedFiles.value.length > 0) {
@@ -393,28 +474,37 @@ async function onSend(value: string) {
         }
     }
 
-    const sent = sendChatMessage(value, imageUrls)
+    // replyTarget 只在有值時多帶第 3 個參數；無回覆時維持既有 2-arg 呼叫（不 regress 既有呼叫端斷言）。
+    const sent = replyTarget.value
+        ? sendChatMessage(value, imageUrls, replyTarget.value.messageId)
+        : sendChatMessage(value, imageUrls)
     if (!sent) {
-        // 連線中斷未送出：sendChatMessage 已 toast，保留輸入與已選圖片讓使用者重送
+        // 連線中斷未送出：sendChatMessage 已 toast，保留輸入與已選圖片、回覆狀態讓使用者重送
         return
     }
     pendingOwnScroll = true
     inputValue.value = ''
     stopTyping()
     imageUpload.reset()
+    replyTarget.value = null
     await nextTick()
     scrollToBottom(true)
 }
 
 async function onStickerSelect(url: string) {
-    const sent = sendChatStickerMessage(url)
+    // 貼圖亦支援回覆（見 chat-websocket-backend spec）：replyTarget 只在有值時多帶第 2 個
+    // 參數，無回覆時維持既有 1-arg 呼叫（不 regress 既有呼叫端斷言）。
+    const sent = replyTarget.value
+        ? sendChatStickerMessage(url, replyTarget.value.messageId)
+        : sendChatStickerMessage(url)
     if (!sent) {
-        // 連線中斷未送出：sendStickerMessage 已 toast，不可殘留 pendingOwnScroll
-        // 否則旗標會在下一則他人訊息時把往上閱讀的使用者硬拉到底
+        // 連線中斷未送出：sendStickerMessage 已 toast，保留回覆狀態讓使用者重送；
+        // 不可殘留 pendingOwnScroll，否則旗標會在下一則他人訊息時把往上閱讀的使用者硬拉到底
         return
     }
     pendingOwnScroll = true
     stopTyping()
+    replyTarget.value = null
     await nextTick()
     scrollToBottom(true)
 }
@@ -579,6 +669,10 @@ void currentProfile
                     目前沒有訊息
                 </div>
                 <template v-for="m in messages" :key="m.messageId">
+                    <DateDivider
+                        v-if="dateDividerLabels[m.messageId]"
+                        :label="dateDividerLabels[m.messageId]"
+                    />
                     <UnreadDivider
                         v-if="dividerVisible && m.messageId === unreadBoundaryId"
                         :leaving="dividerLeaving"
@@ -592,6 +686,8 @@ void currentProfile
                         @image-load="onMessageImageLoad"
                         @link-click="onLinkClick"
                         @delete-click="onDeleteClick"
+                        @reply-click="onReplyClick"
+                        @jump="onJump"
                     />
                 </template>
             </div>
@@ -665,12 +761,14 @@ void currentProfile
             :stickers="myStickers"
             :rate-limited="rateLimited"
             :rate-limit-remaining="rateLimitRemaining"
+            :reply-preview="replyPreviewForBar"
             @gear-click="onGearClick"
             @attach-click="onAttachClick"
             @image-paste="onImagePaste"
             @sticker-select="onStickerSelect"
             @caret-change="onCaretChange"
             @send="onSend"
+            @reply-cancel="onReplyCancel"
         >
             <template #popup>
                 <AutofillerPopup

@@ -17,12 +17,17 @@ function makeMessage(overrides: Partial<MessageResponse>): MessageResponse {
         imageUrls: [],
         stickerImageUrl: null,
         createdDate: '2026-05-20T14:00:00',
+        replyToMessageId: null,
+        replyToUserId: null,
+        replyToFurName: null,
+        replyToContentSnippet: null,
+        replyToCreatedDate: null,
         ...overrides,
     }
 }
 
 describe('MessageItem', () => {
-    it('renders furName and HH:mm timestamp', () => {
+    it('renders furName and a full-date timestamp for an old message', () => {
         const wrapper = mount(MessageItem, {
             props: {
                 message: makeMessage({}),
@@ -30,7 +35,19 @@ describe('MessageItem', () => {
         })
 
         expect(wrapper.text()).toContain('小毛')
-        expect(wrapper.find('.message-item__timestamp').text()).toMatch(/^\d{2}:\d{2}$/)
+        expect(wrapper.find('.message-item__timestamp').text()).toBe('2026/05/20 14:00')
+    })
+
+    it('renders 今天 HH:mm for a message created today', () => {
+        const now = new Date()
+        const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T09:05:00`
+        const wrapper = mount(MessageItem, {
+            props: {
+                message: makeMessage({ createdDate: todayIso }),
+            },
+        })
+
+        expect(wrapper.find('.message-item__timestamp').text()).toBe('今天 09:05')
     })
 
     it('renders text content with a > prompt prefix', () => {
@@ -137,6 +154,33 @@ describe('MessageItem', () => {
         expect(wrapper.emitted('avatar-click')?.[0]).toEqual(['u-101'])
     })
 
+    it('emits avatar-click with the userId when the nickname is clicked (same effect as avatar)', async () => {
+        const wrapper = mount(MessageItem, {
+            props: {
+                message: makeMessage({}),
+            },
+        })
+
+        await wrapper.find('.message-item__nickname').trigger('click')
+        expect(wrapper.emitted('avatar-click')?.[0]).toEqual(['u-101'])
+    })
+
+    it('nickname is keyboard-operable (role/tabindex + Enter/Space emits avatar-click)', async () => {
+        const wrapper = mount(MessageItem, {
+            props: {
+                message: makeMessage({}),
+            },
+        })
+
+        const nickname = wrapper.find('.message-item__nickname')
+        expect(nickname.attributes('role')).toBe('button')
+        expect(nickname.attributes('tabindex')).toBe('0')
+        await nickname.trigger('keydown.enter')
+        expect(wrapper.emitted('avatar-click')?.[0]).toEqual(['u-101'])
+        await nickname.trigger('keydown.space')
+        expect(wrapper.emitted('avatar-click')?.[1]).toEqual(['u-101'])
+    })
+
     it('emits image-click with the sticker url when a STICKER message is clicked', async () => {
         const wrapper = mount(MessageItem, {
             props: {
@@ -213,6 +257,71 @@ describe('MessageItem', () => {
 
         await wrapper.find('.message-item__sticker').trigger('load')
         expect(wrapper.emitted('image-load')).toBeTruthy()
+    })
+})
+
+describe('MessageItem — 回覆鈕', () => {
+    it('顯示回覆鈕（hover 顯隱由 CSS 控制，這裡只驗證存在與可觸發）', () => {
+        const wrapper = mount(MessageItem, { props: { message: makeMessage({}) } })
+        expect(wrapper.find('.message-item__reply-btn').exists()).toBe(true)
+    })
+
+    it('點回覆鈕 emit reply-click(messageId)', async () => {
+        const wrapper = mount(MessageItem, { props: { message: makeMessage({ messageId: 'm-42' }) } })
+        await wrapper.find('.message-item__reply-btn').trigger('click')
+        expect(wrapper.emitted('reply-click')?.[0]).toEqual(['m-42'])
+    })
+})
+
+describe('MessageItem — 回覆示意塊', () => {
+    it('非回覆訊息不顯示示意塊', () => {
+        const wrapper = mount(MessageItem, { props: { message: makeMessage({ replyToMessageId: null }) } })
+        expect(wrapper.find('.message-item__reply-ref').exists()).toBe(false)
+    })
+
+    it('可解析的回覆顯示作者與摘要，可點擊 emit jump(replyToMessageId)', async () => {
+        const wrapper = mount(MessageItem, {
+            props: {
+                message: makeMessage({
+                    replyToMessageId: 'target-1',
+                    replyToUserId: 'u-target',
+                    replyToFurName: '小白',
+                    replyToContentSnippet: '看看這張',
+                }),
+            },
+        })
+
+        const ref = wrapper.find('.message-item__reply-ref')
+        expect(ref.exists()).toBe(true)
+        expect(ref.text()).toContain('小白')
+        expect(ref.text()).toContain('看看這張')
+        expect(ref.attributes('role')).toBe('button')
+        expect(ref.attributes('tabindex')).toBe('0')
+
+        await ref.trigger('click')
+        expect(wrapper.emitted('jump')?.[0]).toEqual(['target-1'])
+    })
+
+    it('無法解析（replyToFurName 為 null）顯示「無法載入訊息」且不可點擊', async () => {
+        const wrapper = mount(MessageItem, {
+            props: {
+                message: makeMessage({
+                    replyToMessageId: 'target-gone',
+                    replyToUserId: null,
+                    replyToFurName: null,
+                    replyToContentSnippet: null,
+                }),
+            },
+        })
+
+        const ref = wrapper.find('.message-item__reply-ref')
+        expect(ref.exists()).toBe(true)
+        expect(ref.text()).toContain('無法載入訊息')
+        expect(ref.attributes('role')).toBeUndefined()
+        expect(ref.attributes('tabindex')).toBeUndefined()
+
+        await ref.trigger('click')
+        expect(wrapper.emitted('jump')).toBeFalsy()
     })
 })
 

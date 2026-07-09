@@ -24,8 +24,8 @@ export interface PresenceSnapshotPayload {
 }
 
 export type ChatMessageSendPayload =
-    | { messageType: 'TEXT'; content: string; imageUrls: string[] }
-    | { messageType: 'STICKER'; stickerImageUrl: string }
+    | { messageType: 'TEXT'; content: string; imageUrls: string[]; replyToMessageId?: string }
+    | { messageType: 'STICKER'; stickerImageUrl: string; replyToMessageId?: string }
 
 export type ChatMessageBroadcastPayload = MessageResponse
 

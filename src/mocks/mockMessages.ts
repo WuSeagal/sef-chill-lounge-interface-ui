@@ -8,6 +8,12 @@ export type MockMessage = {
     content: string
     imageUrl?: string
     timestamp: string
+    // 回覆關聯欄位對齊 MessageResponse 命名（見 message-storage-and-history-api spec）：
+    // replyToMessageId 為持久化欄位，其餘三者為衍生欄位（皆可選，非回覆訊息省略）。
+    replyToMessageId?: string
+    replyToFurName?: string
+    replyToContentSnippet?: string
+    replyToCreatedDate?: string
 }
 
 const AVATAR_PLACEHOLDER = '/mock-images/avatar-default.png'
@@ -49,6 +55,11 @@ export const mockMessages: MockMessage[] = [
         avatarUrl: AVATAR_PLACEHOLDER,
         content: '哇 好棒！',
         timestamp: '2026-05-20T14:03:00.000Z',
+        // 回覆範例：回覆 msg-003（小白的圖片訊息）。
+        replyToMessageId: 'msg-003',
+        replyToFurName: '小白',
+        replyToContentSnippet: '看看這張',
+        replyToCreatedDate: '2026-05-20T14:02:15.000Z',
     },
     {
         id: 'msg-005',

@@ -12,6 +12,7 @@ import iconAttachRaw from '@/assets/icons/icon-attach.svg?raw'
 import iconEmojiRaw from '@/assets/icons/icon-emoji.svg?raw'
 import iconStickerRaw from '@/assets/icons/icon-sticker.svg?raw'
 import iconSendRaw from '@/assets/icons/icon-send.svg?raw'
+import iconCloseRaw from '@/assets/icons/icon-close.svg?raw'
 
 const props = withDefaults(defineProps<{
     inputValue: string
@@ -21,6 +22,7 @@ const props = withDefaults(defineProps<{
     stickers?: Sticker[]
     rateLimited?: boolean
     rateLimitRemaining?: number
+    replyPreview?: { furName: string; snippet: string } | null
 }>(), {
     attachDisabled: false,
     autofillerOpen: false,
@@ -28,6 +30,7 @@ const props = withDefaults(defineProps<{
     stickers: () => [],
     rateLimited: false,
     rateLimitRemaining: 0,
+    replyPreview: null,
 })
 
 // During a server-imposed rate-limit window the composer is locked and the
@@ -49,6 +52,7 @@ const emit = defineEmits<{
     (e: 'send', v: string): void
     (e: 'image-paste', files: File[]): void
     (e: 'caret-change', pos: number): void
+    (e: 'reply-cancel'): void
 }>()
 
 function onPaste(event: ClipboardEvent) {
@@ -191,63 +195,79 @@ function onStickerSelect(url: string) {
 
 <template>
     <div class="bottom-bar">
-        <button class="bottom-bar__btn" data-btn="gear" type="button" aria-label="設定" @click="emit('gear-click')">
-            <span class="bottom-bar__icon" v-html="iconSettingsRaw" aria-hidden="true"></span>
-        </button>
-        <button
-            class="bottom-bar__btn"
-            data-btn="attach"
-            type="button"
-            aria-label="附加圖片"
-            :disabled="attachDisabled || rateLimited"
-            :title="attachDisabled ? '已達 5 張上限' : ''"
-            @click="emit('attach-click')"
-        >
-            <span class="bottom-bar__icon" v-html="iconAttachRaw" aria-hidden="true"></span>
-        </button>
-        <textarea
-            ref="textareaEl"
-            class="bottom-bar__input"
-            rows="1"
-            :value="inputValue"
-            :placeholder="inputPlaceholder"
-            :disabled="rateLimited"
-            @input="onInput"
-            @keydown="onKeydown"
-            @keyup="emitCaret"
-            @click="emitCaret"
-            @paste="onPaste"
-        ></textarea>
-        <button
-            class="bottom-bar__btn"
-            data-btn="emoji"
-            type="button"
-            aria-label="表情符號"
-            :disabled="rateLimited"
-            @click.stop="onEmojiButtonClick"
-        >
-            <span class="bottom-bar__icon" v-html="iconEmojiRaw" aria-hidden="true"></span>
-        </button>
-        <button
-            class="bottom-bar__btn"
-            data-btn="sticker"
-            type="button"
-            aria-label="貼圖"
-            :disabled="rateLimited"
-            @click.stop="onStickerButtonClick"
-        >
-            <span class="bottom-bar__icon" v-html="iconStickerRaw" aria-hidden="true"></span>
-        </button>
-        <button
-            class="bottom-bar__btn"
-            data-btn="send"
-            type="button"
-            aria-label="送出"
-            :disabled="rateLimited"
-            @click="onSend"
-        >
-            <span class="bottom-bar__icon" v-html="iconSendRaw" aria-hidden="true"></span>
-        </button>
+        <div v-if="replyPreview" class="bottom-bar__reply-preview">
+            <div class="bottom-bar__reply-preview-accent"></div>
+            <div class="bottom-bar__reply-preview-text">
+                <span class="bottom-bar__reply-preview-label">回覆給 </span>
+                <span class="bottom-bar__reply-preview-author">{{ replyPreview.furName }}：</span>
+                <span class="bottom-bar__reply-preview-snippet">{{ replyPreview.snippet }}</span>
+            </div>
+            <button
+                class="bottom-bar__reply-preview-cancel"
+                type="button"
+                aria-label="取消回覆"
+                @click="emit('reply-cancel')"
+            ><span v-html="iconCloseRaw" aria-hidden="true"></span></button>
+        </div>
+        <div class="bottom-bar__row">
+            <button class="bottom-bar__btn" data-btn="gear" type="button" aria-label="設定" @click="emit('gear-click')">
+                <span class="bottom-bar__icon" v-html="iconSettingsRaw" aria-hidden="true"></span>
+            </button>
+            <button
+                class="bottom-bar__btn"
+                data-btn="attach"
+                type="button"
+                aria-label="附加圖片"
+                :disabled="attachDisabled || rateLimited"
+                :title="attachDisabled ? '已達 5 張上限' : ''"
+                @click="emit('attach-click')"
+            >
+                <span class="bottom-bar__icon" v-html="iconAttachRaw" aria-hidden="true"></span>
+            </button>
+            <textarea
+                ref="textareaEl"
+                class="bottom-bar__input"
+                rows="1"
+                :value="inputValue"
+                :placeholder="inputPlaceholder"
+                :disabled="rateLimited"
+                @input="onInput"
+                @keydown="onKeydown"
+                @keyup="emitCaret"
+                @click="emitCaret"
+                @paste="onPaste"
+            ></textarea>
+            <button
+                class="bottom-bar__btn"
+                data-btn="emoji"
+                type="button"
+                aria-label="表情符號"
+                :disabled="rateLimited"
+                @click.stop="onEmojiButtonClick"
+            >
+                <span class="bottom-bar__icon" v-html="iconEmojiRaw" aria-hidden="true"></span>
+            </button>
+            <button
+                class="bottom-bar__btn"
+                data-btn="sticker"
+                type="button"
+                aria-label="貼圖"
+                :disabled="rateLimited"
+                @click.stop="onStickerButtonClick"
+            >
+                <span class="bottom-bar__icon" v-html="iconStickerRaw" aria-hidden="true"></span>
+            </button>
+            <button
+                class="bottom-bar__btn"
+                data-btn="send"
+                type="button"
+                aria-label="送出"
+                :disabled="rateLimited"
+                @click="onSend"
+            >
+                <span class="bottom-bar__icon" v-html="iconSendRaw" aria-hidden="true"></span>
+            </button>
+        </div>
 
         <EmojiPicker
             :open="emojiPickerOpen"
