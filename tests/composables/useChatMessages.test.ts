@@ -90,6 +90,7 @@ describe('useChatMessages', () => {
 
     afterEach(() => {
         vi.clearAllMocks()
+        vi.restoreAllMocks()
     })
 
     it('init connects WS then loads history with before=connectTime as local ISO string', async () => {
@@ -311,16 +312,20 @@ describe('useChatMessages', () => {
         expect(call.data).not.toHaveProperty('replyToMessageId')
     })
 
-    it('two synchronous sendChatMessage calls in a row only send once (iOS double-fire guard)', async () => {
+    it('同一文字 payload 相隔 135ms 再送仍只送一次（PRD iOS double-fire regression）', async () => {
         send.mockReturnValue(true)
         const { init, sendChatMessage } = useChatMessages()
         await init()
         send.mockClear()
+        const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000)
 
         sendChatMessage('hello')
+        nowSpy.mockReturnValue(1_135)
+        await Promise.resolve() // 模擬第二個 browser event task 前已清空 microtask queue
         sendChatMessage('hello')
 
         expect(send).toHaveBeenCalledTimes(1)
+        nowSpy.mockRestore()
     })
 
     it('two synchronous sendStickerMessage calls in a row only send once (iOS double-fire guard)', async () => {
@@ -335,7 +340,7 @@ describe('useChatMessages', () => {
         expect(send).toHaveBeenCalledTimes(1)
     })
 
-    it('mixing text and sticker sends synchronously in a row also only sends once (shared lock)', async () => {
+    it('500ms 內 text 與 sticker payload 不同時皆可送出', async () => {
         send.mockReturnValue(true)
         const { init, sendChatMessage, sendStickerMessage } = useChatMessages()
         await init()
@@ -344,20 +349,53 @@ describe('useChatMessages', () => {
         sendChatMessage('hello')
         sendStickerMessage('/sticker/u-1/1.png')
 
-        expect(send).toHaveBeenCalledTimes(1)
+        expect(send).toHaveBeenCalledTimes(2)
     })
 
-    it('lock releases on next microtask so a genuinely separate send afterwards succeeds', async () => {
+    it('相同 payload 超過 500ms 後可再次送出', async () => {
         send.mockReturnValue(true)
         const { init, sendChatMessage } = useChatMessages()
         await init()
         send.mockClear()
+        const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000)
 
-        sendChatMessage('first')
-        await Promise.resolve() // 讓鎖釋放的微任務跑完
-        sendChatMessage('second')
+        sendChatMessage('same')
+        nowSpy.mockReturnValue(1_501)
+        await Promise.resolve()
+        sendChatMessage('same')
 
         expect(send).toHaveBeenCalledTimes(2)
+        nowSpy.mockRestore()
+    })
+
+    it('500ms 內不同 content、imageUrls 與 reply target 不互相阻擋', async () => {
+        send.mockReturnValue(true)
+        const { init, sendChatMessage } = useChatMessages()
+        await init()
+        send.mockClear()
+        const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000)
+
+        sendChatMessage('first', [], 'reply-a')
+        sendChatMessage('second', [], 'reply-a')
+        sendChatMessage('first', ['/image/a.png'], 'reply-a')
+        sendChatMessage('first', [], 'reply-b')
+
+        expect(send).toHaveBeenCalledTimes(4)
+        nowSpy.mockRestore()
+    })
+
+    it('socket send 失敗不建立 cooldown，連線恢復後相同 payload 可立即重送', async () => {
+        const { init, sendChatMessage } = useChatMessages()
+        await init()
+        send.mockClear()
+        send.mockReturnValueOnce(false).mockReturnValueOnce(true)
+        const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(1_000)
+
+        expect(sendChatMessage('retry-me')).toBe(false)
+        expect(sendChatMessage('retry-me')).toBe(true)
+
+        expect(send).toHaveBeenCalledTimes(2)
+        nowSpy.mockRestore()
     })
 
     it('sendStickerMessage shows an error toast and returns false when the socket send is dropped', async () => {

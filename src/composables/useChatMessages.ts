@@ -13,6 +13,7 @@ import { ref, type Ref } from 'vue'
 import { push } from 'notivue'
 
 const WAIT_CONNECT_TIMEOUT_MS = 30_000
+const DUPLICATE_SEND_WINDOW_MS = 500
 
 function waitForConnectTime(connectTimeRef: Ref<number | null>): Promise<number> {
     return new Promise((resolve, reject) => {
@@ -238,64 +239,75 @@ export function useChatMessages() {
         rateLimitRemaining.value = 0
     }
 
-    // iOS Safari 上單次點擊/觸控偶發重複觸發送出事件，兩個 CHAT_MESSAGE frame 各自持久化
-    // 成兩則訊息。in-flight 鎖在送出起點同步鎖住，微任務（下一個 tick）才釋放：
-    // 兩次「同步」（無 await 相隔）呼叫必落在同一個微任務佇列前，第二次會被擋下；
-    // 真正分開的後續送出則在鎖釋放後正常放行。text 與 sticker 共用同一把鎖。
-    let sending = false
-    function withSendLock<T>(action: () => T, fallback: T): T {
-        if (sending) return fallback
-        sending = true
-        queueMicrotask(() => { sending = false })
-        return action()
+    // PRD 實測 iOS 的兩個 CHAT_MESSAGE frame 可相隔 135ms，microtask lock 無法攔截。
+    // 只對「完全相同的 normalized payload」做 500ms cooldown，不同內容/圖片/回覆/貼圖仍可連發。
+    // 僅在 socket.send 成功後記錄，避免斷線失敗的嘗試阻擋使用者立即重送。
+    const recentSuccessfulSends = new Map<string, number>()
+
+    function sendOnce(envelope: ChatEnvelope<ChatMessageSendPayload>): 'sent' | 'duplicate' | 'failed' {
+        const fingerprint = JSON.stringify(envelope.data)
+        const now = Date.now()
+        const previousSentAt = recentSuccessfulSends.get(fingerprint)
+        if (previousSentAt !== undefined) {
+            const elapsed = now - previousSentAt
+            if (elapsed >= 0 && elapsed <= DUPLICATE_SEND_WINDOW_MS) return 'duplicate'
+        }
+
+        if (!socket.send(envelope)) return 'failed'
+
+        recentSuccessfulSends.set(fingerprint, now)
+        for (const [key, sentAt] of recentSuccessfulSends) {
+            if (now - sentAt > DUPLICATE_SEND_WINDOW_MS) recentSuccessfulSends.delete(key)
+        }
+        return 'sent'
     }
 
     // 回傳是否真的送出（WS 斷線時為 false），讓呼叫端可保留輸入內容供重送。
     // replyToMessageId 缺省時 payload 不含該欄位（衍生欄位一律由 server 端即時解析，
     // client 只送這一個 id）。
     function sendChatMessage(content: string, imageUrls: string[] = [], replyToMessageId?: string): boolean {
-        return withSendLock(() => {
-            const trimmed = content.trim()
-            if (!trimmed && imageUrls.length === 0) return false
-            const payload: ChatMessageSendPayload = {
-                messageType: 'TEXT',
-                content: trimmed,
-                imageUrls,
-                ...(replyToMessageId ? { replyToMessageId } : {}),
-            }
-            const envelope: ChatEnvelope<ChatMessageSendPayload> = {
-                type: 'CHAT_MESSAGE',
-                timestamp: Date.now(),
-                data: payload,
-            }
-            if (!socket.send(envelope)) {
-                push.error('連線中斷，訊息未送出，請稍後再試')
-                return false
-            }
-            return true
-        }, false)
+        const trimmed = content.trim()
+        if (!trimmed && imageUrls.length === 0) return false
+        const payload: ChatMessageSendPayload = {
+            messageType: 'TEXT',
+            content: trimmed,
+            imageUrls,
+            ...(replyToMessageId ? { replyToMessageId } : {}),
+        }
+        const envelope: ChatEnvelope<ChatMessageSendPayload> = {
+            type: 'CHAT_MESSAGE',
+            timestamp: Date.now(),
+            data: payload,
+        }
+        const result = sendOnce(envelope)
+        if (result === 'failed') {
+            push.error('連線中斷，訊息未送出，請稍後再試')
+            return false
+        }
+        if (result === 'duplicate') return false
+        return true
     }
 
     function sendStickerMessage(stickerImageUrl: string, replyToMessageId?: string): boolean {
-        return withSendLock(() => {
-            const trimmed = stickerImageUrl.trim()
-            if (!trimmed) return false
-            const payload: ChatMessageSendPayload = {
-                messageType: 'STICKER',
-                stickerImageUrl: trimmed,
-                ...(replyToMessageId ? { replyToMessageId } : {}),
-            }
-            const envelope: ChatEnvelope<ChatMessageSendPayload> = {
-                type: 'CHAT_MESSAGE',
-                timestamp: Date.now(),
-                data: payload,
-            }
-            if (!socket.send(envelope)) {
-                push.error('連線中斷，貼圖未送出，請稍後再試')
-                return false
-            }
-            return true
-        }, false)
+        const trimmed = stickerImageUrl.trim()
+        if (!trimmed) return false
+        const payload: ChatMessageSendPayload = {
+            messageType: 'STICKER',
+            stickerImageUrl: trimmed,
+            ...(replyToMessageId ? { replyToMessageId } : {}),
+        }
+        const envelope: ChatEnvelope<ChatMessageSendPayload> = {
+            type: 'CHAT_MESSAGE',
+            timestamp: Date.now(),
+            data: payload,
+        }
+        const result = sendOnce(envelope)
+        if (result === 'failed') {
+            push.error('連線中斷，貼圖未送出，請稍後再試')
+            return false
+        }
+        if (result === 'duplicate') return false
+        return true
     }
 
     return {

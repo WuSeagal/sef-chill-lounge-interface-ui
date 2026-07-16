@@ -84,6 +84,48 @@ describe('BottomBar', () => {
         expect(wrapper.emitted('send')).toBeFalsy()
     })
 
+    it('does NOT emit send when Enter confirms an active IME composition', async () => {
+        mockMatchMedia(false)
+        const wrapper = mount(BottomBar, { props: { inputValue: '輸入中' } })
+        const input = wrapper.find('.bottom-bar__input')
+
+        await input.trigger('compositionstart')
+        await input.trigger('keydown', { key: 'Enter' })
+
+        expect(wrapper.emitted('send')).toBeFalsy()
+    })
+
+    it('does NOT emit send when KeyboardEvent.isComposing is true', async () => {
+        mockMatchMedia(false)
+        const wrapper = mount(BottomBar, { props: { inputValue: '輸入中' } })
+
+        await wrapper.find('.bottom-bar__input').trigger('keydown', { key: 'Enter', isComposing: true })
+
+        expect(wrapper.emitted('send')).toBeFalsy()
+    })
+
+    it('does NOT emit send for WebKit IME fallback keyCode 229', async () => {
+        mockMatchMedia(false)
+        const wrapper = mount(BottomBar, { props: { inputValue: '輸入中' } })
+        const input = wrapper.find('.bottom-bar__input')
+        const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+        Object.defineProperty(event, 'keyCode', { value: 229 })
+
+        input.element.dispatchEvent(event)
+        await wrapper.vm.$nextTick()
+
+        expect(wrapper.emitted('send')).toBeFalsy()
+    })
+
+    it('does NOT emit send for repeated Enter keydown', async () => {
+        mockMatchMedia(false)
+        const wrapper = mount(BottomBar, { props: { inputValue: '輸入中' } })
+
+        await wrapper.find('.bottom-bar__input').trigger('keydown', { key: 'Enter', repeat: true })
+
+        expect(wrapper.emitted('send')).toBeFalsy()
+    })
+
     it('does NOT emit send on Enter when touch device (mobile Enter = newline)', async () => {
         mockMatchMedia(true)
         const wrapper = mount(BottomBar, { props: { inputValue: 'mobile-text' } })

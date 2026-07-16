@@ -75,6 +75,7 @@ function onPaste(event: ClipboardEvent) {
 const emojiPickerOpen = ref(false)
 const stickerPickerOpen = ref(false)
 const textareaEl = ref<HTMLTextAreaElement | null>(null)
+let composing = false
 
 // Auto-grow: reset to 'auto' to remeasure, then set height to the
 // natural content height. CSS owns the upper bound (max-height: 50dvh)
@@ -120,9 +121,21 @@ function onSend() {
     emit('send', props.inputValue)
 }
 
+function onCompositionStart() {
+    composing = true
+}
+
+function onCompositionEnd() {
+    composing = false
+}
+
 // Enter (no shift) submits and prevents the default newline. Shift+Enter
 // falls through with the browser's default behaviour, which inserts \n.
 function onKeydown(event: KeyboardEvent) {
+    const isImeEnter = event.key === 'Enter'
+        && (composing || event.isComposing || event.keyCode === 229)
+    if (isImeEnter || (event.key === 'Enter' && event.repeat)) return
+
     if (props.autofillerOpen && props.autofillerHandleKeydown?.(event)) {
         return
     }
@@ -232,6 +245,8 @@ function onStickerSelect(url: string) {
                 :placeholder="inputPlaceholder"
                 :disabled="rateLimited"
                 @input="onInput"
+                @compositionstart="onCompositionStart"
+                @compositionend="onCompositionEnd"
                 @keydown="onKeydown"
                 @keyup="emitCaret"
                 @click="emitCaret"

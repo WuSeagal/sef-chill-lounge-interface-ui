@@ -341,11 +341,8 @@ function onScrollFabClick() {
 // 下一次列表變動時強制捲底（不看 isAtBottom，消除 smooth 捲動進行中的 race）。
 let pendingOwnScroll = false
 
-// iOS 雙擊/雙事件防護（D1）：與 useChatMessages 的 withSendLock 同一機制，但獨立一份——
-// onSend 在呼叫 sendChatMessage 之前還有 await imageUpload.uploadAll()，若沒有這裡的鎖，
-// 已選圖片的送出路徑就只能「順便」依賴 imageUpload.uploading 擋雙擊，而非 D1 明講的
-// 「任何 await 之前同步設鎖」機制。同步設定、queueMicrotask 釋放：擋住同一輪同步觸發的
-// 第二次呼叫，但不影響之後真正的下一次送出。
+// 圖片送出在 upload await 前同步鎖住完整 action，避免雙觸發造成重複上傳。
+// 完成 payload 後另由 useChatMessages 的 500ms fingerprint guard 防止跨 event task 的重複 frame。
 let sendingMessage = false
 
 // 圖片/貼圖載入完成時內容會變高；若使用者貼底（或捲底動畫進行中）則補捲到
@@ -459,36 +456,37 @@ async function onSend(value: string) {
         return
     }
 
-    // 鎖必須在此同步設定——在 imageUpload.uploadAll() 的 await 之前，同一輪同步觸發的
-    // 第二次 onSend 呼叫才會被這裡擋下，而不是意外依賴 uploadAll 內部何時設定 uploading。
+    // 鎖必須在 imageUpload.uploadAll() 的 await 之前同步設定，並維持到整個 action 結束。
     sendingMessage = true
-    queueMicrotask(() => { sendingMessage = false })
+    try {
+        let imageUrls: string[] = []
+        if (imageUpload.selectedFiles.value.length > 0) {
+            try {
+                imageUrls = await imageUpload.uploadAll()
+            } catch {
+                // error 已存於 imageUpload.error，已 watch 顯示 toast，保留輸入內容讓 user 重試
+                return
+            }
+        }
 
-    let imageUrls: string[] = []
-    if (imageUpload.selectedFiles.value.length > 0) {
-        try {
-            imageUrls = await imageUpload.uploadAll()
-        } catch {
-            // error 已存於 imageUpload.error，已 watch 顯示 toast，保留輸入內容讓 user 重試
+        // replyTarget 只在有值時多帶第 3 個參數；無回覆時維持既有 2-arg 呼叫（不 regress 既有呼叫端斷言）。
+        const sent = replyTarget.value
+            ? sendChatMessage(value, imageUrls, replyTarget.value.messageId)
+            : sendChatMessage(value, imageUrls)
+        if (!sent) {
+            // 連線中斷或相同 payload 防重：保留尚未被前次成功 action 清除的輸入與附件供重送
             return
         }
+        pendingOwnScroll = true
+        inputValue.value = ''
+        stopTyping()
+        imageUpload.reset()
+        replyTarget.value = null
+        await nextTick()
+        scrollToBottom(true)
+    } finally {
+        sendingMessage = false
     }
-
-    // replyTarget 只在有值時多帶第 3 個參數；無回覆時維持既有 2-arg 呼叫（不 regress 既有呼叫端斷言）。
-    const sent = replyTarget.value
-        ? sendChatMessage(value, imageUrls, replyTarget.value.messageId)
-        : sendChatMessage(value, imageUrls)
-    if (!sent) {
-        // 連線中斷未送出：sendChatMessage 已 toast，保留輸入與已選圖片、回覆狀態讓使用者重送
-        return
-    }
-    pendingOwnScroll = true
-    inputValue.value = ''
-    stopTyping()
-    imageUpload.reset()
-    replyTarget.value = null
-    await nextTick()
-    scrollToBottom(true)
 }
 
 async function onStickerSelect(url: string) {

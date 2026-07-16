@@ -317,6 +317,7 @@ describe('ChatView', () => {
     })
 
     it('已選圖片時雙擊送出鍵只會上傳與送出一次（iOS 雙擊防護：鎖須同步設定於 uploadAll 的 await 之前）', async () => {
+        sendChatMessageSpy.mockReturnValue(true)
         const wrapper = mount(ChatView)
         await flushPromises()
 
@@ -334,6 +335,26 @@ describe('ChatView', () => {
 
         expect(uploadChatImageSpy).toHaveBeenCalledTimes(1)
         expect(sendChatMessageSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('圖片送出 action 完成後可正常送出下一則不同訊息', async () => {
+        sendChatMessageSpy.mockReturnValue(true)
+        const wrapper = mount(ChatView)
+        await flushPromises()
+
+        await wrapper.find('.bottom-bar__input').setValue('圖片訊息')
+        const file = new File(['x'], 'a.png', { type: 'image/png' })
+        await wrapper.findComponent(BottomBar).vm.$emit('image-paste', [file])
+        await wrapper.find('[data-btn="send"]').trigger('click')
+        await flushPromises()
+
+        await wrapper.find('.bottom-bar__input').setValue('下一則')
+        await wrapper.find('[data-btn="send"]').trigger('click')
+        await flushPromises()
+
+        expect(uploadChatImageSpy).toHaveBeenCalledTimes(1)
+        expect(sendChatMessageSpy).toHaveBeenCalledTimes(2)
+        expect(sendChatMessageSpy).toHaveBeenLastCalledWith('下一則', [])
     })
 
     it('clicking a message reply button shows the reply preview in BottomBar', async () => {
